@@ -738,11 +738,19 @@ function DetailContent() {
                   </div>
                 ) : aiRecommendations.length > 0 ? (
                   <div className="vibe-results-carousel">
+                    <div className="section-header-row" style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground-muted)' }}>Vibe Matches</span>
+                      <div className="carousel-nav-arrows">
+                        <button className="nav-arrow-btn" onClick={() => scrollCarousel(vibeScrollRef, 'left')} aria-label="Scroll vibe left">
+                          <ChevronLeft size={18} />
+                        </button>
+                        <button className="nav-arrow-btn" onClick={() => scrollCarousel(vibeScrollRef, 'right')} aria-label="Scroll vibe right">
+                          <ChevronRight size={18} />
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="vibe-carousel-wrapper">
-                      <button className="nav-btn prev-btn" onClick={() => scrollCarousel(vibeScrollRef, 'left')} aria-label="Scroll left">
-                        <ChevronLeft size={22} />
-                      </button>
-                      
                       <div className="vibe-scroll-container" ref={vibeScrollRef}>
                         {aiRecommendations.map((item) => (
                           <div key={item.id} className="vibe-card-item">
@@ -767,10 +775,6 @@ function DetailContent() {
                           </div>
                         ))}
                       </div>
-
-                      <button className="nav-btn next-btn" onClick={() => scrollCarousel(vibeScrollRef, 'right')} aria-label="Scroll right">
-                        <ChevronRight size={22} />
-                      </button>
                     </div>
 
                     <div className="vibe-actions-row">
@@ -810,10 +814,6 @@ function DetailContent() {
             </div>
             
             <div className="cast-carousel-wrapper">
-              <button className="nav-btn prev-btn" onClick={() => scrollCarousel(castScrollRef, 'left')} aria-label="Scroll cast left">
-                <ChevronLeft size={22} />
-              </button>
-
               <div className="cast-scroll-container" ref={castScrollRef}>
                 {movie.cast.map((member) => (
                   <Link key={member.id} href={`/cast?id=${member.id}`} className="cast-card">
@@ -830,10 +830,6 @@ function DetailContent() {
                   </Link>
                 ))}
               </div>
-
-              <button className="nav-btn next-btn" onClick={() => scrollCarousel(castScrollRef, 'right')} aria-label="Scroll cast right">
-                <ChevronRight size={22} />
-              </button>
             </div>
           </div>
         )}
@@ -911,10 +907,6 @@ function DetailContent() {
               </div>
             ) : episodes.length > 0 ? (
               <div className="episodes-carousel-wrapper">
-                <button className="nav-btn prev-btn" onClick={() => scrollCarousel(episodesScrollRef, 'left')} aria-label="Scroll episodes left">
-                  <ChevronLeft size={22} />
-                </button>
-
                 <div className="episodes-scroll-container" ref={episodesScrollRef}>
                   {episodes.map((ep) => (
                     <div key={ep.id} className="episode-item-card glass">
@@ -949,10 +941,6 @@ function DetailContent() {
                     </div>
                   ))}
                 </div>
-
-                <button className="nav-btn next-btn" onClick={() => scrollCarousel(episodesScrollRef, 'right')} aria-label="Scroll episodes right">
-                  <ChevronRight size={22} />
-                </button>
               </div>
             ) : (
               <p className="empty-text">No episodes found for this season.</p>
@@ -986,10 +974,6 @@ function DetailContent() {
             </div>
 
             <div className="similar-carousel-wrapper">
-              <button className="nav-btn prev-btn" onClick={() => scrollCarousel(similarScrollRef, 'left')} aria-label="Scroll similar left">
-                <ChevronLeft size={22} />
-              </button>
-
               <div className="similar-scroll-container" ref={similarScrollRef}>
                 {similarMedia.map((item) => (
                   <div key={item.id} className="similar-card-item">
@@ -1014,10 +998,6 @@ function DetailContent() {
                   </div>
                 ))}
               </div>
-
-              <button className="nav-btn next-btn" onClick={() => scrollCarousel(similarScrollRef, 'right')} aria-label="Scroll similar right">
-                <ChevronRight size={22} />
-              </button>
             </div>
           </div>
         )}
@@ -1963,15 +1943,18 @@ function DetailContent() {
           border-color: var(--primary);
         }
 
-        .cast-carousel-wrapper, .episodes-carousel-wrapper, .similar-carousel-wrapper {
+        .cast-carousel-wrapper, .episodes-carousel-wrapper, .similar-carousel-wrapper, .vibe-carousel-wrapper {
           position: relative;
           margin: 0 -8px;
         }
 
         .cast-scroll-container {
           display: flex;
+          align-items: flex-start;
           gap: 16px;
           overflow-x: auto;
+          scroll-behavior: smooth;
+          scroll-snap-type: x mandatory;
           padding: 6px 8px 12px;
           scrollbar-width: none;
         }
@@ -1981,8 +1964,11 @@ function DetailContent() {
         }
 
         .cast-card {
-          flex-shrink: 0;
+          flex: 0 0 130px;
           width: 130px;
+          min-width: 130px;
+          max-width: 130px;
+          scroll-snap-align: start;
           display: flex !important;
           flex-direction: column !important;
           gap: 4px;
@@ -2283,12 +2269,53 @@ function DetailContent() {
           overflow: hidden;
         }
 
+        /* AI Vibe Carousel */
+        .vibe-carousel-wrapper {
+          position: relative;
+          margin: 0 -8px;
+        }
+
+        .vibe-scroll-container {
+          display: flex;
+          align-items: flex-start;
+          gap: 16px;
+          overflow-x: auto;
+          scroll-behavior: smooth;
+          scroll-snap-type: x mandatory;
+          padding: 6px 8px 16px;
+          scrollbar-width: none;
+        }
+
+        .vibe-scroll-container::-webkit-scrollbar {
+          display: none;
+        }
+
+        .vibe-card-item {
+          flex: 0 0 170px;
+          width: 170px;
+          min-width: 170px;
+          max-width: 170px;
+          scroll-snap-align: start;
+        }
+
+        @media (min-width: 1024px) {
+          .vibe-card-item {
+            flex: 0 0 175px;
+            width: 175px;
+            min-width: 175px;
+            max-width: 175px;
+          }
+        }
+
         /* Similar Media Carousel */
         .similar-scroll-container {
           display: flex;
+          align-items: flex-start;
           gap: 16px;
           overflow-x: auto;
-          padding: 6px 8px 12px;
+          scroll-behavior: smooth;
+          scroll-snap-type: x mandatory;
+          padding: 6px 8px 16px;
           scrollbar-width: none;
         }
 
@@ -2298,6 +2325,19 @@ function DetailContent() {
 
         .similar-card-item {
           flex: 0 0 170px;
+          width: 170px;
+          min-width: 170px;
+          max-width: 170px;
+          scroll-snap-align: start;
+        }
+
+        @media (min-width: 1024px) {
+          .similar-card-item {
+            flex: 0 0 175px;
+            width: 175px;
+            min-width: 175px;
+            max-width: 175px;
+          }
         }
 
         /* Modal Overlays */

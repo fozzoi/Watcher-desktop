@@ -16,7 +16,8 @@ export default function MovieCard({ item, isAdded, toggleWatchlist, showTitle = 
   if (!item.poster_path) return null;
 
   const titleText = item.title || item.name;
-  const rating = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
+  const hasRating = typeof item.vote_average === 'number' && item.vote_average > 0;
+  const rating = hasRating ? item.vote_average.toFixed(1) : null;
   const mediaType = item.media_type || (item.first_air_date ? 'tv' : 'movie');
 
   return (
@@ -37,12 +38,14 @@ export default function MovieCard({ item, isAdded, toggleWatchlist, showTitle = 
             <Heart size={16} fill={isAdded ? "var(--primary)" : "none"} />
           </button>
           
-          <div className="rating-overlay">
-            <div className="rating-badge">
-              <Star size={10} fill="gold" stroke="gold" />
-              <span>{rating}</span>
+          {rating && (
+            <div className="rating-overlay">
+              <div className="rating-badge">
+                <Star size={10} fill="gold" stroke="gold" />
+                <span>{rating}</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
         {showTitle && (
           <h3 className="card-title" title={titleText}>
@@ -54,6 +57,8 @@ export default function MovieCard({ item, isAdded, toggleWatchlist, showTitle = 
       <style jsx>{`
         .movie-card-container {
           width: 100%;
+          min-width: 0;
+          max-width: 100%;
           transition: var(--transition-smooth);
         }
 
@@ -66,6 +71,8 @@ export default function MovieCard({ item, isAdded, toggleWatchlist, showTitle = 
           flex-direction: column;
           gap: 8px;
           width: 100%;
+          min-width: 0;
+          text-decoration: none;
         }
 
         .image-wrapper {
@@ -137,7 +144,7 @@ export default function MovieCard({ item, isAdded, toggleWatchlist, showTitle = 
           display: flex;
           align-items: center;
           gap: 4px;
-          background: rgba(0, 0, 0, 0.7);
+          background: rgba(0, 0, 0, 0.75);
           backdrop-filter: blur(6px);
           -webkit-backdrop-filter: blur(6px);
           padding: 4px 8px;
@@ -145,16 +152,20 @@ export default function MovieCard({ item, isAdded, toggleWatchlist, showTitle = 
           font-size: 11px;
           font-weight: 700;
           color: var(--foreground);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
         }
 
         .card-title {
-          font-size: 14px;
+          font-size: 13.5px;
           font-weight: 600;
+          line-height: 1.3;
           color: var(--foreground-muted);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          width: 100%;
+          display: block;
           transition: var(--transition-smooth);
         }
 

@@ -161,12 +161,18 @@ export default function MediaCarousel({ title, type, data, savedIds, toggleWatch
 
         .scroll-item {
           flex: 0 0 160px;
+          width: 160px;
+          min-width: 160px;
+          max-width: 160px;
           scroll-snap-align: start;
         }
 
         @media (min-width: 768px) {
           .scroll-item {
             flex: 0 0 180px;
+            width: 180px;
+            min-width: 180px;
+            max-width: 180px;
           }
         }
 
