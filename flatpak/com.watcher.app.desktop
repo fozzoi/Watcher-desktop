@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Watcher
+GenericName=Movie & TV Show Companion
+Comment=Modern Cinema Companion, AI Discovery, and Multi-Device Sync
+Exec=watcher %u
+Icon=com.watcher.app
+Type=Application
+Terminal=false
+Categories=AudioVideo;Video;Player;Network;
+MimeType=x-scheme-handler/watcher;
+StartupWMClass=watcher
+Keywords=movies;cinema;shows;streaming;tmdb;trailers;watchlist;

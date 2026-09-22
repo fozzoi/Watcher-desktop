@@ -28,6 +28,10 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "shortDescription": "Modern Cinema Companion & Media Discovery",
+    "longDescription": "Watcher is a cinematic media discovery application featuring curated catalogs, AI companion, smart stats, and multi-device cloud synchronization.",
+    "category": "Video",
+    "copyright": "Copyright © 2026 Watcher",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -35,6 +39,20 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1 | libappindicator3-1"
+        ],
+        "section": "video",
+        "priority": "optional"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
     "android": {
       "debugApplicationIdSuffix": ".debug"
     }

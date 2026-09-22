@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.watcher.app</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Watcher</name>
+  <summary>Modern Cinema Companion &amp; Media Discovery</summary>
+  <description>
+    <p>
+      Watcher is a cinematic media discovery application featuring curated catalogs,
+      AI assistant recommendations, smart stats, and multi-device cloud synchronization.
+    </p>
+    <ul>
+      <li>Discover trending, top-rated, and upcoming movies &amp; TV series.</li>
+      <li>Smart Watchlist, Viewing History, and Continued Watching progress tracking.</li>
+      <li>AI-powered movie recommendations and conversational assistant.</li>
+      <li>Optional Google account sign-in for seamless multi-device sync across Desktop, Web, and Mobile.</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">com.watcher.app.desktop</launchable>
+  <url type="homepage">https://thewatcher.vercel.app</url>
+  <provides>
+    <binary>watcher</binary>
+  </provides>
+  <releases>
+    <release version="3.0.32" date="2026-09-22">
+      <description>
+        <p>Added multi-device cloud synchronization, Debian package (.deb), and Flatpak support.</p>
+      </description>
+    </release>
+  </releases>
+  <content_rating type="oars-1.1" />
+</component>

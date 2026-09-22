@@ -412,13 +412,28 @@ export default function SettingsPage() {
       <div className="settings-sections animate-fade-in-up">
         {/* Cloud Sync & Google Account */}
         <section className="settings-section glass">
-          <div className="section-header">
-            <Cloud className="sec-icon" size={18} style={{ color: '#00B4D8' }} />
-            <h2>Cloud Sync & Google Account</h2>
+          <div className="section-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Cloud className="sec-icon" size={18} style={{ color: '#00B4D8' }} />
+              <h2>Cloud Sync & Google Account</h2>
+            </div>
+            <span style={{ 
+              fontSize: '11px', 
+              fontWeight: 600, 
+              letterSpacing: '0.04em', 
+              padding: '3px 8px', 
+              borderRadius: '20px', 
+              background: 'rgba(0, 180, 216, 0.12)', 
+              color: '#00B4D8',
+              border: '1px solid rgba(0, 180, 216, 0.25)' 
+            }}>
+              OPTIONAL
+            </span>
           </div>
           <div className="section-body">
             <p className="description">
-              Sign in with your Google account to automatically synchronize your Watchlist, Viewing History, Resume Playback Progress, and Custom Collections seamlessly across Desktop, Web, and Android.
+              Watcher is 100% functional offline without an account. All movies, bookmarks, history, and stats are saved locally on your device.
+              Signing in with Google is <strong>strictly optional</strong> — you only need it if you want to sync your library across devices (Web, Desktop, and Android).
             </p>
 
             {user ? (
@@ -480,9 +495,27 @@ export default function SettingsPage() {
               </div>
             ) : (
               <div className="cloud-signin-box">
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid var(--card-border)',
+                  marginBottom: '16px',
+                  fontSize: '13px',
+                  color: 'var(--text-secondary)'
+                }}>
+                  <Shield size={16} style={{ color: '#30D158', flexShrink: 0 }} />
+                  <span>
+                    <strong>Local-First &amp; Private:</strong> No account required to use Watcher. Sign in below only if you want cross-device library synchronization.
+                  </span>
+                </div>
                 <GoogleSignInButton />
               </div>
             )}
+
 
             {syncFeedback && (
               <div className="sync-feedback-banner">

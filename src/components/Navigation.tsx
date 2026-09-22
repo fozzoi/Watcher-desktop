@@ -120,11 +120,12 @@ export default function Navigation() {
             <Link
               href="/settings"
               className="sidebar-link signin-prompt-link"
-              title={collapsed ? "Sign In to Sync" : undefined}
+              title={collapsed ? "Cloud Sync (Optional)" : undefined}
             >
               <Cloud size={19} className="sidebar-link-icon" style={{ color: '#00B4D8' }} />
-              {!collapsed && <span className="sidebar-link-text" style={{ color: '#00B4D8' }}>Cloud Sign In</span>}
+              {!collapsed && <span className="sidebar-link-text" style={{ color: '#00B4D8' }}>Sync (Optional)</span>}
             </Link>
+
           )}
 
           <button className="sidebar-link theme-toggle" onClick={cycleTheme} title={`Theme: ${getThemeLabel()}`}>
