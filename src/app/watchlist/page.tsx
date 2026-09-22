@@ -22,11 +22,13 @@ import {
   Tv,
   Sparkles,
   SlidersHorizontal,
-  Compass
+  Compass,
+  Cloud
 } from 'lucide-react';
 import { AsyncStorage } from '@/utils/storage';
 import { getImageUrl, searchTMDB, GLOBAL_CONFIG } from '@/utils/tmdb';
 import { GENRE_OPTIONS } from '@/utils/userPreferences';
+import { useAuth } from '@/context/AuthContext';
 import axios from 'axios';
 
 type TabType = 'watchlist' | 'history' | 'artists' | 'collections';
@@ -73,6 +75,8 @@ export default function WatchListPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  const { user, token, isSyncing, syncNow } = useAuth();
+
   const loadData = async () => {
     try {
       const storedMovies = await AsyncStorage.getItem('watchlist');
@@ -93,6 +97,15 @@ export default function WatchListPage() {
 
   useEffect(() => {
     loadData();
+
+    const handleCloudSync = () => {
+      loadData();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('watcher_cloud_synced', handleCloudSync);
+      return () => window.removeEventListener('watcher_cloud_synced', handleCloudSync);
+    }
   }, []);
 
   const handleRemove = async (id: number, type: TabType) => {
@@ -437,6 +450,30 @@ export default function WatchListPage() {
             <BarChart3 size={16} />
             <span className="btn-text">Stats</span>
           </Link>
+
+          {/* Cloud Sync Button */}
+          {user ? (
+            <button
+              className="icon-btn"
+              onClick={() => syncNow()}
+              disabled={isSyncing}
+              title={isSyncing ? "Synchronizing with Cloud..." : "Sync with Cloud"}
+              style={{ borderColor: 'rgba(0, 180, 216, 0.4)' }}
+            >
+              <Cloud size={16} style={{ color: '#00B4D8' }} className={isSyncing ? "animate-spin" : ""} />
+              <span className="btn-text" style={{ color: '#00B4D8' }}>{isSyncing ? 'Syncing...' : 'Synced'}</span>
+            </button>
+          ) : (
+            <Link
+              href="/settings"
+              className="icon-btn"
+              title="Sign in to sync your library across devices"
+              style={{ borderColor: 'rgba(0, 180, 216, 0.2)' }}
+            >
+              <Cloud size={16} style={{ color: '#888' }} />
+              <span className="btn-text">Cloud</span>
+            </Link>
+          )}
 
           {/* Sort Menu Button */}
           <button 

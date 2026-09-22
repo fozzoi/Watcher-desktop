@@ -24,10 +24,17 @@ import {
   ExternalLink,
   ChevronRight,
   Eye,
-  EyeOff
+  EyeOff,
+  Cloud,
+  RefreshCw,
+  LogOut,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { AsyncStorage } from '@/utils/storage';
 import { setGlobalConfig } from '@/utils/tmdb';
+import { useAuth } from '@/context/AuthContext';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
 import { useTheme } from 'next-themes';
 import { 
   getUserPreferences, 
@@ -84,6 +91,49 @@ export default function SettingsPage() {
     quality: 'auto'
   });
   const [autoSkipCredits, setAutoSkipCredits] = useState(true);
+
+  // Cloud Sync & Google Auth
+  const { 
+    user, 
+    isSyncing, 
+    lastSyncedAt, 
+    syncError, 
+    syncNow, 
+    logout, 
+    clearCloudData,
+    googleClientId,
+    setGoogleClientId 
+  } = useAuth();
+  const [clientIdInput, setClientIdInput] = useState(googleClientId);
+  const [clientIdSaved, setClientIdSaved] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    setClientIdInput(googleClientId);
+  }, [googleClientId]);
+
+  const handleSaveClientId = () => {
+    setGoogleClientId(clientIdInput.trim());
+    setClientIdSaved(true);
+    setTimeout(() => setClientIdSaved(false), 2000);
+  };
+
+  const handleManualSync = async () => {
+    setSyncFeedback(null);
+    const ok = await syncNow();
+    if (ok) {
+      setSyncFeedback('Library successfully synchronized with cloud!');
+      setTimeout(() => setSyncFeedback(null), 3500);
+    }
+  };
+
+  const handleClearCloud = async () => {
+    if (confirm('Are you sure you want to delete your cloud library backup? Your local device data will not be touched.')) {
+      await clearCloudData();
+      setSyncFeedback('Cloud backup reset.');
+      setTimeout(() => setSyncFeedback(null), 3000);
+    }
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -360,6 +410,120 @@ export default function SettingsPage() {
       </div>
 
       <div className="settings-sections animate-fade-in-up">
+        {/* Cloud Sync & Google Account */}
+        <section className="settings-section glass">
+          <div className="section-header">
+            <Cloud className="sec-icon" size={18} style={{ color: '#00B4D8' }} />
+            <h2>Cloud Sync & Google Account</h2>
+          </div>
+          <div className="section-body">
+            <p className="description">
+              Sign in with your Google account to automatically synchronize your Watchlist, Viewing History, Resume Playback Progress, and Custom Collections seamlessly across Desktop, Web, and Android.
+            </p>
+
+            {user ? (
+              <div className="cloud-connected-box">
+                <div className="cloud-user-header">
+                  <div className="cloud-avatar-wrap">
+                    {user.picture ? (
+                      <img src={user.picture} alt={user.name} className="cloud-avatar-img" />
+                    ) : (
+                      <div className="cloud-avatar-placeholder">{user.name.charAt(0).toUpperCase()}</div>
+                    )}
+                  </div>
+                  <div className="cloud-user-meta">
+                    <div className="cloud-name-row">
+                      <span className="cloud-user-name">{user.name}</span>
+                      <span className="cloud-badge">
+                        <CheckCircle2 size={12} /> Connected
+                      </span>
+                    </div>
+                    <span className="cloud-user-email">{user.email}</span>
+                    <span className="cloud-sync-time">
+                      {isSyncing ? (
+                        <span className="syncing-text">
+                          <RefreshCw size={12} className="animate-spin" /> Synchronizing data with cloud...
+                        </span>
+                      ) : (
+                        <span>Last Synced: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Just now'}</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="cloud-actions-row">
+                  <button
+                    className="btn-primary-setting"
+                    onClick={handleManualSync}
+                    disabled={isSyncing}
+                  >
+                    <RefreshCw size={15} className={isSyncing ? "animate-spin" : ""} />
+                    <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
+                  </button>
+
+                  <button
+                    className="btn-secondary-setting"
+                    onClick={() => logout()}
+                  >
+                    <LogOut size={15} />
+                    <span>Sign Out</span>
+                  </button>
+
+                  <button
+                    className="btn-danger-setting"
+                    onClick={handleClearCloud}
+                  >
+                    <Trash2 size={15} />
+                    <span>Clear Cloud Backup</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="cloud-signin-box">
+                <GoogleSignInButton />
+              </div>
+            )}
+
+            {syncFeedback && (
+              <div className="sync-feedback-banner">
+                <CheckCircle2 size={15} color="#30D158" />
+                <span>{syncFeedback}</span>
+              </div>
+            )}
+
+            {syncError && (
+              <div className="sync-error-banner">
+                <AlertTriangle size={15} color="#E50914" />
+                <span>{syncError}</span>
+              </div>
+            )}
+
+            {/* Custom Google OAuth Client ID Configuration */}
+            <div className="setting-subgroup" style={{ marginTop: '20px', borderTop: '1px solid var(--card-border)', paddingTop: '16px' }}>
+              <label className="input-label">Google OAuth Client ID (Web Application)</label>
+              <p className="field-hint">
+                Configure your own Google OAuth 2.0 Web Client ID from Google Cloud Console for personalized production sign-ins.
+              </p>
+              <div className="api-input-row">
+                <input
+                  type="text"
+                  placeholder="e.g. 123456789-abcdefg.apps.googleusercontent.com"
+                  value={clientIdInput}
+                  onChange={(e) => setClientIdInput(e.target.value)}
+                  className="modal-input"
+                />
+                <button
+                  className="btn-primary"
+                  onClick={handleSaveClientId}
+                  style={{ height: '44px', borderRadius: '10px' }}
+                >
+                  {clientIdSaved ? <Check size={16} /> : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* User Discovery Preferences & Onboarding */}
         <section className="settings-section glass">
           <div className="section-header">
@@ -1213,6 +1377,136 @@ export default function SettingsPage() {
           border-color: rgba(239, 68, 68, 0.5);
           color: #fff;
           transform: translateY(-1px);
+        }
+
+        /* Cloud Sync UI */
+        .cloud-connected-box {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          background: rgba(0, 180, 216, 0.04);
+          border: 1px solid rgba(0, 180, 216, 0.2);
+          border-radius: 16px;
+          padding: 20px;
+        }
+
+        .cloud-user-header {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .cloud-avatar-wrap {
+          flex-shrink: 0;
+        }
+
+        .cloud-avatar-img {
+          width: 52px;
+          height: 52px;
+          border-radius: 26px;
+          border: 2px solid #00B4D8;
+          object-fit: cover;
+        }
+
+        .cloud-avatar-placeholder {
+          width: 52px;
+          height: 52px;
+          border-radius: 26px;
+          background: var(--primary);
+          color: #fff;
+          font-weight: 800;
+          font-size: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .cloud-user-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .cloud-name-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .cloud-user-name {
+          font-size: 16px;
+          font-weight: 700;
+          color: var(--foreground);
+        }
+
+        .cloud-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 8px;
+          border-radius: 9999px;
+          background: rgba(48, 209, 88, 0.15);
+          color: #30D158;
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .cloud-user-email {
+          font-size: 13px;
+          color: var(--text-muted);
+        }
+
+        .cloud-sync-time {
+          font-size: 11px;
+          color: var(--foreground-muted);
+          margin-top: 2px;
+        }
+
+        .syncing-text {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          color: #FFD60A;
+          font-weight: 600;
+        }
+
+        .cloud-actions-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .cloud-signin-box {
+          padding: 10px 0;
+        }
+
+        .sync-feedback-banner {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(48, 209, 88, 0.12);
+          border: 1px solid rgba(48, 209, 88, 0.3);
+          color: #30D158;
+          font-size: 13px;
+          font-weight: 600;
+          padding: 10px 16px;
+          border-radius: 12px;
+          margin-top: 12px;
+        }
+
+        .sync-error-banner {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(229, 9, 20, 0.12);
+          border: 1px solid rgba(229, 9, 20, 0.3);
+          color: #ff6b6b;
+          font-size: 13px;
+          padding: 10px 16px;
+          border-radius: 12px;
+          margin-top: 12px;
         }
       `}</style>
     </div>

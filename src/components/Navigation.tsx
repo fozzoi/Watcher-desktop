@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
+import { useAuth } from '@/context/AuthContext';
 import { 
   Compass, Search, Bookmark, History, Sparkles, Settings, Film, 
-  ChevronLeft, ChevronRight, Sun, Moon, Monitor, BarChart3 
+  ChevronLeft, ChevronRight, Sun, Moon, Monitor, BarChart3, Cloud, RefreshCw, User
 } from 'lucide-react';
 
 interface NavItem {
@@ -18,6 +19,7 @@ interface NavItem {
 export default function Navigation() {
   const pathname = usePathname();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { user, isSyncing, syncNow } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -88,8 +90,43 @@ export default function Navigation() {
           })}
         </nav>
 
-        {/* Bottom section: theme toggle + collapse */}
+        {/* Bottom section: account + theme toggle + collapse */}
         <div className="sidebar-footer">
+          {/* Cloud Account Status Pill */}
+          {user ? (
+            <Link
+              href="/settings"
+              className="sidebar-link user-profile-link"
+              title={collapsed ? `${user.name} (Cloud Connected)` : undefined}
+            >
+              <div className="user-nav-avatar">
+                {user.picture ? (
+                  <img src={user.picture} alt={user.name} className="nav-avatar-img" />
+                ) : (
+                  <div className="nav-avatar-placeholder">{user.name.charAt(0).toUpperCase()}</div>
+                )}
+                <span className={`sync-status-dot ${isSyncing ? 'syncing' : 'active'}`} />
+              </div>
+              {!collapsed && (
+                <div className="user-nav-text-group">
+                  <span className="user-nav-name">{user.name}</span>
+                  <span className="user-nav-status">
+                    {isSyncing ? 'Syncing...' : 'Cloud Synced'}
+                  </span>
+                </div>
+              )}
+            </Link>
+          ) : (
+            <Link
+              href="/settings"
+              className="sidebar-link signin-prompt-link"
+              title={collapsed ? "Sign In to Sync" : undefined}
+            >
+              <Cloud size={19} className="sidebar-link-icon" style={{ color: '#00B4D8' }} />
+              {!collapsed && <span className="sidebar-link-text" style={{ color: '#00B4D8' }}>Cloud Sign In</span>}
+            </Link>
+          )}
+
           <button className="sidebar-link theme-toggle" onClick={cycleTheme} title={`Theme: ${getThemeLabel()}`}>
             {getThemeIcon()}
             {!collapsed && <span className="sidebar-link-text">{getThemeLabel()}</span>}
@@ -240,6 +277,91 @@ export default function Navigation() {
         .theme-toggle .sidebar-link-icon,
         .collapse-toggle .sidebar-link-icon {
           color: var(--foreground-muted);
+        }
+
+        /* User & Sync Status Styles */
+        .user-nav-avatar {
+          position: relative;
+          width: 24px;
+          height: 24px;
+          flex-shrink: 0;
+        }
+
+        .nav-avatar-img {
+          width: 24px;
+          height: 24px;
+          border-radius: 12px;
+          object-fit: cover;
+        }
+
+        .nav-avatar-placeholder {
+          width: 24px;
+          height: 24px;
+          border-radius: 12px;
+          background: var(--primary);
+          color: #fff;
+          font-size: 11px;
+          font-weight: 800;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .sync-status-dot {
+          position: absolute;
+          bottom: -1px;
+          right: -1px;
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          border: 1px solid var(--background);
+        }
+
+        .sync-status-dot.active {
+          background: #30D158;
+          box-shadow: 0 0 5px #30D158;
+        }
+
+        .sync-status-dot.syncing {
+          background: #FFD60A;
+          box-shadow: 0 0 5px #FFD60A;
+          animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+
+        .user-nav-text-group {
+          display: flex;
+          flex-direction: column;
+          line-height: 1.2;
+          overflow: hidden;
+        }
+
+        .user-nav-name {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--foreground);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .user-nav-status {
+          font-size: 10px;
+          color: var(--text-muted);
+        }
+
+        .signin-prompt-link {
+          background: rgba(0, 180, 216, 0.08);
+          border: 1px dashed rgba(0, 180, 216, 0.3);
+        }
+
+        .signin-prompt-link:hover {
+          background: rgba(0, 180, 216, 0.16);
+          border-color: rgba(0, 180, 216, 0.6);
         }
 
         /* ===== Responsive: auto-collapse on narrow windows ===== */

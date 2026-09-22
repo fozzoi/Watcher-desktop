@@ -3,6 +3,7 @@ import { Outfit } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/context/AuthContext";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -24,12 +25,14 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={outfit.variable}>
         <ThemeProvider>
-          <div className="layout-container">
-            <Navigation />
-            <main className="main-content">
-              {children}
-            </main>
-          </div>
+          <AuthProvider>
+            <div className="layout-container">
+              <Navigation />
+              <main className="main-content">
+                {children}
+              </main>
+            </div>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
