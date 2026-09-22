@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { 
   ArrowLeft, Star, Heart, Calendar, MapPin, Film, Tv, 
   Sparkles, ExternalLink, ChevronDown, ChevronUp, User,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, X, ZoomIn
 } from 'lucide-react';
 import { 
   getPersonDetails, 
@@ -34,7 +34,28 @@ function CastDetailContent() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'movie' | 'tv'>('all');
   const [watchlistIds, setWatchlistIds] = useState<Set<number>>(new Set());
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const galleryScrollRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard controls for Lightbox
+  useEffect(() => {
+    if (selectedImageIndex === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedImageIndex(null);
+      } else if (e.key === 'ArrowLeft') {
+        setSelectedImageIndex((prev) => 
+          prev !== null ? (prev === 0 ? personImages.length - 1 : prev - 1) : null
+        );
+      } else if (e.key === 'ArrowRight') {
+        setSelectedImageIndex((prev) => 
+          prev !== null ? (prev === personImages.length - 1 ? 0 : prev + 1) : null
+        );
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImageIndex, personImages.length]);
 
   const scrollGallery = (direction: 'left' | 'right') => {
     if (galleryScrollRef.current) {
@@ -234,25 +255,33 @@ function CastDetailContent() {
           </div>
 
           <div className="gallery-carousel-wrapper">
-            <button className="nav-btn prev-btn" onClick={() => scrollGallery('left')} aria-label="Scroll photos left">
-              <ChevronLeft size={20} />
-            </button>
-
             <div className="cast-gallery-scroll" ref={galleryScrollRef}>
-              {personImages.slice(0, 15).map((img, idx) => (
-                <div key={idx} className="gallery-img-card glass">
+              {personImages.map((img, idx) => (
+                <div 
+                  key={idx} 
+                  className="gallery-img-card glass"
+                  onClick={() => setSelectedImageIndex(idx)}
+                  title="Click to enlarge"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedImageIndex(idx);
+                    }
+                  }}
+                >
                   <img 
                     src={getImageUrl(img.file_path, 'w300')} 
                     alt={`${person.name} photo ${idx + 1}`} 
                     loading="lazy" 
                   />
+                  <div className="gallery-hover-overlay">
+                    <ZoomIn size={22} color="#ffffff" />
+                  </div>
                 </div>
               ))}
             </div>
-
-            <button className="nav-btn next-btn" onClick={() => scrollGallery('right')} aria-label="Scroll photos right">
-              <ChevronRight size={20} />
-            </button>
           </div>
         </div>
       )}
@@ -314,6 +343,66 @@ function CastDetailContent() {
           ))}
         </div>
       </div>
+
+      {/* Lightbox / Enlarged Photo Modal */}
+      {selectedImageIndex !== null && personImages[selectedImageIndex] && (
+        <div 
+          className="lightbox-backdrop"
+          onClick={() => setSelectedImageIndex(null)}
+        >
+          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <div className="lightbox-header">
+              <span className="lightbox-counter">
+                {selectedImageIndex + 1} / {personImages.length}
+              </span>
+              <button 
+                className="lightbox-close-btn" 
+                onClick={() => setSelectedImageIndex(null)}
+                aria-label="Close image preview"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="lightbox-image-wrap">
+              <img 
+                src={getImageUrl(personImages[selectedImageIndex].file_path, 'original')} 
+                alt={`${person.name} enlarged photo ${selectedImageIndex + 1}`}
+                className="lightbox-img" 
+              />
+            </div>
+
+            {personImages.length > 1 && (
+              <>
+                <button 
+                  className="lightbox-nav-btn prev"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedImageIndex((prev) => 
+                      prev !== null ? (prev === 0 ? personImages.length - 1 : prev - 1) : 0
+                    );
+                  }}
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft size={26} />
+                </button>
+                <button 
+                  className="lightbox-nav-btn next"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedImageIndex((prev) => 
+                      prev !== null ? (prev === personImages.length - 1 ? 0 : prev + 1) : 0
+                    );
+                  }}
+                  aria-label="Next photo"
+                >
+                  <ChevronRight size={26} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .cast-detail-page {
@@ -511,16 +600,170 @@ function CastDetailContent() {
           .nav-btn { display: none; }
         }
         .gallery-img-card {
-          flex-shrink: 0;
+          flex: 0 0 140px;
           width: 140px;
+          min-width: 140px;
+          max-width: 140px;
           height: 200px;
           border-radius: 12px;
           overflow: hidden;
+          cursor: pointer;
+          position: relative;
+          transition: var(--transition-smooth);
+        }
+        .gallery-img-card:hover {
+          transform: translateY(-4px) scale(1.03);
+          border-color: var(--primary);
+          box-shadow: 0 8px 24px rgba(229, 9, 20, 0.25);
         }
         .gallery-img-card img {
           width: 100%;
           height: 100%;
           object-fit: cover;
+          display: block;
+          transition: transform 0.3s ease;
+        }
+        .gallery-img-card:hover img {
+          transform: scale(1.06);
+        }
+        .gallery-hover-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.45);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          transition: var(--transition-fast);
+        }
+        .gallery-img-card:hover .gallery-hover-overlay {
+          opacity: 1;
+        }
+
+        /* Lightbox Fullscreen Modal */
+        .lightbox-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.88);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2000;
+          padding: 24px;
+          animation: fadeIn 0.2s ease-out;
+        }
+
+        .lightbox-content {
+          position: relative;
+          max-width: 90vw;
+          max-height: 90vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .lightbox-header {
+          position: absolute;
+          top: -48px;
+          left: 0;
+          right: 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .lightbox-counter {
+          font-size: 14px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.8);
+          letter-spacing: 0.5px;
+        }
+
+        .lightbox-close-btn {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.12);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: var(--transition-fast);
+        }
+
+        .lightbox-close-btn:hover {
+          background: var(--primary);
+          border-color: var(--primary);
+          transform: scale(1.1);
+        }
+
+        .lightbox-image-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          max-height: calc(88vh - 50px);
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .lightbox-img {
+          max-width: 85vw;
+          max-height: calc(88vh - 50px);
+          object-fit: contain;
+          border-radius: 12px;
+          display: block;
+          user-select: none;
+        }
+
+        .lightbox-nav-btn {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          background: rgba(20, 20, 24, 0.85);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: var(--transition-fast);
+          z-index: 10;
+        }
+
+        .lightbox-nav-btn:hover {
+          background: var(--primary);
+          border-color: var(--primary);
+          transform: translateY(-50%) scale(1.1);
+        }
+
+        .lightbox-nav-btn.prev {
+          left: -64px;
+        }
+
+        .lightbox-nav-btn.next {
+          right: -64px;
+        }
+
+        @media (max-width: 820px) {
+          .lightbox-nav-btn.prev { left: 10px; }
+          .lightbox-nav-btn.next { right: 10px; }
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         .cast-filmography-section {
           display: flex;

@@ -420,7 +420,7 @@ function DetailContent() {
             <div className="detail-actions">
               {typeStr === 'movie' ? (
                 <Link 
-                  href={`/player?id=${movie.id}&type=movie&title=${encodeURIComponent(titleText || '')}`}
+                  href={`/player?id=${movie.id}&type=movie&title=${encodeURIComponent(titleText || '')}&poster=${encodeURIComponent(movie.poster_path || '')}`}
                   className="btn-primary"
                 >
                   <Play size={18} fill="white" />
@@ -430,12 +430,17 @@ function DetailContent() {
                 <button 
                   className="btn-primary"
                   onClick={() => {
-                    const el = document.getElementById('episodes-section');
-                    el?.scrollIntoView({ behavior: 'smooth' });
+                    const seasonNum = historyProgress?.lastSeason || selectedSeason || 1;
+                    const epNum = historyProgress?.lastEpisode || 1;
+                    router.push(`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${seasonNum}&episode=${epNum}&poster=${encodeURIComponent(movie.poster_path || '')}`);
                   }}
                 >
                   <Play size={18} fill="white" />
-                  <span>Choose Episode</span>
+                  <span>
+                    {historyProgress?.lastSeason 
+                      ? `Resume S${historyProgress.lastSeason}:E${historyProgress.lastEpisode}`
+                      : 'Play Episode 1'}
+                  </span>
                 </button>
               )}
 
@@ -909,7 +914,15 @@ function DetailContent() {
               <div className="episodes-carousel-wrapper">
                 <div className="episodes-scroll-container" ref={episodesScrollRef}>
                   {episodes.map((ep) => (
-                    <div key={ep.id} className="episode-item-card glass">
+                    <Link
+                      key={ep.id}
+                      href={`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`}
+                      className="episode-item-card glass"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        router.push(`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`);
+                      }}
+                    >
                       <div className="ep-still-box">
                         <img 
                           src={getImageUrl(ep.still_path || movie.backdrop_path || movie.poster_path, 'w300')} 
@@ -918,12 +931,11 @@ function DetailContent() {
                           loading="lazy"
                         />
                         
-                        <Link 
-                          href={`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}`}
-                          className="ep-play-btn"
-                        >
-                          <Play size={16} fill="white" />
-                        </Link>
+                        <div className="ep-play-overlay">
+                          <div className="ep-play-circle">
+                            <Play size={20} fill="white" style={{ marginLeft: 2 }} />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="ep-details">
@@ -938,7 +950,7 @@ function DetailContent() {
                         </div>
                         <p className="ep-overview">{ep.overview || "No episode description available."}</p>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -2199,6 +2211,16 @@ function DetailContent() {
           border: 1px solid var(--card-border);
           background: var(--card-bg);
           box-shadow: 0 4px 16px var(--shadow-color);
+          cursor: pointer;
+          text-decoration: none;
+          color: inherit;
+          transition: var(--transition-smooth);
+        }
+
+        .episode-item-card:hover {
+          transform: translateY(-4px);
+          border-color: var(--primary-glow);
+          box-shadow: 0 8px 24px rgba(229, 9, 20, 0.2);
         }
 
         .ep-still-box {
@@ -2208,27 +2230,50 @@ function DetailContent() {
           border-radius: 8px;
           overflow: hidden;
           flex-shrink: 0;
+          background: #111;
         }
 
         .ep-still-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
+          transition: transform 0.3s ease;
         }
 
-        .ep-play-btn {
+        .episode-item-card:hover .ep-still-img {
+          transform: scale(1.05);
+        }
+
+        .ep-play-overlay {
           position: absolute;
           inset: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(0,0,0,0.4);
-          opacity: 0;
+          background: rgba(0, 0, 0, 0.35);
           transition: var(--transition-fast);
         }
 
-        .ep-still-box:hover .ep-play-btn {
-          opacity: 1;
+        .ep-play-circle {
+          width: 46px;
+          height: 46px;
+          border-radius: 50%;
+          background: rgba(229, 9, 20, 0.9);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #ffffff;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+          transition: var(--transition-smooth);
+          transform: scale(0.92);
+        }
+
+        .episode-item-card:hover .ep-play-circle {
+          transform: scale(1.08);
+          background: var(--primary);
+          box-shadow: 0 0 20px rgba(229, 9, 20, 0.6);
         }
 
         .ep-details {
