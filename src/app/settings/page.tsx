@@ -531,29 +531,33 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Custom Google OAuth Client ID Configuration */}
-            <div className="setting-subgroup" style={{ marginTop: '20px', borderTop: '1px solid var(--card-border)', paddingTop: '16px' }}>
-              <label className="input-label">Google OAuth Client ID (Web Application)</label>
-              <p className="field-hint">
-                Configure your own Google OAuth 2.0 Web Client ID from Google Cloud Console for personalized production sign-ins.
-              </p>
-              <div className="api-input-row">
-                <input
-                  type="text"
-                  placeholder="e.g. 123456789-abcdefg.apps.googleusercontent.com"
-                  value={clientIdInput}
-                  onChange={(e) => setClientIdInput(e.target.value)}
-                  className="modal-input"
-                />
-                <button
-                  className="btn-primary"
-                  onClick={handleSaveClientId}
-                  style={{ height: '44px', borderRadius: '10px' }}
-                >
-                  {clientIdSaved ? <Check size={16} /> : 'Save'}
-                </button>
+            {/* Advanced: Custom Google OAuth Client ID Override */}
+            <details style={{ marginTop: '16px', borderTop: '1px solid var(--card-border)', paddingTop: '12px' }}>
+              <summary style={{ fontSize: '12px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
+                Advanced: Custom Google Client ID Override
+              </summary>
+              <div className="setting-subgroup" style={{ marginTop: '10px' }}>
+                <p className="field-hint">
+                  Override the application Google Client ID for custom self-hosted or staging environments.
+                </p>
+                <div className="api-input-row">
+                  <input
+                    type="text"
+                    placeholder="e.g. 123456789-abcdefg.apps.googleusercontent.com"
+                    value={clientIdInput}
+                    onChange={(e) => setClientIdInput(e.target.value)}
+                    className="modal-input"
+                  />
+                  <button
+                    className="btn-primary"
+                    onClick={handleSaveClientId}
+                    style={{ height: '44px', borderRadius: '10px' }}
+                  >
+                    {clientIdSaved ? <Check size={16} /> : 'Save'}
+                  </button>
+                </div>
               </div>
-            </div>
+            </details>
           </div>
         </section>
 
