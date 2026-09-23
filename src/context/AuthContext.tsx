@@ -6,7 +6,7 @@ import { AsyncStorage } from '@/utils/storage';
 import { syncManager, CloudLibrary } from '@/utils/syncManager';
 
 const AUTH_API_BASE = 'https://watcher-api-rho.vercel.app';
-const DEFAULT_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+const DEFAULT_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '36298979840-vdgsir6fd1kkaj28m24r6mmdq7p1fdg7.apps.googleusercontent.com';
 
 export interface UserProfile {
   userId: string;

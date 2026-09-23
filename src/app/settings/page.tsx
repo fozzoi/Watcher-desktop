@@ -100,23 +100,9 @@ export default function SettingsPage() {
     syncError, 
     syncNow, 
     logout, 
-    clearCloudData,
-    googleClientId,
-    setGoogleClientId 
+    clearCloudData 
   } = useAuth();
-  const [clientIdInput, setClientIdInput] = useState(googleClientId);
-  const [clientIdSaved, setClientIdSaved] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
-
-  useEffect(() => {
-    setClientIdInput(googleClientId);
-  }, [googleClientId]);
-
-  const handleSaveClientId = () => {
-    setGoogleClientId(clientIdInput.trim());
-    setClientIdSaved(true);
-    setTimeout(() => setClientIdSaved(false), 2000);
-  };
 
   const handleManualSync = async () => {
     setSyncFeedback(null);
@@ -531,33 +517,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Advanced: Custom Google OAuth Client ID Override */}
-            <details style={{ marginTop: '16px', borderTop: '1px solid var(--card-border)', paddingTop: '12px' }}>
-              <summary style={{ fontSize: '12px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
-                Advanced: Custom Google Client ID Override
-              </summary>
-              <div className="setting-subgroup" style={{ marginTop: '10px' }}>
-                <p className="field-hint">
-                  Override the application Google Client ID for custom self-hosted or staging environments.
-                </p>
-                <div className="api-input-row">
-                  <input
-                    type="text"
-                    placeholder="e.g. 123456789-abcdefg.apps.googleusercontent.com"
-                    value={clientIdInput}
-                    onChange={(e) => setClientIdInput(e.target.value)}
-                    className="modal-input"
-                  />
-                  <button
-                    className="btn-primary"
-                    onClick={handleSaveClientId}
-                    style={{ height: '44px', borderRadius: '10px' }}
-                  >
-                    {clientIdSaved ? <Check size={16} /> : 'Save'}
-                  </button>
-                </div>
-              </div>
-            </details>
+
           </div>
         </section>
 
