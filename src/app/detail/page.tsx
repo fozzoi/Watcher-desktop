@@ -510,28 +510,7 @@ function DetailContent() {
           <p className="overview-text">{movie.overview}</p>
         </div>
 
-        {/* Director / Creator */}
-        {movie.director && (
-          <div className="director-section animate-fade-in-up">
-            <h2 className="director-heading">
-              {movie.director.job === 'Creator' ? 'Creator' : 'Director'}
-            </h2>
-            <Link href={`/cast?id=${movie.director.id}`} className="director-card">
-              <div className="director-avatar">
-                <img
-                  src={getImageUrl(movie.director.profile_path, 'w185')}
-                  alt={movie.director.name}
-                  className="director-img"
-                  loading="lazy"
-                />
-              </div>
-              <div className="director-meta">
-                <span className="director-name">{movie.director.name}</span>
-                <span className="director-role">{movie.director.job}</span>
-              </div>
-            </Link>
-          </div>
-        )}
+
 
         {/* Franchise / Collection Universe Banner */}
         {movie.belongs_to_collection && (
@@ -825,6 +804,29 @@ function DetailContent() {
             )}
           </div>
         </div>
+
+        {/* Director / Creator */}
+        {movie.director && (
+          <div className="director-section animate-fade-in-up" style={{ marginBottom: 32 }}>
+            <h2 className="director-heading">
+              {movie.director.job === 'Creator' ? 'Creator' : 'Director'}
+            </h2>
+            <Link href={`/cast?id=${movie.director.id}`} className="director-card">
+              <div className="director-avatar">
+                <img
+                  src={getImageUrl(movie.director.profile_path, 'w185')}
+                  alt={movie.director.name}
+                  className="director-img"
+                  loading="lazy"
+                />
+              </div>
+              <div className="director-meta">
+                <span className="director-name">{movie.director.name}</span>
+                <span className="director-role">{movie.director.job}</span>
+              </div>
+            </Link>
+          </div>
+        )}
 
         {/* Cast list linking to /cast */}
         {movie.cast && movie.cast.length > 0 && (
