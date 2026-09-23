@@ -65,7 +65,7 @@ export const syncManager = {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        timeout: 12000,
+        timeout: 30000,
       });
 
       const mergedLibrary: CloudLibrary = response.data?.library;
@@ -136,7 +136,7 @@ export const syncManager = {
     try {
       const response = await axios.get(`${SYNC_API_BASE}/api/sync`, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000,
+        timeout: 30000,
       });
       return response.data?.library || null;
     } catch (err) {
