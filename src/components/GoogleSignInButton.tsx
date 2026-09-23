@@ -50,11 +50,11 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
 
   // Pre-initialize Google ID credentials callback if script is loaded
   useEffect(() => {
-    if (!scriptLoaded || typeof window === 'undefined' || !window.google?.accounts?.id) return;
+    if (!scriptLoaded || typeof window === 'undefined' || !window.google?.accounts?.id || !googleClientId) return;
 
     try {
       window.google.accounts.id.initialize({
-        client_id: effectiveClientId,
+        client_id: googleClientId,
         callback: async (response: any) => {
           if (response?.credential) {
             setIsAuthenticating(true);
@@ -69,18 +69,24 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
     } catch (err: any) {
       console.warn('Google accounts.id pre-init warning:', err);
     }
-  }, [scriptLoaded, effectiveClientId, loginWithGoogle, onSuccess]);
+  }, [scriptLoaded, googleClientId, loginWithGoogle, onSuccess]);
 
   // Primary interactive Google Sign-In click handler
   const handleGoogleSignInClick = () => {
     setInitError(null);
+
+    if (!googleClientId) {
+      setInitError('NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured in environment variables.');
+      return;
+    }
+
     setIsAuthenticating(true);
 
     // 1. Google OAuth2 Token Client (Interactive direct user gesture - prevents popup blocking)
     if (window.google?.accounts?.oauth2) {
       try {
         const client = window.google.accounts.oauth2.initTokenClient({
-          client_id: effectiveClientId,
+          client_id: googleClientId,
           scope: 'email profile openid',
           callback: async (tokenResponse: any) => {
             if (tokenResponse?.error) {
@@ -133,7 +139,7 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
     // 3. Direct browser OAuth popup fallback
     try {
       const redirectUri = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(effectiveClientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=email%20profile%20openid`;
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(googleClientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=email%20profile%20openid`;
 
       const popup = window.open(authUrl, 'google_oauth_popup', 'width=500,height=600,menubar=no,toolbar=no');
       if (popup) {
