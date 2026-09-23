@@ -114,6 +114,7 @@ function DetailContent() {
   const [movieChatMessages, setMovieChatMessages] = useState<{ role: 'user' | 'bot'; text: string }[]>([]);
   const [movieChatInput, setMovieChatInput] = useState('');
   const [movieChatLoading, setMovieChatLoading] = useState(false);
+  const [isCopiedLink, setIsCopiedLink] = useState(false);
 
   // Fetch franchise collection parts if movie belongs to a collection
   useEffect(() => {
@@ -398,7 +399,12 @@ function DetailContent() {
                 <Star size={14} fill="gold" stroke="gold" />
                 <span>{ratingText}</span>
               </div>
-              <span className="badge year">{yearText}</span>
+              <span className="badge year" title="Release Date">{movie.release_date || movie.first_air_date || 'Unknown Date'}</span>
+              {movie.original_language && (
+                <span className="badge lang" style={{ textTransform: 'uppercase' }} title="Original Language">
+                  {movie.original_language}
+                </span>
+              )}
               {typeStr === 'tv' && movie.number_of_seasons && (
                 <span className="badge seasons-count">{movie.number_of_seasons} Seasons</span>
               )}
@@ -475,6 +481,11 @@ function DetailContent() {
               <button className="btn-secondary" onClick={handleOpenTorrents}>
                 <Download size={18} />
                 <span>Torrents</span>
+              </button>
+
+              <button className="btn-secondary" onClick={handleCopyShareLink} title="Copy Link">
+                {isCopiedLink ? <Check size={18} color="#30D158" /> : <Copy size={18} />}
+                <span>{isCopiedLink ? 'Copied!' : 'Share'}</span>
               </button>
             </div>
           </div>
