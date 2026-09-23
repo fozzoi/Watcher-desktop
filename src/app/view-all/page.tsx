@@ -241,6 +241,8 @@ function ViewAllContent() {
         .back-btn:hover {
           color: var(--foreground);
           background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           transform: translateX(-2px);
         }
 
@@ -282,6 +284,8 @@ function ViewAllContent() {
           font-weight: 700;
           border-radius: 30px;
           background: rgba(255, 255, 255, 0.06);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           color: var(--foreground);
           cursor: pointer;
@@ -290,6 +294,8 @@ function ViewAllContent() {
 
         .load-more-btn:hover:not(:disabled) {
           background: rgba(255, 255, 255, 0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           transform: translateY(-2px);
           border-color: rgba(255, 255, 255, 0.2);
         }

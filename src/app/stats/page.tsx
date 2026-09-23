@@ -229,6 +229,8 @@ export default function StatsPage() {
       <style jsx>{`
         .stats-page {
           max-width: 1200px;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           margin: 0 auto;
           display: flex;
           flex-direction: column;
@@ -343,6 +345,8 @@ export default function StatsPage() {
         .progress-track {
           height: 8px;
           background: rgba(255, 255, 255, 0.06);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-radius: 4px;
           overflow: hidden;
         }

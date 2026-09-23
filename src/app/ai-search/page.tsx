@@ -544,6 +544,8 @@ export default function AiChatPage() {
           flex-direction: column;
           border-right: 1px solid var(--card-border);
           background: rgba(14, 14, 18, 0.7);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         @media (max-width: 850px) {
@@ -588,10 +590,14 @@ export default function AiChatPage() {
         }
         .convo-item:hover {
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: var(--foreground);
         }
         .convo-item.active {
           background: rgba(229, 9, 20, 0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: var(--primary);
           font-weight: 600;
         }
@@ -691,6 +697,8 @@ export default function AiChatPage() {
           height: 68px;
           border-radius: 20px;
           background: rgba(229, 9, 20, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: var(--primary);
           display: flex;
           align-items: center;
@@ -903,6 +911,8 @@ export default function AiChatPage() {
           gap: 12px;
           padding: 8px 12px;
           background: rgba(255, 255, 255, 0.03);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-radius: 8px;
         }
         .item-rank {
@@ -927,6 +937,8 @@ export default function AiChatPage() {
         .item-tag {
           font-size: 10px;
           background: rgba(229, 9, 20, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: var(--primary);
           padding: 2px 8px;
           border-radius: 10px;

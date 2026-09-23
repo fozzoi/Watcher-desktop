@@ -306,9 +306,13 @@ function CollectionDetailContent() {
           position: absolute;
           inset: 0;
           background: linear-gradient(180deg, rgba(12,12,14,0.2) 0%, rgba(12,12,14,0.95) 100%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
         [data-theme="light"] .backdrop-overlay {
           background: linear-gradient(180deg, rgba(245, 245, 247, 0.1) 0%, rgba(245, 245, 247, 0.95) 100%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
         .back-btn {
           position: absolute;
@@ -470,6 +474,8 @@ function CollectionDetailContent() {
           font-size: 12px;
           color: var(--foreground-muted);
           background: rgba(255,255,255,0.04);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           padding: 4px 8px;
           border-radius: 6px;
         }
@@ -498,10 +504,14 @@ function CollectionDetailContent() {
         }
         .status-pill.watched {
           background: rgba(48, 209, 88, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: #30D158;
         }
         .status-pill.in-watchlist {
           background: rgba(229, 9, 20, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: var(--primary);
         }
       `}</style>

@@ -540,6 +540,8 @@ function CastDetailContent() {
           height: 28px;
           border-radius: 50%;
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           color: var(--foreground-muted);
           display: flex;
@@ -630,6 +632,8 @@ function CastDetailContent() {
           position: absolute;
           inset: 0;
           background: rgba(0, 0, 0, 0.45);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -687,6 +691,8 @@ function CastDetailContent() {
           height: 36px;
           border-radius: 50%;
           background: rgba(255, 255, 255, 0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.2);
           color: #ffffff;
           display: flex;

@@ -957,6 +957,8 @@ export default function WatchListPage() {
 
         .library-stats-pill {
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           border-radius: 20px;
           padding: 4px 12px;
@@ -974,6 +976,8 @@ export default function WatchListPage() {
 
         .icon-btn {
           background: rgba(255, 255, 255, 0.04);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           border-radius: 12px;
           padding: 8px 14px;
@@ -990,12 +994,16 @@ export default function WatchListPage() {
 
         .icon-btn:hover {
           background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-color: rgba(255, 255, 255, 0.2);
           transform: translateY(-1px);
         }
 
         .icon-btn.active {
           background: rgba(229, 9, 20, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-color: var(--primary);
           color: var(--primary);
           font-weight: 700;
@@ -1008,12 +1016,16 @@ export default function WatchListPage() {
 
         .icon-btn.btn-danger-ghost {
           background: rgba(239, 68, 68, 0.1);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-color: rgba(239, 68, 68, 0.2);
           color: #fca5a5;
         }
 
         .icon-btn.btn-danger-ghost:hover {
           background: rgba(239, 68, 68, 0.25);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: #fff;
         }
 
@@ -1112,6 +1124,8 @@ export default function WatchListPage() {
 
         .import-dropdown button:hover {
           background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: var(--foreground);
         }
 
@@ -1119,6 +1133,8 @@ export default function WatchListPage() {
         .tabs-row {
           display: flex;
           background: rgba(255, 255, 255, 0.02);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           padding: 5px;
           border-radius: 16px;
@@ -1162,6 +1178,8 @@ export default function WatchListPage() {
           padding: 2px 7px;
           border-radius: 10px;
           background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: var(--foreground-muted);
         }
 
@@ -1188,6 +1206,8 @@ export default function WatchListPage() {
 
         .pill-btn {
           background: rgba(255, 255, 255, 0.04);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           border-radius: 20px;
           padding: 6px 14px;
@@ -1218,6 +1238,8 @@ export default function WatchListPage() {
           width: 1px;
           height: 22px;
           background: rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           flex-shrink: 0;
         }
 
@@ -1234,6 +1256,8 @@ export default function WatchListPage() {
 
         .genre-chip {
           background: rgba(255, 255, 255, 0.04);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           border-radius: 20px;
           padding: 5px 12px;
@@ -1255,6 +1279,8 @@ export default function WatchListPage() {
 
         .genre-chip.active {
           background: rgba(229, 9, 20, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-color: var(--primary);
           color: var(--primary);
           font-weight: 700;
@@ -1274,6 +1300,8 @@ export default function WatchListPage() {
           align-items: center;
           gap: 10px;
           background: rgba(229, 9, 20, 0.1);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(229, 9, 20, 0.2);
           padding: 10px 18px;
           border-radius: var(--border-radius-md);
@@ -1344,6 +1372,8 @@ export default function WatchListPage() {
           position: absolute;
           inset: 0;
           background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           pointer-events: none;
         }
 
@@ -1372,23 +1402,31 @@ export default function WatchListPage() {
 
         .type-badge {
           background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: var(--foreground);
           border: 1px solid rgba(255, 255, 255, 0.15);
         }
 
         .franchise-badge {
           background: rgba(168, 85, 247, 0.7);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: #fff;
           border: 1px solid rgba(168, 85, 247, 0.3);
         }
 
         .artist-badge {
           background: rgba(229, 9, 20, 0.7);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: #fff;
         }
 
         .rating-badge {
           background: rgba(0, 0, 0, 0.75);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: #facc15;
           border: 1px solid rgba(250, 204, 21, 0.3);
         }
@@ -1401,6 +1439,8 @@ export default function WatchListPage() {
           height: 28px;
           border-radius: 50%;
           background: rgba(0, 0, 0, 0.75);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.15);
           color: var(--foreground-muted);
           display: flex;
@@ -1418,6 +1458,8 @@ export default function WatchListPage() {
 
         .remove-btn:hover {
           background: rgba(239, 68, 68, 0.9);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-color: transparent;
           color: #fff;
           transform: scale(1.1);
@@ -1467,6 +1509,8 @@ export default function WatchListPage() {
           height: 76px;
           border-radius: 50%;
           background: rgba(255, 255, 255, 0.03);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           display: flex;
           align-items: center;
@@ -1610,6 +1654,8 @@ export default function WatchListPage() {
           max-height: 120px;
           overflow-y: auto;
           background: rgba(0, 0, 0, 0.2);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255,255,255,0.05);
           border-radius: var(--border-radius-sm);
           padding: 8px 12px;
@@ -1665,6 +1711,8 @@ export default function WatchListPage() {
           aspect-ratio: 2/3;
           border-radius: var(--border-radius-md);
           background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           background-size: 400% 100%;
           animation: skeleton-shimmer 1.5s infinite ease-in-out;
         }
@@ -1674,6 +1722,8 @@ export default function WatchListPage() {
           height: 14px;
           border-radius: 4px;
           background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           background-size: 400% 100%;
           animation: skeleton-shimmer 1.5s infinite ease-in-out;
         }

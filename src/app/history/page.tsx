@@ -227,6 +227,8 @@ export default function HistoryPage() {
         .back-btn:hover {
           color: var(--foreground);
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .header-icon {
@@ -243,6 +245,8 @@ export default function HistoryPage() {
 
         .clear-all-btn {
           background: rgba(239, 68, 68, 0.1);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(239, 68, 68, 0.2);
           color: #fca5a5;
           padding: 8px 16px;
@@ -258,6 +262,8 @@ export default function HistoryPage() {
 
         .clear-all-btn:hover {
           background: rgba(239, 68, 68, 0.25);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-color: rgba(239, 68, 68, 0.4);
           transform: translateY(-1px);
         }
@@ -303,12 +309,16 @@ export default function HistoryPage() {
           border-radius: var(--border-radius-md);
           border: 1px solid var(--card-border);
           background: rgba(20, 20, 25, 0.4);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           transition: var(--transition-smooth);
         }
 
         .history-item-row:hover {
           border-color: var(--card-hover-border);
           background: rgba(20, 20, 25, 0.6);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .item-click-area {
@@ -363,6 +373,8 @@ export default function HistoryPage() {
 
         .delete-item-btn:hover {
           background: rgba(239, 68, 68, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: #fca5a5;
         }
 

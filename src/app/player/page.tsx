@@ -542,6 +542,8 @@ function PlayerContent() {
           right: 0;
           height: 72px;
           background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 70%, transparent 100%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -559,6 +561,8 @@ function PlayerContent() {
 
         .exit-btn {
           background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.15);
           border-radius: 30px;
           color: var(--foreground);
@@ -584,6 +588,8 @@ function PlayerContent() {
 
         .server-trigger-btn {
           background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.15);
           border-radius: 20px;
           color: var(--foreground);
@@ -599,6 +605,8 @@ function PlayerContent() {
 
         .server-trigger-btn:hover {
           background: rgba(255, 255, 255, 0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .server-dropdown {
@@ -639,6 +647,8 @@ function PlayerContent() {
 
         .server-dropdown button.active {
           background: rgba(229, 9, 20, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: var(--primary);
           font-weight: 700;
         }
@@ -647,6 +657,8 @@ function PlayerContent() {
           font-size: 10px;
           font-weight: 700;
           background: rgba(229, 9, 20, 0.25);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: #ff7676;
           padding: 2px 6px;
           border-radius: 4px;

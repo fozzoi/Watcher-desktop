@@ -315,6 +315,8 @@ export default function OnboardingPage() {
         .step-dot.completed {
           border-color: #34c759;
           background: rgba(52, 199, 89, 0.2);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: #34c759;
         }
         .step-count-text {
@@ -359,6 +361,8 @@ export default function OnboardingPage() {
         .lang-card.active {
           border-color: var(--primary);
           background: rgba(229, 9, 20, 0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
         .lang-flag {
           font-size: 24px;
@@ -402,6 +406,8 @@ export default function OnboardingPage() {
         .genre-card.active {
           border-color: var(--primary);
           background: rgba(229, 9, 20, 0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
         .genre-emoji {
           font-size: 20px;
@@ -468,6 +474,8 @@ export default function OnboardingPage() {
         }
         .actor-result-item:hover {
           background: rgba(255, 255, 255, 0.06);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
         .actor-thumb {
           width: 40px;

@@ -1160,10 +1160,14 @@ function DetailContent() {
           position: absolute;
           inset: 0;
           background: linear-gradient(180deg, rgba(12, 12, 14, 0.1) 0%, rgba(12, 12, 14, 0.95) 100%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         [data-theme="light"] .backdrop-overlay {
           background: linear-gradient(180deg, rgba(245, 245, 247, 0.1) 0%, rgba(245, 245, 247, 0.95) 100%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .back-btn {
@@ -1261,6 +1265,8 @@ function DetailContent() {
           align-items: center;
           gap: 6px;
           background: rgba(255, 215, 0, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: #ffd700;
           padding: 4px 10px;
           border-radius: var(--border-radius-sm);
@@ -1295,10 +1301,14 @@ function DetailContent() {
           border-color: #30D158;
           color: #30D158;
           background: rgba(48, 209, 88, 0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .watched-active:hover {
           background: rgba(48, 209, 88, 0.2);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-color: #30D158;
         }
 
@@ -1382,6 +1392,8 @@ function DetailContent() {
           background: 
             linear-gradient(90deg, rgba(10, 10, 14, 0.96) 0%, rgba(10, 10, 14, 0.78) 45%, rgba(10, 10, 14, 0.35) 100%),
             linear-gradient(0deg, rgba(10, 10, 14, 0.92) 0%, transparent 60%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           pointer-events: none;
         }
 
@@ -1408,6 +1420,8 @@ function DetailContent() {
           gap: 6px;
           padding: 5px 12px;
           background: rgba(229, 169, 60, 0.16);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(229, 169, 60, 0.35);
           border-radius: 20px;
           color: #E5A93C;
@@ -1548,6 +1562,8 @@ function DetailContent() {
           gap: 14px;
           padding: 10px 16px 10px 10px;
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 100px;
           text-decoration: none;
@@ -1557,6 +1573,8 @@ function DetailContent() {
 
         .director-card:hover {
           background: rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-color: rgba(255, 255, 255, 0.15);
           transform: translateY(-1px);
         }
@@ -1644,6 +1662,8 @@ function DetailContent() {
         .ai-tabs {
           display: flex;
           background: rgba(0, 0, 0, 0.4);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 100px;
           padding: 3px;
@@ -1668,6 +1688,8 @@ function DetailContent() {
 
         .ai-tab-btn.active {
           background: rgba(138, 43, 226, 0.25);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-color: rgba(167, 139, 250, 0.4);
           color: #a78bfa;
           box-shadow: 0 2px 10px rgba(138, 43, 226, 0.3);
@@ -1701,6 +1723,8 @@ function DetailContent() {
           padding: 12px 24px;
           border-radius: 100px;
           background: linear-gradient(135deg, rgba(138, 43, 226, 0.35) 0%, rgba(74, 0, 224, 0.35) 100%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(167, 139, 250, 0.5);
           color: #fff;
           font-size: 14px;
@@ -1713,6 +1737,8 @@ function DetailContent() {
         .ai-generate-btn:hover {
           transform: translateY(-2px);
           background: linear-gradient(135deg, rgba(138, 43, 226, 0.55) 0%, rgba(74, 0, 224, 0.55) 100%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-color: #a78bfa;
           box-shadow: 0 6px 20px rgba(138, 43, 226, 0.5);
         }
@@ -1724,6 +1750,8 @@ function DetailContent() {
           padding: 6px 14px;
           border-radius: 20px;
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           color: var(--foreground-muted);
           font-size: 12px;
@@ -1754,6 +1782,8 @@ function DetailContent() {
           display: inline-flex;
           align-items: center;
           background: rgba(138, 43, 226, 0.2);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(167, 139, 250, 0.4);
           color: #c4b5fd;
           padding: 4px 14px;
@@ -1785,6 +1815,8 @@ function DetailContent() {
           border-radius: 14px;
           border: 1px solid rgba(255, 255, 255, 0.08);
           background: rgba(255, 255, 255, 0.03);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .field-label {
@@ -1807,6 +1839,8 @@ function DetailContent() {
           padding: 14px 18px;
           border-radius: 14px;
           background: rgba(255, 179, 0, 0.08);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 179, 0, 0.25);
         }
 
@@ -1838,6 +1872,8 @@ function DetailContent() {
           height: 14px;
           border-radius: 8px;
           background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(138,43,226,0.15) 50%, rgba(255,255,255,0.03) 75%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           background-size: 200% 100%;
           animation: skeletonShimmer 1.6s infinite;
         }
@@ -1923,6 +1959,8 @@ function DetailContent() {
 
         .chat-bubble-row.bot .bubble-content {
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.08);
           color: var(--foreground);
           border-bottom-left-radius: 4px;
@@ -1945,6 +1983,8 @@ function DetailContent() {
         .chat-input {
           flex: 1;
           background: rgba(255, 255, 255, 0.04);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           padding: 10px 16px;
           border-radius: 12px;
@@ -2006,6 +2046,8 @@ function DetailContent() {
           border-radius: 14px;
           flex-shrink: 0;
           background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(138,43,226,0.12) 50%, rgba(255,255,255,0.03) 75%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           background-size: 200% 100%;
           animation: skeletonShimmer 1.8s infinite;
         }
@@ -2029,6 +2071,8 @@ function DetailContent() {
           height: 32px;
           border-radius: 50%;
           background: rgba(255, 255, 255, 0.06);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           color: var(--foreground);
           display: flex;
@@ -2082,6 +2126,8 @@ function DetailContent() {
           border-radius: 12px;
           overflow: hidden;
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           margin-bottom: 6px;
           border: 1px solid rgba(255, 255, 255, 0.08);
           transition: var(--transition-smooth);
@@ -2253,6 +2299,8 @@ function DetailContent() {
 
         .season-option-item.selected {
           background: rgba(229, 9, 20, 0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: var(--primary);
           font-weight: 700;
         }
@@ -2339,6 +2387,8 @@ function DetailContent() {
           align-items: center;
           justify-content: center;
           background: rgba(0, 0, 0, 0.35);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           transition: var(--transition-fast);
         }
 
@@ -2478,6 +2528,8 @@ function DetailContent() {
           position: fixed;
           inset: 0;
           background: rgba(0,0,0,0.8);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -2569,6 +2621,8 @@ function DetailContent() {
           padding: 2px 6px;
           border-radius: 6px;
           background: rgba(255,255,255,0.06);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .torrent-actions {

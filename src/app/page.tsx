@@ -591,6 +591,8 @@ export default function ExplorePage() {
           height: 440px;
           border-radius: 24px;
           background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           background-size: 200% 100%;
           animation: skeletonShimmer 1.8s infinite;
         }
@@ -607,6 +609,8 @@ export default function ExplorePage() {
           border-radius: 20px;
           flex-shrink: 0;
           background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           background-size: 200% 100%;
           animation: skeletonShimmer 1.8s infinite;
         }
@@ -628,6 +632,8 @@ export default function ExplorePage() {
           height: 22px;
           border-radius: 6px;
           background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           background-size: 200% 100%;
           animation: skeletonShimmer 1.8s infinite;
         }
@@ -644,6 +650,8 @@ export default function ExplorePage() {
           border-radius: 16px;
           flex-shrink: 0;
           background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           background-size: 200% 100%;
           animation: skeletonShimmer 1.8s infinite;
         }
@@ -697,6 +705,8 @@ export default function ExplorePage() {
           height: 44px;
           border-radius: 12px;
           background: rgba(229, 9, 20, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: var(--primary);
           display: flex;
           align-items: center;
@@ -771,6 +781,8 @@ export default function ExplorePage() {
           height: 2px;
           border-radius: 1px;
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           overflow: hidden;
         }
 
@@ -845,6 +857,8 @@ export default function ExplorePage() {
           inset: 0;
           background: linear-gradient(0deg, rgba(12, 12, 14, 0.95) 0%, rgba(12, 12, 14, 0.4) 50%, rgba(12, 12, 14, 0.1) 100%),
                       linear-gradient(90deg, rgba(12, 12, 14, 0.8) 0%, transparent 60%);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .hero-content {
@@ -924,6 +938,8 @@ export default function ExplorePage() {
           height: 8px;
           border-radius: 50%;
           background: rgba(255, 255, 255, 0.3);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: none;
           cursor: pointer;
           transition: var(--transition-smooth);

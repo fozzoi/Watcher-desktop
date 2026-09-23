@@ -525,7 +525,9 @@ export default function SettingsPage() {
                 }}>
                   <Shield size={16} style={{ color: '#30D158', flexShrink: 0 }} />
                   <span>
-                    <strong>Local-First &amp; Private:</strong> No account required to use Watcher. Sign in below only if you want cross-device library synchronization.
+                    <strong>Local-First &amp;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px); Private:</strong> No account required to use Watcher. Sign in below only if you want cross-device library synchronization.
                   </span>
                 </div>
                 <GoogleSignInButton />
@@ -984,6 +986,8 @@ export default function SettingsPage() {
       <style jsx>{`
         .settings-container {
           max-width: 820px;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           margin: 0 auto;
           padding-bottom: 60px;
         }
@@ -1023,6 +1027,8 @@ export default function SettingsPage() {
           border: 1px solid var(--card-border);
           padding: 24px;
           background: rgba(20, 20, 25, 0.4);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .section-header {
@@ -1060,6 +1066,8 @@ export default function SettingsPage() {
         /* Profile Summary Box */
         .profile-summary-box {
           background: rgba(255, 255, 255, 0.02);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           border-radius: var(--border-radius-md);
           padding: 16px;
@@ -1090,6 +1098,8 @@ export default function SettingsPage() {
 
         .summary-chip {
           background: rgba(255, 255, 255, 0.06);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 14px;
           padding: 3px 10px;
@@ -1102,6 +1112,8 @@ export default function SettingsPage() {
           border-color: rgba(234, 179, 8, 0.3);
           color: #facc15;
           background: rgba(234, 179, 8, 0.08);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .summary-muted {
@@ -1364,6 +1376,8 @@ export default function SettingsPage() {
           right: 0;
           bottom: 0;
           background-color: rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           transition: .3s;
           border: 1px solid rgba(255, 255, 255, 0.05);
         }
@@ -1440,6 +1454,8 @@ export default function SettingsPage() {
 
         .btn-danger-setting {
           background: rgba(239, 68, 68, 0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: #fca5a5;
           border: 1px solid rgba(239, 68, 68, 0.25);
           padding: 8px 16px;
@@ -1455,6 +1471,8 @@ export default function SettingsPage() {
 
         .btn-danger-setting:hover {
           background: rgba(239, 68, 68, 0.25);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border-color: rgba(239, 68, 68, 0.5);
           color: #fff;
           transform: translateY(-1px);
@@ -1466,6 +1484,8 @@ export default function SettingsPage() {
           flex-direction: column;
           gap: 16px;
           background: rgba(0, 180, 216, 0.04);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(0, 180, 216, 0.2);
           border-radius: 16px;
           padding: 20px;
@@ -1527,6 +1547,8 @@ export default function SettingsPage() {
           padding: 2px 8px;
           border-radius: 9999px;
           background: rgba(48, 209, 88, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           color: #30D158;
           font-size: 11px;
           font-weight: 700;
@@ -1568,6 +1590,8 @@ export default function SettingsPage() {
           align-items: center;
           gap: 8px;
           background: rgba(48, 209, 88, 0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(48, 209, 88, 0.3);
           color: #30D158;
           font-size: 13px;
@@ -1582,6 +1606,8 @@ export default function SettingsPage() {
           align-items: center;
           gap: 8px;
           background: rgba(229, 9, 20, 0.12);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(229, 9, 20, 0.3);
           color: #ff6b6b;
           font-size: 13px;

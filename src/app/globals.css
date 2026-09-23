@@ -274,6 +274,8 @@ option {
 [data-theme="light"] .genre-nav-btn,
 [data-theme="light"] .header-arrow-btn {
   background: rgba(255, 255, 255, 0.95) !important;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
   border-color: rgba(0, 0, 0, 0.12) !important;
   color: var(--foreground) !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
@@ -296,6 +298,8 @@ option {
 [data-theme="light"] .shimmer-bar,
 [data-theme="light"] .vibe-skeleton-card {
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.04) 25%, rgba(0, 0, 0, 0.08) 50%, rgba(0, 0, 0, 0.04) 75%) !important;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
   background-size: 200% 100% !important;
 }
 

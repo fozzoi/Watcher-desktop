@@ -355,6 +355,8 @@ function TorrentSearchContent() {
           height: 52px;
           padding: 0 50px 0 52px;
           background: rgba(255, 255, 255, 0.04);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid var(--card-border);
           border-radius: var(--border-radius-md);
           color: var(--foreground);
@@ -368,6 +370,8 @@ function TorrentSearchContent() {
         .search-input-field:focus {
           border-color: var(--primary);
           background: rgba(255, 255, 255, 0.07);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           box-shadow: 0 0 15px rgba(229, 9, 20, 0.25);
         }
 
@@ -406,18 +410,24 @@ function TorrentSearchContent() {
 
         .status-banner.error {
           background: rgba(239, 68, 68, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(239, 68, 68, 0.25);
           color: #fca5a5;
         }
 
         .status-banner.success {
           background: rgba(34, 197, 94, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(34, 197, 94, 0.25);
           color: #86efac;
         }
 
         .status-banner.info {
           background: rgba(59, 130, 246, 0.15);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(59, 130, 246, 0.25);
           color: #93c5fd;
         }
@@ -608,6 +618,8 @@ function TorrentSearchContent() {
           color: var(--foreground);
           border-color: rgba(255, 255, 255, 0.3);
           background: rgba(255, 255, 255, 0.02);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         /* Loading splash */
