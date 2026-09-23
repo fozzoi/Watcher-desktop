@@ -117,26 +117,6 @@ export default function WatchListPage() {
     setVisibleCount(24);
   }, [activeTab, searchQuery, selectedMediaType, selectedGenreIds, sortBy, sortDirection]);
 
-  // Setup intersection observer to load more items
-  useEffect(() => {
-    if (loading || filteredAndSortedItems.length <= visibleCount) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount(prev => prev + 24);
-        }
-      },
-      { rootMargin: '600px' } // Load earlier to make it seamless
-    );
-
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
-
-    return () => observer.disconnect();
-  }, [loading, filteredAndSortedItems.length, visibleCount]);
-
   const handleRemove = async (id: number, type: TabType) => {
     try {
       if (type === 'watchlist') {
@@ -449,6 +429,26 @@ export default function WatchListPage() {
 
     return list;
   }, [activeTab, watchlist, history, artists, collections, searchQuery, selectedMediaType, selectedGenreIds, sortBy, sortDirection]);
+
+  // Setup intersection observer to load more items
+  useEffect(() => {
+    if (loading || filteredAndSortedItems.length <= visibleCount) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(prev => prev + 24);
+        }
+      },
+      { rootMargin: '600px' } // Load earlier to make it seamless
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loading, filteredAndSortedItems.length, visibleCount]);
 
   return (
     <div className="watchlist-container">
