@@ -58,6 +58,7 @@ import {
   PlayerPreferences,
   PlayerQuality
 } from '@/utils/playerPreferences';
+import { checkForUpdate, downloadAndInstallUpdate, isTauriApp, UpdateInfo } from '@/utils/tauriUpdater';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -103,6 +104,35 @@ export default function SettingsPage() {
     clearCloudData 
   } = useAuth();
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+
+  // Tauri Updater State
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [isInstallingUpdate, setIsInstallingUpdate] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updateDownloadProgress, setUpdateDownloadProgress] = useState(0);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  const handleCheckUpdate = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateInfo(null);
+    setUpdateError(null);
+    const result = await checkForUpdate();
+    setIsCheckingUpdate(false);
+    if (result.success) {
+      setUpdateInfo(result.info ?? null);
+    } else {
+      setUpdateError(result.error ?? 'Update check failed');
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    setIsInstallingUpdate(true);
+    setUpdateDownloadProgress(0);
+    await downloadAndInstallUpdate((downloaded, total) => {
+      if (total) setUpdateDownloadProgress(Math.round((downloaded / total) * 100));
+    });
+    setIsInstallingUpdate(false);
+  };
 
   const handleManualSync = async () => {
     setSyncFeedback(null);
@@ -840,6 +870,60 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
+
+        {/* App Updates — only shown in Tauri desktop */}
+        {isTauriApp() && (
+          <section className="settings-section glass">
+            <div className="section-header">
+              <RotateCcw className="sec-icon" size={18} style={{ color: '#34C759' }} />
+              <h2>App Updates</h2>
+            </div>
+            <div className="section-body">
+              <p className="description">
+                Watcher checks GitHub Releases for signed updates. Updates are downloaded and installed seamlessly in the background.
+              </p>
+
+              {updateInfo?.available ? (
+                <div style={{ background: 'rgba(52, 199, 89, 0.1)', border: '1px solid rgba(52, 199, 89, 0.3)', borderRadius: '12px', padding: '16px', marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 700, color: '#34C759', marginBottom: '6px' }}>🎉 Update Available — v{updateInfo.version}</div>
+                  {updateInfo.body && <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px', whiteSpace: 'pre-line' }}>{updateInfo.body.slice(0, 300)}</p>}
+                  {isInstallingUpdate ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${updateDownloadProgress}%`, background: 'linear-gradient(90deg, #34C759, #30D158)', transition: 'width 0.3s ease', borderRadius: '4px' }} />
+                      </div>
+                      <span style={{ fontSize: '12px', color: '#34C759' }}>Downloading... {updateDownloadProgress}%</span>
+                    </div>
+                  ) : (
+                    <button className="btn-primary-setting" onClick={handleInstallUpdate}>
+                      <RotateCcw size={14} />
+                      <span>Download & Install Now</span>
+                    </button>
+                  )}
+                </div>
+              ) : updateInfo && !updateInfo.available ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#34C759', fontSize: '13px', marginBottom: '12px' }}>
+                  <CheckCircle2 size={16} /> You're on the latest version!
+                </div>
+              ) : null}
+
+              {updateError && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ff6b6b', fontSize: '13px', marginBottom: '12px' }}>
+                  <AlertTriangle size={16} /> {updateError}
+                </div>
+              )}
+
+              <button
+                className="btn-secondary-setting"
+                onClick={handleCheckUpdate}
+                disabled={isCheckingUpdate}
+              >
+                <RotateCcw size={14} className={isCheckingUpdate ? 'animate-spin' : ''} />
+                <span>{isCheckingUpdate ? 'Checking...' : 'Check for Updates'}</span>
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* Backup and storage exports */}
         <section className="settings-section glass">

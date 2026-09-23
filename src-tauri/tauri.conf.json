@@ -56,5 +56,16 @@
     "android": {
       "debugApplicationIdSuffix": ".debug"
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFCRDhGQzM0QjIwOEM2ODQKUldTRXhnaXlOUHpZRzl6MWlGRnVIZmdRd01uclJZL0VKU3BpT3dYSHQ1STA1K3djQWwzSHBUdWgK",
+      "endpoints": [
+        "https://github.com/fozzoi/Watcher-desktop/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

@@ -510,6 +510,29 @@ function DetailContent() {
           <p className="overview-text">{movie.overview}</p>
         </div>
 
+        {/* Director / Creator */}
+        {movie.director && (
+          <div className="director-section animate-fade-in-up">
+            <h2 className="director-heading">
+              {movie.director.job === 'Creator' ? 'Creator' : 'Director'}
+            </h2>
+            <Link href={`/cast?id=${movie.director.id}`} className="director-card">
+              <div className="director-avatar">
+                <img
+                  src={getImageUrl(movie.director.profile_path, 'w185')}
+                  alt={movie.director.name}
+                  className="director-img"
+                  loading="lazy"
+                />
+              </div>
+              <div className="director-meta">
+                <span className="director-name">{movie.director.name}</span>
+                <span className="director-role">{movie.director.job}</span>
+              </div>
+            </Link>
+          </div>
+        )}
+
         {/* Franchise / Collection Universe Banner */}
         {movie.belongs_to_collection && (
           <div className="franchise-banner-section animate-fade-in-up">
@@ -1506,7 +1529,70 @@ function DetailContent() {
           max-width: 900px;
         }
 
-        /* AI Panel */
+        /* Director / Creator Section */
+        .director-section {
+          margin-top: 4px;
+        }
+
+        .director-heading {
+          font-size: 20px;
+          font-weight: 600;
+          margin-bottom: 12px;
+        }
+
+        .director-card {
+          display: inline-flex;
+          align-items: center;
+          gap: 14px;
+          padding: 10px 16px 10px 10px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 100px;
+          text-decoration: none;
+          transition: var(--transition-fast);
+          cursor: pointer;
+        }
+
+        .director-card:hover {
+          background: rgba(255, 255, 255, 0.1);
+          border-color: rgba(255, 255, 255, 0.15);
+          transform: translateY(-1px);
+        }
+
+        .director-avatar {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          overflow: hidden;
+          flex-shrink: 0;
+          border: 2px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .director-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .director-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .director-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--foreground);
+        }
+
+        .director-role {
+          font-size: 11.5px;
+          color: var(--foreground-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
         .ai-panel {
           padding: 24px;
           border-radius: var(--border-radius-lg);

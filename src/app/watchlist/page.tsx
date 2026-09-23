@@ -72,6 +72,10 @@ export default function WatchListPage() {
     missed: string[];
   } | null>(null);
 
+  // Infinite Scroll States
+  const [visibleCount, setVisibleCount] = useState(24);
+  const observerTarget = useRef<HTMLDivElement>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -107,6 +111,31 @@ export default function WatchListPage() {
       return () => window.removeEventListener('watcher_cloud_synced', handleCloudSync);
     }
   }, []);
+
+  // Reset infinite scroll when tabs or filters change
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [activeTab, searchQuery, selectedMediaType, selectedGenreIds, sortBy, sortDirection]);
+
+  // Setup intersection observer to load more items
+  useEffect(() => {
+    if (loading || filteredAndSortedItems.length <= visibleCount) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(prev => prev + 24);
+        }
+      },
+      { rootMargin: '600px' } // Load earlier to make it seamless
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loading, filteredAndSortedItems.length, visibleCount]);
 
   const handleRemove = async (id: number, type: TabType) => {
     try {
@@ -678,98 +707,109 @@ export default function WatchListPage() {
 
       {/* Library Content Grid */}
       {loading ? (
-        <div className="loading-spinner-container">
-          <div className="spinner" />
+        <div className="skeleton-grid animate-fade-in-up">
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className="skeleton-card">
+              <div className="skeleton-image" />
+              <div className="skeleton-text" />
+              <div className="skeleton-text short" />
+            </div>
+          ))}
         </div>
       ) : filteredAndSortedItems.length > 0 ? (
-        <div className="media-grid animate-fade-in-up">
-          {filteredAndSortedItems.map((item) => {
-            const isArtist = activeTab === 'artists' || item.known_for_department !== undefined;
-            const isCollection = activeTab === 'collections' || item.media_type === 'collection';
-            const mediaType = item.media_type || (item.first_air_date ? 'tv' : 'movie');
-            const titleText = item.title || item.name || 'Unknown';
-            const imagePath = isArtist 
-              ? item.profile_path 
-              : (item.poster_path || item.backdrop_path);
-            
-            // Link destination
-            let targetHref = `/detail?id=${item.id}&type=${mediaType}`;
-            if (isArtist) targetHref = `/cast?id=${item.id}`;
-            else if (isCollection) targetHref = `/collection?id=${item.id}&name=${encodeURIComponent(titleText)}`;
+        <>
+          <div className="media-grid animate-fade-in-up">
+            {filteredAndSortedItems.slice(0, visibleCount).map((item) => {
+              const isArtist = activeTab === 'artists' || item.known_for_department !== undefined;
+              const isCollection = activeTab === 'collections' || item.media_type === 'collection';
+              const mediaType = item.media_type || (item.first_air_date ? 'tv' : 'movie');
+              const titleText = item.title || item.name || 'Unknown';
+              const imagePath = isArtist 
+                ? item.profile_path 
+                : (item.poster_path || item.backdrop_path);
+              
+              // Link destination
+              let targetHref = `/detail?id=${item.id}&type=${mediaType}`;
+              if (isArtist) targetHref = `/cast?id=${item.id}`;
+              else if (isCollection) targetHref = `/collection?id=${item.id}&name=${encodeURIComponent(titleText)}`;
 
-            const releaseYear = (item.release_date || item.first_air_date)
-              ? String(item.release_date || item.first_air_date).substring(0, 4)
-              : null;
+              const releaseYear = (item.release_date || item.first_air_date)
+                ? String(item.release_date || item.first_air_date).substring(0, 4)
+                : null;
 
-            return (
-              <div key={`${activeTab}-${item.id}`} className="library-card-wrapper">
-                <Link href={targetHref} className="card-link">
-                  <div className="card-image-box">
-                    <img 
-                      src={getImageUrl(imagePath, 'w342')} 
-                      alt={titleText} 
-                      className="card-img"
-                      loading="lazy"
-                    />
+              return (
+                <div key={`${activeTab}-${item.id}`} className="library-card-wrapper">
+                  <Link href={targetHref} className="card-link">
+                    <div className="card-image-box">
+                      <img 
+                        src={getImageUrl(imagePath, 'w342')} 
+                        alt={titleText} 
+                        className="card-img"
+                        loading="lazy"
+                      />
 
-                    {/* Gradient Overlay */}
-                    <div className="card-overlay" />
+                      {/* Gradient Overlay */}
+                      <div className="card-overlay" />
 
-                    {/* Top Badges */}
-                    <div className="card-top-badges">
-                      {isCollection ? (
-                        <span className="badge-pill franchise-badge">
-                          <Layers size={11} />
-                          <span>{item.parts_count ? `${item.parts_count} Films` : 'Franchise'}</span>
-                        </span>
-                      ) : isArtist ? (
-                        <span className="badge-pill artist-badge">
-                          {item.known_for_department || 'Artist'}
-                        </span>
-                      ) : (
-                        <span className="badge-pill type-badge">
-                          {mediaType.toUpperCase()}
-                        </span>
-                      )}
+                      {/* Top Badges */}
+                      <div className="card-top-badges">
+                        {isCollection ? (
+                          <span className="badge-pill franchise-badge">
+                            <Layers size={11} />
+                            <span>{item.parts_count ? `${item.parts_count} Films` : 'Franchise'}</span>
+                          </span>
+                        ) : isArtist ? (
+                          <span className="badge-pill artist-badge">
+                            {item.known_for_department || 'Artist'}
+                          </span>
+                        ) : (
+                          <span className="badge-pill type-badge">
+                            {mediaType.toUpperCase()}
+                          </span>
+                        )}
 
-                      {item.vote_average && (
-                        <span className="badge-pill rating-badge">
-                          ★ {item.vote_average.toFixed(1)}
-                        </span>
-                      )}
+                        {item.vote_average && (
+                          <span className="badge-pill rating-badge">
+                            ★ {item.vote_average.toFixed(1)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Delete item button */}
+                      <button 
+                        className="remove-btn" 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleRemove(item.id, activeTab);
+                        }}
+                        title="Remove from library"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
 
-                    {/* Delete item button */}
-                    <button 
-                      className="remove-btn" 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleRemove(item.id, activeTab);
-                      }}
-                      title="Remove from library"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-
-                  <div className="card-info">
-                    <h3 className="card-title" title={titleText}>{titleText}</h3>
-                    <div className="card-subtext">
-                      {isArtist ? (
-                        <span>{item.known_for_department || 'Cast & Crew'}</span>
-                      ) : isCollection ? (
-                        <span>Universe Anthology</span>
-                      ) : (
-                        <span>{releaseYear || 'Media'}</span>
-                      )}
+                    <div className="card-info">
+                      <h3 className="card-title" title={titleText}>{titleText}</h3>
+                      <div className="card-subtext">
+                        {isArtist ? (
+                          <span>{item.known_for_department || 'Cast & Crew'}</span>
+                        ) : isCollection ? (
+                          <span>Universe Anthology</span>
+                        ) : (
+                          <span>{releaseYear || 'Media'}</span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              </div>
-            );
-          })}
-        </div>
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+          {filteredAndSortedItems.length > visibleCount && (
+            <div ref={observerTarget} style={{ height: '20px', width: '100%', marginTop: '20px' }} />
+          )}
+        </>
       ) : (
         <div className="empty-state animate-fade-in-up">
           <div className="empty-icon-circle">
@@ -1595,6 +1635,58 @@ export default function WatchListPage() {
           border-left-color: var(--primary);
           border-radius: 50%;
           animation: spin 1s linear infinite;
+        }
+
+        /* --- SKELETON LOADER --- */
+        .skeleton-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 20px;
+          width: 100%;
+          margin-top: 10px;
+        }
+
+        @media (min-width: 500px) {
+          .skeleton-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+        }
+
+        @media (min-width: 800px) {
+          .skeleton-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+        }
+
+        .skeleton-card {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .skeleton-image {
+          width: 100%;
+          aspect-ratio: 2/3;
+          border-radius: var(--border-radius-md);
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+          background-size: 400% 100%;
+          animation: skeleton-shimmer 1.5s infinite ease-in-out;
+        }
+
+        .skeleton-text {
+          width: 80%;
+          height: 14px;
+          border-radius: 4px;
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+          background-size: 400% 100%;
+          animation: skeleton-shimmer 1.5s infinite ease-in-out;
+        }
+
+        .skeleton-text.short {
+          width: 50%;
+          height: 12px;
+          margin-top: -4px;
+        }
+
+        @keyframes skeleton-shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
         }
       `}</style>
     </div>
