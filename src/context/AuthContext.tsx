@@ -63,6 +63,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setGoogleClientIdState(customId);
         }
 
+        // Check for Google OAuth redirect hash fragment (#access_token=...)
+        if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+          const returnedAccessToken = hashParams.get('access_token');
+          if (returnedAccessToken) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            await loginWithGoogle(undefined, returnedAccessToken);
+            return;
+          }
+        }
+
         if (savedSyncTime) {
           setLastSyncedAt(savedSyncTime);
         }

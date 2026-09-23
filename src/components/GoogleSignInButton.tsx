@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Sparkles, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Sparkles, CheckCircle2, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -20,8 +20,25 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
   const [initError, setInitError] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
-  const [buttonRendered, setButtonRendered] = useState(false);
+  const [showRedirectOption, setShowRedirectOption] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
+
+  // Check URL hash for OAuth redirect token (#access_token=...)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.location.hash) return;
+    if (window.location.hash.includes('access_token=')) {
+      const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const token = params.get('access_token');
+      if (token) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        setIsAuthenticating(true);
+        loginWithGoogle(undefined, token).then((ok) => {
+          setIsAuthenticating(false);
+          if (ok && onSuccess) onSuccess();
+        });
+      }
+    }
+  }, [loginWithGoogle, onSuccess]);
 
   // Load Google Identity Services SDK script dynamically
   useEffect(() => {
@@ -45,11 +62,11 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
     document.body.appendChild(script);
 
     return () => {
-      // Keep script in DOM
+      // Keep script in head/body
     };
   }, []);
 
-  // Initialize Google ID and render official button
+  // Initialize Google ID and render official button into visible slot
   useEffect(() => {
     if (!scriptLoaded || typeof window === 'undefined' || !window.google?.accounts?.id || !googleClientId) return;
 
@@ -79,14 +96,34 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
           width: 280,
           logo_alignment: 'left',
         });
-        setButtonRendered(true);
       }
     } catch (err: any) {
-      console.warn('Google accounts.id init/render warning:', err);
+      console.warn('Google accounts.id renderButton error:', err);
     }
   }, [scriptLoaded, googleClientId, loginWithGoogle, onSuccess]);
 
-  // Primary interactive Google Sign-In click handler (fallback if iframe button not used)
+  // Direct OAuth redirect URL generator (immune to popup blockers)
+  const getDirectOAuthUrl = () => {
+    if (typeof window === 'undefined') return '';
+    const redirectUri = window.location.origin + window.location.pathname;
+    return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(googleClientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=email%20profile%20openid`;
+  };
+
+  // Direct Redirect Flow: Navigates current tab to Google (impossible for browser popup blockers to block)
+  const handleDirectRedirect = () => {
+    setInitError(null);
+    if (!googleClientId) {
+      setInitError('NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured.');
+      return;
+    }
+    const url = getDirectOAuthUrl();
+    if (url) {
+      setIsAuthenticating(true);
+      window.location.href = url;
+    }
+  };
+
+  // Primary interactive Google Sign-In click handler
   const handleGoogleSignInClick = () => {
     setInitError(null);
 
@@ -97,7 +134,7 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
 
     setIsAuthenticating(true);
 
-    // 1. Google OAuth2 Token Client
+    // 1. Google OAuth2 Token Client (Interactive popup)
     if (window.google?.accounts?.oauth2) {
       try {
         const client = window.google.accounts.oauth2.initTokenClient({
@@ -124,39 +161,22 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
           },
           error_callback: (err: any) => {
             setIsAuthenticating(false);
-            console.error('Google token client error:', err);
-            if (err?.type === 'popup_failed_to_open' || err?.message?.toLowerCase().includes('popup')) {
-              setInitError('Popup was blocked by your browser. Please click the popup icon in your URL bar to allow popups for this site, or use the 1-Click Guest Sync below.');
-            } else {
-              setInitError(err?.message || 'Failed to open Google sign-in window.');
-            }
+            console.warn('Google token client error:', err);
+            // If browser blocked the popup, offer the direct redirect flow immediately!
+            setShowRedirectOption(true);
+            setInitError('Browser popup blocked. Click the button below to sign in directly.');
           },
         });
 
         client.requestAccessToken({ prompt: 'select_account' });
         return;
       } catch (err: any) {
-        console.warn('Google oauth2 client init exception, falling back:', err);
+        console.warn('Google oauth2 client init exception:', err);
       }
     }
 
-    // 2. Google Identity Services ID prompt fallback
-    if (window.google?.accounts?.id) {
-      try {
-        window.google.accounts.id.prompt((notification: any) => {
-          setIsAuthenticating(false);
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            console.warn('Google One Tap suppressed:', notification.getNotDisplayedReason?.());
-          }
-        });
-        return;
-      } catch (e: any) {
-        console.warn('Google ID prompt error:', e);
-      }
-    }
-
-    setIsAuthenticating(false);
-    setInitError('Initializing Google Sign-In... Please try again in a moment or use 1-Click Instant Sync.');
+    // Fallback: direct navigation
+    handleDirectRedirect();
   };
 
   const handleDemoSignIn = async () => {
@@ -193,41 +213,49 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
 
   return (
     <div className="google-auth-container">
-      {/* Official Google Rendered Button Slot */}
-      {googleClientId && (
-        <div className="gsi-slot-wrap" style={{ display: buttonRendered ? 'flex' : 'none' }}>
-          <div ref={buttonRef} className="google-btn-slot" />
+      {/* 1. Official Google Rendered Button (Permanent visible slot - immune to popup blockers) */}
+      <div className="gsi-slot-wrap">
+        <div ref={buttonRef} className="google-btn-slot">
+          {/* While Google script loads, display the clickable interactive button */}
+          <button
+            type="button"
+            className="google-native-btn"
+            onClick={handleGoogleSignInClick}
+            disabled={isLoading || isAuthenticating}
+          >
+            {isAuthenticating ? (
+              <>
+                <RefreshCw size={17} className="animate-spin" />
+                <span>Connecting to Google...</span>
+              </>
+            ) : (
+              <>
+                <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <span>Sign in with Google</span>
+              </>
+            )}
+          </button>
         </div>
-      )}
+      </div>
 
-      {/* Fallback Native Google Button (Visible when iframe button is loading or unmounted) */}
-      {(!googleClientId || !buttonRendered) && (
+      {/* 2. Direct Redirect Option (If browser blocks popups) */}
+      {showRedirectOption && (
         <button
           type="button"
-          className="google-native-btn"
-          onClick={handleGoogleSignInClick}
-          disabled={isLoading || isAuthenticating}
+          onClick={handleDirectRedirect}
+          className="direct-redirect-btn glass"
         >
-          {isAuthenticating ? (
-            <>
-              <RefreshCw size={17} className="animate-spin" />
-              <span>Connecting to Google...</span>
-            </>
-          ) : (
-            <>
-              <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-              </svg>
-              <span>Sign in with Google</span>
-            </>
-          )}
+          <ExternalLink size={15} />
+          <span>Open Google Sign-In Directly (No Popups)</span>
         </button>
       )}
 
-      {/* 1-Click Guest Sync Option */}
+      {/* 3. 1-Click Instant Guest Sync */}
       <div className="demo-signin-section">
         <div className="divider-row">
           <span className="divider-line" />
@@ -286,6 +314,13 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
           align-items: center;
           width: 100%;
         }
+        .google-btn-slot {
+          min-height: 44px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: 100%;
+        }
         .google-native-btn {
           display: flex;
           align-items: center;
@@ -321,6 +356,28 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
         }
         .google-icon {
           flex-shrink: 0;
+        }
+
+        .direct-redirect-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 10px 16px;
+          border-radius: 12px;
+          border: 1px solid rgba(66, 133, 244, 0.4);
+          background: rgba(66, 133, 244, 0.12);
+          color: #8ab4f8;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          width: 100%;
+        }
+        .direct-redirect-btn:hover {
+          background: rgba(66, 133, 244, 0.22);
+          border-color: #8ab4f8;
+          transform: translateY(-1px);
         }
 
         .demo-signin-section {
