@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { AsyncStorage } from '@/utils/storage';
-import { syncManager, CloudLibrary } from '@/utils/syncManager';
+import { syncManager, isApplyingCloudState } from '@/utils/syncManager';
 
 const AUTH_API_BASE = 'https://watcher-api-rho.vercel.app';
 const DEFAULT_CLIENT_ID = 
@@ -44,6 +44,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [googleClientId, setGoogleClientIdState] = useState<string>(DEFAULT_CLIENT_ID);
+
+  useEffect(() => {
+    if (!token || typeof window === 'undefined') return;
+    const onLocalLibraryChange = () => {
+      if (!isApplyingCloudState()) syncManager.queueSync(token);
+    };
+    const pollCloud = () => syncManager.pullIfChanged(token);
+    window.addEventListener('watcher_local_library_changed', onLocalLibraryChange);
+    const interval = window.setInterval(pollCloud, 5000);
+    window.addEventListener('focus', pollCloud);
+    return () => {
+      window.removeEventListener('watcher_local_library_changed', onLocalLibraryChange);
+      window.clearInterval(interval);
+      window.removeEventListener('focus', pollCloud);
+    };
+  }, [token]);
 
   // Load custom client id if stored
   const setGoogleClientId = useCallback((id: string) => {

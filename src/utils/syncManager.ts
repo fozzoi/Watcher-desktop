@@ -19,6 +19,31 @@ export interface CloudLibrary {
 }
 
 let syncTimeout: any = null;
+let applyingCloudState = false;
+export const isApplyingCloudState = () => applyingCloudState;
+
+async function saveCloudLibrary(library: CloudLibrary) {
+  applyingCloudState = true;
+  try {
+    const saveOps: Promise<void>[] = [
+      AsyncStorage.setItem('watchlist', JSON.stringify(library.watchlist || [])),
+      AsyncStorage.setItem('history', JSON.stringify(library.history || [])),
+      AsyncStorage.setItem('favoriteArtists', JSON.stringify(library.favoriteArtists || [])),
+      AsyncStorage.setItem('savedCollections', JSON.stringify(library.savedCollections || [])),
+      AsyncStorage.setItem('watch_progress_v1', JSON.stringify(library.watchProgress || {})),
+      AsyncStorage.setItem('user_preferences', JSON.stringify(library.preferences || {})),
+    ];
+    if (library.aiChatData) {
+      if (Array.isArray(library.aiChatData.conversations)) saveOps.push(AsyncStorage.setItem('watcher.chat.conversations.v1', JSON.stringify(library.aiChatData.conversations)));
+      if (typeof library.aiChatData.userMemory === 'string') saveOps.push(AsyncStorage.setItem('watcher.chat.userMemory.v1', library.aiChatData.userMemory));
+      if (typeof library.aiChatData.aiName === 'string' && library.aiChatData.aiName) saveOps.push(AsyncStorage.setItem('watcher.chat.aiName.v1', library.aiChatData.aiName));
+    }
+    await Promise.all(saveOps);
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watcher_cloud_synced', { detail: library }));
+  } finally {
+    applyingCloudState = false;
+  }
+}
 
 export const syncManager = {
   /**
@@ -60,7 +85,7 @@ export const syncManager = {
       };
 
       // 2. Push & merge with cloud
-      const response = await axios.post(`${SYNC_API_BASE}/api/sync`, localPayload, {
+      const response = await axios.post(`${SYNC_API_BASE}/api/sync`, { ...localPayload, mode: mode === 'replace' ? 'replace' : 'merge' }, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -74,38 +99,11 @@ export const syncManager = {
         throw new Error('Invalid response from cloud sync server');
       }
 
-      // 3. Save merged library back to local AsyncStorage
-      const saveOps: Promise<void>[] = [
-        AsyncStorage.setItem('watchlist', JSON.stringify(mergedLibrary.watchlist || [])),
-        AsyncStorage.setItem('history', JSON.stringify(mergedLibrary.history || [])),
-        AsyncStorage.setItem('favoriteArtists', JSON.stringify(mergedLibrary.favoriteArtists || [])),
-        AsyncStorage.setItem('savedCollections', JSON.stringify(mergedLibrary.savedCollections || [])),
-        AsyncStorage.setItem('watch_progress_v1', JSON.stringify(mergedLibrary.watchProgress || {})),
-        AsyncStorage.setItem('user_preferences', JSON.stringify(mergedLibrary.preferences || {})),
-      ];
-
-      // Restore AI chat data if cloud returned it
-      if (mergedLibrary.aiChatData) {
-        if (Array.isArray(mergedLibrary.aiChatData.conversations)) {
-          saveOps.push(AsyncStorage.setItem('watcher.chat.conversations.v1', JSON.stringify(mergedLibrary.aiChatData.conversations)));
-        }
-        if (typeof mergedLibrary.aiChatData.userMemory === 'string') {
-          saveOps.push(AsyncStorage.setItem('watcher.chat.userMemory.v1', mergedLibrary.aiChatData.userMemory));
-        }
-        if (typeof mergedLibrary.aiChatData.aiName === 'string' && mergedLibrary.aiChatData.aiName) {
-          saveOps.push(AsyncStorage.setItem('watcher.chat.aiName.v1', mergedLibrary.aiChatData.aiName));
-        }
-      }
-
-      await Promise.all(saveOps);
+      await saveCloudLibrary(mergedLibrary);
+      await AsyncStorage.setItem('watcher_cloud_revision', String(response.data?.revision || 0));
 
       const now = new Date().toISOString();
       await AsyncStorage.setItem('last_cloud_sync', now);
-
-      // 4. Notify open pages across the app to refresh state reactively
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('watcher_cloud_synced', { detail: mergedLibrary }));
-      }
 
       return { success: true, library: mergedLibrary };
     } catch (err: any) {
@@ -124,8 +122,31 @@ export const syncManager = {
     if (!token) return;
     if (syncTimeout) clearTimeout(syncTimeout);
     syncTimeout = setTimeout(() => {
-      this.performSync(token, 'merge');
+      if (!applyingCloudState) this.performSync(token, 'replace');
     }, delayMs);
+  },
+
+  async pullIfChanged(token: string): Promise<boolean> {
+    if (!token) return false;
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const [revisionResponse, savedRevision] = await Promise.all([
+        axios.get(`${SYNC_API_BASE}/api/sync?version_only=true`, { headers, timeout: 12000 }),
+        AsyncStorage.getItem('watcher_cloud_revision'),
+      ]);
+      const revision = Number(revisionResponse.data?.revision || 0);
+      if (!revision || revision === Number(savedRevision || 0)) return false;
+      const response = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
+      const library = response.data?.library as CloudLibrary | undefined;
+      if (!library) return false;
+      await saveCloudLibrary(library);
+      await AsyncStorage.setItem('watcher_cloud_revision', String(response.data?.revision || revision));
+      await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
+      return true;
+    } catch (err) {
+      console.warn('Cloud change check failed:', err);
+      return false;
+    }
   },
 
   /**
@@ -151,9 +172,12 @@ export const syncManager = {
   async clearCloudLibrary(token: string): Promise<boolean> {
     if (!token) return false;
     try {
-      await axios.delete(`${SYNC_API_BASE}/api/sync`, {
+      const response = await axios.delete(`${SYNC_API_BASE}/api/sync`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (response.data?.revision) {
+        await AsyncStorage.setItem('watcher_cloud_revision', String(response.data.revision));
+      }
       return true;
     } catch (err) {
       console.error('Failed to clear cloud library:', err);

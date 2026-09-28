@@ -8,15 +8,23 @@ export const AsyncStorage = {
   setItem: async (key: string, value: string): Promise<void> => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(key, value);
+    if (LIBRARY_KEYS.has(key)) window.dispatchEvent(new Event("watcher_local_library_changed"));
   },
   removeItem: async (key: string): Promise<void> => {
     if (typeof window === "undefined") return;
     window.localStorage.removeItem(key);
+    if (LIBRARY_KEYS.has(key)) window.dispatchEvent(new Event("watcher_local_library_changed"));
   },
   clear: async (): Promise<void> => {
     if (typeof window === "undefined") return;
     window.localStorage.clear();
   }
 };
+
+const LIBRARY_KEYS = new Set([
+  "watchlist", "history", "favoriteArtists", "savedCollections",
+  "watch_progress_v1", "user_preferences", "watcher.chat.conversations.v1",
+  "watcher.chat.userMemory.v1", "watcher.chat.aiName.v1",
+]);
 
 export default AsyncStorage;
