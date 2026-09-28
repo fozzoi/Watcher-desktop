@@ -11,7 +11,7 @@ interface WatchHistoryCarouselProps {
   onRemove: (tmdbId: number) => void;
 }
 
-export default function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) {
+function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   if (!history || history.length === 0) return null;
@@ -136,6 +136,8 @@ export default function WatchHistoryCarousel({ history, onRemove }: WatchHistory
         .history-section {
           margin-bottom: 35px;
           margin-top: 10px;
+          content-visibility: auto;
+          contain-intrinsic-size: 0 240px;
         }
 
         .history-header {
@@ -221,6 +223,9 @@ export default function WatchHistoryCarousel({ history, onRemove }: WatchHistory
           scroll-behavior: smooth;
           padding: 6px 0 16px 0;
           scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-x: contain;
+          contain: layout;
         }
 
         .scroll-container::-webkit-scrollbar {
@@ -236,6 +241,7 @@ export default function WatchHistoryCarousel({ history, onRemove }: WatchHistory
           scroll-snap-align: start;
           transition: var(--transition-smooth);
           box-shadow: 0 2px 10px var(--shadow-color);
+          contain: layout paint;
         }
 
         .history-card:hover {
@@ -502,3 +508,5 @@ export default function WatchHistoryCarousel({ history, onRemove }: WatchHistory
     </div>
   );
 }
+
+export default React.memo(WatchHistoryCarousel);

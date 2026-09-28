@@ -13,8 +13,6 @@ interface MovieCardProps {
 }
 
 function MovieCard({ item, isAdded, toggleWatchlist, showTitle = false }: MovieCardProps) {
-  const [imageLoaded, setImageLoaded] = useState(false);
-
   if (!item.poster_path) return null;
 
   const titleText = item.title || item.name;
@@ -33,11 +31,10 @@ function MovieCard({ item, isAdded, toggleWatchlist, showTitle = false }: MovieC
           <img
             src={getImageUrl(item.poster_path, 'w342')}
             alt={titleText}
-            className={`card-image ${imageLoaded ? 'loaded' : ''}`}
+            className="card-image"
             loading="lazy"
             decoding="async"
             fetchPriority="low"
-            onLoad={() => setImageLoaded(true)}
           />
           
           {rating && (
@@ -96,6 +93,7 @@ function MovieCard({ item, isAdded, toggleWatchlist, showTitle = false }: MovieC
           gap: 8px;
           transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
           will-change: transform;
+          contain: layout paint;
         }
 
         .movie-card-container:hover {
@@ -133,13 +131,8 @@ function MovieCard({ item, isAdded, toggleWatchlist, showTitle = false }: MovieC
           width: 100%;
           height: 100%;
           object-fit: cover;
-          opacity: 0;
-          transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-          will-change: opacity, transform;
-        }
-
-        .card-image.loaded {
-          opacity: 1;
+          transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          will-change: transform;
         }
 
         .movie-card-container:hover .card-image {
@@ -277,4 +270,11 @@ function MovieCard({ item, isAdded, toggleWatchlist, showTitle = false }: MovieC
   );
 }
 
-export default React.memo(MovieCard);
+export default React.memo(MovieCard, (prev, next) => {
+  return (
+    prev.item?.id === next.item?.id &&
+    prev.isAdded === next.isAdded &&
+    prev.showTitle === next.showTitle &&
+    prev.toggleWatchlist === next.toggleWatchlist
+  );
+});

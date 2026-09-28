@@ -79,6 +79,8 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
         .carousel-section {
           margin-bottom: 35px;
           position: relative;
+          content-visibility: auto;
+          contain-intrinsic-size: 0 290px;
         }
 
         .carousel-header {
@@ -154,6 +156,9 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
           scroll-behavior: smooth;
           padding: 6px 0 16px 0;
           scrollbar-width: none; /* Firefox */
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-x: contain;
+          contain: layout;
         }
 
         .scroll-container::-webkit-scrollbar {
@@ -166,6 +171,7 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
           min-width: 160px;
           max-width: 160px;
           scroll-snap-align: start;
+          contain: layout paint;
         }
 
         @media (min-width: 768px) {
@@ -196,6 +202,7 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
 
           .carousel-section {
             margin-bottom: 28px;
+            contain-intrinsic-size: 0 240px;
           }
 
           .carousel-title {

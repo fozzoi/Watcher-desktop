@@ -23,6 +23,7 @@ import { AsyncStorage } from '@/utils/storage';
 import MediaCarousel from '@/components/MediaCarousel';
 import WatchHistoryCarousel from '@/components/WatchHistoryCarousel';
 import MovieCard from '@/components/MovieCard';
+import HeroSection from '@/components/HeroSection';
 
 const GENRE_DATA = [
   { id: 0, name: 'All', icon: '🎬' },
@@ -51,9 +52,6 @@ export default function ExplorePage() {
   const [becauseYouWatched, setBecauseYouWatched] = useState<{ sourceTitle: string; items: any[] }[]>([]);
   const [onboardingDone, setOnboardingDone] = useState(true);
   
-  // Hero section sliding index
-  const [heroIndex, setHeroIndex] = useState(0);
-  const heroIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const genresScrollRef = useRef<HTMLDivElement>(null);
 
   const scrollGenres = (direction: 'left' | 'right') => {
@@ -130,22 +128,6 @@ export default function ExplorePage() {
     fetchContent(selectedGenre);
   }, [selectedGenre, loadUserData, fetchContent]);
 
-  // Auto-slide hero section
-  useEffect(() => {
-    const heroList = rawContent?.heroMovies || rawContent?.trendingMovies;
-    if (!heroList || heroList.length === 0) return;
-    
-    if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
-    
-    heroIntervalRef.current = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % Math.min(6, heroList.length));
-    }, 6000);
-    
-    return () => {
-      if (heroIntervalRef.current) clearInterval(heroIntervalRef.current);
-    };
-  }, [rawContent]);
-
   // Search handler
   useEffect(() => {
     if (!query.trim()) {
@@ -170,7 +152,7 @@ export default function ExplorePage() {
   }, [query]);
 
   // Toggle watchlist
-  const toggleWatchlist = async (item: TMDBResult, e: React.MouseEvent) => {
+  const toggleWatchlist = useCallback(async (item: TMDBResult, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -195,15 +177,14 @@ export default function ExplorePage() {
     } catch (err) {
       console.error("Failed to update watchlist:", err);
     }
-  };
+  }, []);
 
-  const handleRemoveHistoryItem = async (tmdbId: number) => {
+  const handleRemoveHistoryItem = useCallback(async (tmdbId: number) => {
     await removeProgress(tmdbId);
     setWatchHistory((prev) => prev.filter((item) => item.tmdbId !== tmdbId));
-  };
+  }, []);
 
   const heroList = rawContent?.heroMovies || rawContent?.trendingMovies || [];
-  const currentHeroMovie = heroList[heroIndex] || heroList[0];
 
   return (
     <div className="explore-container">
@@ -308,61 +289,12 @@ export default function ExplorePage() {
         /* Standard explore mode dashboard */
         <>
               {/* Dynamic Hero Section */}
-              {currentHeroMovie && (
-                <div className="hero-section glass-premium animate-fade-in-up">
-                  <div className="hero-banner-wrapper">
-                    <img
-                      src={getImageUrl(currentHeroMovie.backdrop_path || currentHeroMovie.poster_path, 'original')}
-                      alt={currentHeroMovie.title || currentHeroMovie.name}
-                      className="hero-backdrop"
-                    />
-                    <div className="hero-gradient-overlay" />
-                  </div>
-                  
-                  <div className="hero-content">
-                    <h1 className="hero-title">{currentHeroMovie.title || currentHeroMovie.name}</h1>
-                    
-                    <div className="hero-meta">
-                      <div className="hero-rating">
-                        <Star size={15} fill="#f59e0b" stroke="#f59e0b" />
-                        <span>{currentHeroMovie.vote_average?.toFixed(1) || 'N/A'}</span>
-                      </div>
-                      <span className="hero-year">
-                        {(currentHeroMovie.release_date || currentHeroMovie.first_air_date || '').substring(0, 4)}
-                      </span>
-                    </div>
-
-                    <div className="hero-actions">
-                      <button 
-                        className="btn-primary" 
-                        onClick={() => router.push(`/detail?id=${currentHeroMovie.id}&type=${currentHeroMovie.media_type || 'movie'}`)}
-                      >
-                        <Play size={18} fill="white" />
-                        <span>View Details</span>
-                      </button>
-                      
-                      <button 
-                        className="btn-secondary hero-btn" 
-                        onClick={(e) => toggleWatchlist(currentHeroMovie, e)}
-                      >
-                        <Heart size={18} fill={savedIds.has(currentHeroMovie.id) ? "var(--primary)" : "none"} color={savedIds.has(currentHeroMovie.id) ? "var(--primary)" : "currentColor"} />
-                        <span>{savedIds.has(currentHeroMovie.id) ? 'In Watchlist' : 'Add Watchlist'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Slides Indicators */}
-                  <div className="hero-indicators">
-                    {heroList.slice(0, 6).map((_: any, idx: number) => (
-                      <button
-                        key={idx}
-                        onClick={() => setHeroIndex(idx)}
-                        className={`indicator-dot ${heroIndex === idx ? 'active' : ''}`}
-                        aria-label={`Slide ${idx + 1}`}
-                      />
-                    ))}
-                  </div>
-                </div>
+              {heroList.length > 0 && (
+                <HeroSection
+                  heroList={heroList}
+                  savedIds={savedIds}
+                  toggleWatchlist={toggleWatchlist}
+                />
               )}
 
               {/* Genre selector (placed below hero carousel) */}
@@ -506,6 +438,8 @@ export default function ExplorePage() {
           overflow: hidden;
           z-index: -1;
           pointer-events: none;
+          contain: strict;
+          transform: translateZ(0);
         }
 
         .atmos-blob {
@@ -515,6 +449,8 @@ export default function ExplorePage() {
           border-radius: 50%;
           filter: blur(80px);
           opacity: 0.08;
+          will-change: transform;
+          transform: translateZ(0);
         }
 
         .rotate-1 {
@@ -771,6 +707,9 @@ export default function ExplorePage() {
           padding: 6px 44px 10px 44px;
           margin: 0;
           scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-x: contain;
+          contain: layout;
         }
 
         .genres-container::-webkit-scrollbar {
@@ -872,129 +811,7 @@ export default function ExplorePage() {
           box-shadow: 0 4px 12px var(--primary-glow);
         }
 
-        /* Hero section */
-        .hero-section {
-          position: relative;
-          width: 100%;
-          height: 440px;
-          border-radius: var(--border-radius-lg);
-          overflow: hidden;
-          margin-bottom: 40px;
-          display: flex;
-          align-items: flex-end;
-          padding: 40px;
-        }
 
-        .hero-banner-wrapper {
-          position: absolute;
-          inset: 0;
-          z-index: 0;
-        }
-
-        .hero-backdrop {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .hero-gradient-overlay {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(0deg, rgba(12, 12, 14, 0.95) 0%, rgba(12, 12, 14, 0.4) 50%, rgba(12, 12, 14, 0.1) 100%),
-                      linear-gradient(90deg, rgba(12, 12, 14, 0.8) 0%, transparent 60%);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-        }
-
-        .hero-content {
-          position: relative;
-          z-index: 2;
-          max-width: 600px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .hero-title {
-          font-size: 44px;
-          font-weight: 800;
-          line-height: 1.1;
-          letter-spacing: -0.5px;
-          color: white;
-        }
-
-        .hero-overview {
-          font-size: 15px;
-          line-height: 1.6;
-          color: rgba(255, 255, 255, 0.8);
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-
-        .hero-meta {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          font-size: 14px;
-        }
-
-        .hero-rating {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          background: rgba(0, 0, 0, 0.55);
-          backdrop-filter: blur(8px);
-          padding: 4px 10px;
-          border-radius: 9999px;
-          color: #ffffff;
-          font-weight: 700;
-        }
-
-        .hero-year {
-          color: rgba(255, 255, 255, 0.7);
-        }
-
-        .hero-actions {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin-top: 6px;
-        }
-
-        .hero-btn {
-          background: rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(12px);
-          color: white;
-        }
-
-        .hero-indicators {
-          position: absolute;
-          bottom: 24px;
-          right: 30px;
-          display: flex;
-          gap: 8px;
-          z-index: 2;
-        }
-
-        .indicator-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.3);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: none;
-          cursor: pointer;
-          transition: var(--transition-smooth);
-        }
-
-        .indicator-dot.active {
-          background: var(--primary);
-          width: 24px;
-          border-radius: 4px;
-        }
 
         /* Loading shimmer */
         .loading-shimmer-explore {
