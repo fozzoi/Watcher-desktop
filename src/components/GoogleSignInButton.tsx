@@ -10,11 +10,13 @@ interface Props {
 }
 
 export default function GoogleSignInButton({ onSuccess }: Props) {
-  const { user, loginWithGoogle, loginWithDemo, googleClientId, isLoading, syncError } = useAuth();
+  const { user, loginWithGoogle, loginWithDemo, loginWithToken, googleClientId, isLoading, syncError } = useAuth();
   const [initError, setInitError] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isDemoConnecting, setIsDemoConnecting] = useState(false);
   const [showGoogleHelp, setShowGoogleHelp] = useState(false);
+  const [syncToken, setSyncToken] = useState('');
+  const [tokenError, setTokenError] = useState<string | null>(null);
 
   const isDesktop = typeof window !== 'undefined' && (
     window.location.origin.includes('tauri') || 
@@ -107,6 +109,12 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
         // Cross-origin exception while on accounts.google.com
       }
     }, 500);
+  };
+
+  const handleDesktopTokenLogin = async () => {
+    setTokenError(null);
+    const ok = await loginWithToken(syncToken);
+    if (!ok) setTokenError('That session token was rejected. Copy a fresh one from Web settings and retry.');
   };
 
   const handleInstantSyncClick = async () => {
@@ -278,8 +286,25 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
         <div className="google-help-card">
           <Info size={16} className="help-icon" />
           <p>
-            Opening <strong>thewatchercom.vercel.app</strong> in your browser. For instant sync on desktop without Google Cloud setup, simply use <strong>1-Click Cloud Sync</strong> above!
+            Sign in on <strong>thewatchercom.vercel.app</strong>, then use <strong>Copy desktop sign-in token</strong> in Web Settings and paste it below.
           </p>
+        </div>
+      )}
+
+      {isDesktop && showGoogleHelp && (
+        <div className="desktop-token-login">
+          <input
+            type="password"
+            value={syncToken}
+            onChange={(event) => setSyncToken(event.target.value)}
+            placeholder="Paste desktop sign-in token"
+            aria-label="Desktop sign-in token"
+            autoComplete="off"
+          />
+          <button type="button" onClick={handleDesktopTokenLogin} disabled={isLoading || !syncToken.trim()}>
+            {isLoading ? 'Connecting…' : 'Connect account'}
+          </button>
+          {tokenError && <span className="token-error">{tokenError}</span>}
         </div>
       )}
 
@@ -406,6 +431,12 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
           font-size: 12px;
           line-height: 1.4;
         }
+
+        .desktop-token-login { display: flex; flex-direction: column; gap: 8px; }
+        .desktop-token-login input { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--card-border); background: var(--background); color: var(--foreground); }
+        .desktop-token-login button { padding: 10px 14px; border: 0; border-radius: 10px; background: var(--primary); color: white; font-weight: 700; cursor: pointer; }
+        .desktop-token-login button:disabled { opacity: .55; cursor: not-allowed; }
+        .token-error { color: #ff6b72; font-size: 12px; }
 
         .help-icon {
           color: #3b82f6;

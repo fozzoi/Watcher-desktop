@@ -96,6 +96,7 @@ export default function SettingsPage() {
   // Cloud Sync & Google Auth
   const { 
     user, 
+    token,
     isSyncing, 
     lastSyncedAt, 
     syncError, 
@@ -104,6 +105,18 @@ export default function SettingsPage() {
     clearCloudData 
   } = useAuth();
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [desktopTokenCopied, setDesktopTokenCopied] = useState(false);
+
+  const handleCopyDesktopToken = async () => {
+    if (!token) return;
+    try {
+      await navigator.clipboard.writeText(token);
+      setDesktopTokenCopied(true);
+      window.setTimeout(() => setDesktopTokenCopied(false), 4000);
+    } catch {
+      setSyncFeedback('Could not access the clipboard. Check your browser permissions and try again.');
+    }
+  };
 
   // Tauri Updater State
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
@@ -499,6 +512,18 @@ export default function SettingsPage() {
                     <LogOut size={15} />
                     <span>Sign Out</span>
                   </button>
+
+                  {!isTauriApp() && (
+                    <button
+                      className="btn-secondary-setting"
+                      onClick={handleCopyDesktopToken}
+                      disabled={!token}
+                      title="Paste this token into Watcher Desktop to connect this account"
+                    >
+                      <Key size={15} />
+                      <span>{desktopTokenCopied ? 'Token Copied' : 'Copy desktop sign-in token'}</span>
+                    </button>
+                  )}
 
                   <button
                     className="btn-danger-setting"
