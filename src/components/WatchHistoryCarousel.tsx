@@ -310,6 +310,12 @@ export default function WatchHistoryCarousel({ history, onRemove }: WatchHistory
           border-color: transparent;
         }
 
+        @media (hover: none), (max-width: 768px) {
+          .remove-btn {
+            opacity: 1 !important;
+          }
+        }
+
         .play-overlay {
           position: absolute;
           top: 0;

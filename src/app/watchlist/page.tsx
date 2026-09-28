@@ -775,17 +775,28 @@ export default function WatchListPage() {
                         )}
                       </div>
 
-                      {/* Delete item button */}
+                      {/* Delete item / watchlist heart button */}
                       <button 
-                        className="remove-btn" 
+                        className={`remove-btn ${activeTab === 'watchlist' ? 'watchlist-heart-btn' : ''}`}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           handleRemove(item.id, activeTab);
                         }}
-                        title="Remove from library"
+                        title={activeTab === 'watchlist' ? "Remove from Watchlist" : "Remove from library"}
+                        aria-label={activeTab === 'watchlist' ? "Remove from Watchlist" : "Remove from library"}
                       >
-                        <Trash2 size={13} />
+                        {activeTab === 'watchlist' ? (
+                          <Heart 
+                            size={18} 
+                            fill="var(--primary)" 
+                            color="var(--primary)" 
+                            strokeWidth={2.4} 
+                            style={{ filter: 'drop-shadow(0 2px 6px rgba(229, 9, 20, 0.75))' }}
+                          />
+                        ) : (
+                          <Trash2 size={13} />
+                        )}
                       </button>
                     </div>
 
@@ -1425,8 +1436,8 @@ export default function WatchListPage() {
           position: absolute;
           top: 8px;
           right: 8px;
-          width: 28px;
-          height: 28px;
+          width: 30px;
+          height: 30px;
           border-radius: 50%;
           background: rgba(0, 0, 0, 0.75);
           border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1440,6 +1451,21 @@ export default function WatchListPage() {
           transition: opacity 0.2s ease, transform 0.2s ease;
         }
 
+        .remove-btn.watchlist-heart-btn {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          opacity: 1 !important;
+          padding: 0;
+        }
+
+        .remove-btn.watchlist-heart-btn:hover {
+          transform: scale(1.25);
+          background: transparent !important;
+        }
+
         .library-card-wrapper:hover .remove-btn {
           opacity: 1;
         }
@@ -1449,6 +1475,15 @@ export default function WatchListPage() {
           border-color: transparent;
           color: #fff;
           transform: scale(1.08);
+        }
+
+        /* On Touch / Small devices: ALWAYS visible so touch users can tap it! */
+        @media (hover: none), (max-width: 768px) {
+          .remove-btn {
+            opacity: 1 !important;
+            top: 6px;
+            right: 6px;
+          }
         }
 
         [data-theme="light"] .card-image-box {

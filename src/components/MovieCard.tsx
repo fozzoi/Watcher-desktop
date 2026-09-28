@@ -64,10 +64,15 @@ function MovieCard({ item, isAdded, toggleWatchlist, showTitle = false }: MovieC
           title={isAdded ? "In Watchlist" : "Add to Watchlist"}
         >
           <Heart 
-            size={16} 
+            size={18} 
             fill={isAdded ? "var(--primary)" : "none"} 
             color={isAdded ? "var(--primary)" : "#ffffff"} 
-            strokeWidth={2.2} 
+            strokeWidth={2.4} 
+            style={{
+              filter: isAdded 
+                ? 'drop-shadow(0 2px 6px rgba(229, 9, 20, 0.75))' 
+                : 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9))'
+            }}
           />
         </button>
       </div>
@@ -147,29 +152,23 @@ function MovieCard({ item, isAdded, toggleWatchlist, showTitle = false }: MovieC
           right: 8px;
           width: 32px;
           height: 32px;
-          border-radius: 50%;
-          background: rgba(14, 14, 18, 0.65);
-          backdrop-filter: blur(12px) saturate(180%);
-          -webkit-backdrop-filter: blur(12px) saturate(180%);
-          border: 1px solid rgba(255, 255, 255, 0.22);
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
           color: #ffffff;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
           z-index: 10;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
-          transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-                      background 0.2s ease, 
-                      border-color 0.2s ease, 
-                      box-shadow 0.2s ease;
+          padding: 0;
+          transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
         }
 
         .quick-add-btn:hover {
-          transform: scale(1.15);
-          background: rgba(14, 14, 18, 0.92);
-          border-color: rgba(255, 255, 255, 0.45);
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+          transform: scale(1.25);
         }
 
         .quick-add-btn:active {
@@ -177,25 +176,29 @@ function MovieCard({ item, isAdded, toggleWatchlist, showTitle = false }: MovieC
         }
 
         .quick-add-btn.added {
-          background: rgba(229, 9, 20, 0.35);
-          border-color: var(--primary);
-          color: var(--primary);
-          box-shadow: 0 0 14px rgba(229, 9, 20, 0.6);
+          opacity: 1 !important;
         }
 
-        [data-theme="light"] .quick-add-btn,
-        :global([data-theme="light"]) .quick-add-btn {
-          background: rgba(255, 255, 255, 0.85);
-          border: 1px solid rgba(0, 0, 0, 0.12);
-          color: #111827;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        /* On Desktop: Fade in on hover when not added, always show when added */
+        @media (hover: hover) {
+          .quick-add-btn:not(.added) {
+            opacity: 0;
+          }
+
+          .movie-card-container:hover .quick-add-btn {
+            opacity: 1;
+          }
         }
 
-        [data-theme="light"] .quick-add-btn.added,
-        :global([data-theme="light"]) .quick-add-btn.added {
-          background: rgba(229, 9, 20, 0.15);
-          border-color: var(--primary);
-          color: var(--primary);
+        /* On Touch / Small devices: ALWAYS visible */
+        @media (hover: none), (max-width: 768px) {
+          .quick-add-btn {
+            opacity: 1 !important;
+            top: 6px;
+            right: 6px;
+            width: 28px;
+            height: 28px;
+          }
         }
 
         .rating-overlay {
