@@ -26,6 +26,7 @@ interface AuthContextType {
   setGoogleClientId: (id: string) => void;
   loginWithGoogle: (idToken?: string, accessToken?: string) => Promise<boolean>;
   loginWithDemo: () => Promise<boolean>;
+  loginWithToken: (token: string) => Promise<boolean>;
   logout: () => Promise<void>;
   syncNow: () => Promise<boolean>;
   clearCloudData: () => Promise<boolean>;
@@ -202,6 +203,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Token-based Sign-In (For Desktop App sync token handoff from Web)
+  const loginWithToken = async (existingToken: string): Promise<boolean> => {
+    if (!existingToken || !existingToken.trim()) {
+      setSyncError('Please enter a valid sync token');
+      return false;
+    }
+
+    setIsLoading(true);
+    setSyncError(null);
+
+    try {
+      const cleanToken = existingToken.trim();
+      const response = await axios.get(`${AUTH_API_BASE}/api/auth`, {
+        headers: { Authorization: `Bearer ${cleanToken}` },
+        timeout: 12000,
+      });
+
+      const profile = response.data?.user;
+      if (!profile) {
+        throw new Error('Invalid authentication response from server');
+      }
+
+      setUser(profile);
+      setToken(cleanToken);
+
+      await Promise.all([
+        AsyncStorage.setItem('watcher_auth_token', cleanToken),
+        AsyncStorage.setItem('watcher_auth_user', JSON.stringify(profile)),
+      ]);
+
+      setIsSyncing(true);
+      const syncRes = await syncManager.performSync(cleanToken, 'merge');
+      setIsSyncing(false);
+
+      if (syncRes.success) {
+        setLastSyncedAt(new Date().toISOString());
+      }
+
+      return true;
+    } catch (err: any) {
+      console.error('Token login failed:', err?.response?.data || err.message);
+      setSyncError(err?.response?.data?.error || 'Invalid or expired sync token. Please log in on the Web app to get a fresh code.');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Logout handler
   const logout = async (): Promise<void> => {
     setUser(null);
@@ -261,6 +310,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setGoogleClientId,
         loginWithGoogle,
         loginWithDemo,
+        loginWithToken,
         logout,
         syncNow,
         clearCloudData,

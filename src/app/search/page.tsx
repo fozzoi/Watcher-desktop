@@ -44,8 +44,9 @@ function TorrentSearchContent() {
     return { label: 'SD', color: '#888' };
   };
 
-  const handleSearch = async (queryToSearch: string = searchQuery) => {
-    if (!queryToSearch.trim()) return;
+  const handleSearch = async (customQuery?: string) => {
+    const queryToSearch = (typeof customQuery === 'string' ? customQuery : searchQuery).trim();
+    if (!queryToSearch) return;
     
     setHasSearched(true);
     setLoading(true);
@@ -165,7 +166,7 @@ function TorrentSearchContent() {
         )}
         <button 
           className="search-submit-btn" 
-          onClick={handleSearch}
+          onClick={() => handleSearch()}
           disabled={loading || !searchQuery.trim()}
           aria-label="Submit search"
         >

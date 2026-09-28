@@ -159,7 +159,6 @@ export default function Navigation() {
                     >
                       <div className="nav-icon-container">
                         <Icon size={18} className="nav-item-icon" />
-                        {active && <span className="active-glow-pill" />}
                       </div>
                       {!collapsed && (
                         <>
@@ -256,7 +255,6 @@ export default function Navigation() {
             >
               <div className="dock-icon-wrapper">
                 <Icon size={21} className="dock-icon" />
-                {active && <span className="dock-active-dot" />}
               </div>
               <span className="dock-label">{item.name}</span>
             </Link>
@@ -766,16 +764,6 @@ export default function Navigation() {
           .dock-tab-btn.active .dock-icon {
             color: var(--primary);
             filter: drop-shadow(0 0 8px var(--primary-glow));
-          }
-
-          .dock-active-dot {
-            position: absolute;
-            bottom: -3px;
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            background: var(--primary);
-            box-shadow: 0 0 6px var(--primary);
           }
 
           .dock-label {
