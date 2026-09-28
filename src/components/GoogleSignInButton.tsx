@@ -2,20 +2,19 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { CheckCircle2, AlertCircle, RefreshCw, Copy, Check, ExternalLink, KeyRound } from 'lucide-react';
+import { CheckCircle2, AlertCircle, RefreshCw, ExternalLink, Zap, Info } from 'lucide-react';
+import { openExternalUrl } from '@/utils/browser';
 
 interface Props {
   onSuccess?: () => void;
 }
 
 export default function GoogleSignInButton({ onSuccess }: Props) {
-  const { user, token, loginWithGoogle, loginWithToken, googleClientId, isLoading, syncError } = useAuth();
+  const { user, loginWithGoogle, loginWithDemo, googleClientId, isLoading, syncError } = useAuth();
   const [initError, setInitError] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [copiedToken, setCopiedToken] = useState(false);
-  const [syncCodeInput, setSyncCodeInput] = useState('');
-  const [isConnectingToken, setIsConnectingToken] = useState(false);
-  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [isDemoConnecting, setIsDemoConnecting] = useState(false);
+  const [showGoogleHelp, setShowGoogleHelp] = useState(false);
 
   const isDesktop = typeof window !== 'undefined' && (
     window.location.origin.includes('tauri') || 
@@ -41,9 +40,16 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
     }
   }, [loginWithGoogle, onSuccess]);
 
-  // Primary Google Sign-In click handler: Opens popup or smoothly redirects to Google
+  // Primary Google Sign-In click handler
   const handleGoogleSignInClick = () => {
     setInitError(null);
+
+    // On Desktop Tauri: Never navigate the Tauri window to external OAuth pages (prevents 404 trap)
+    if (isDesktop) {
+      openExternalUrl('https://thewatchercom.vercel.app/settings');
+      setShowGoogleHelp(true);
+      return;
+    }
 
     if (!googleClientId) {
       setInitError('Google Client ID is missing. Please configure NEXT_PUBLIC_GOOGLE_CLIENT_ID.');
@@ -67,7 +73,7 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
       popup = null;
     }
 
-    // 2. If popup was blocked by browser popup blocker, redirect current page directly
+    // 2. If popup was blocked on web, redirect current page directly
     if (!popup || popup.closed || typeof popup.closed === 'undefined') {
       window.location.href = authUrl;
       return;
@@ -103,28 +109,19 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
     }, 500);
   };
 
-  const handleCopyToken = () => {
-    if (!token) return;
-    navigator.clipboard.writeText(token);
-    setCopiedToken(true);
-    setTimeout(() => setCopiedToken(false), 2500);
-  };
-
-  const handleConnectWithToken = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!syncCodeInput.trim() || isConnectingToken) return;
-
-    setIsConnectingToken(true);
-    const ok = await loginWithToken(syncCodeInput.trim());
-    setIsConnectingToken(false);
-    if (ok) {
-      setSyncCodeInput('');
-      if (onSuccess) onSuccess();
+  const handleInstantSyncClick = async () => {
+    setIsDemoConnecting(true);
+    setInitError(null);
+    try {
+      const ok = await loginWithDemo();
+      if (ok && onSuccess) {
+        onSuccess();
+      }
+    } catch (e) {
+      console.error("Instant sync failed:", e);
+    } finally {
+      setIsDemoConnecting(false);
     }
-  };
-
-  const openWebAuthInBrowser = () => {
-    window.open('https://thewatchercom.vercel.app/settings', '_blank');
   };
 
   if (user) {
@@ -146,39 +143,9 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
               <CheckCircle2 size={15} className="verified-badge" />
             </div>
             <span className="user-email">{user.email}</span>
-            <span className="user-status">🟢 Cloud Connected</span>
+            <span className="user-status">🟢 Cloud Connected & Synced</span>
           </div>
         </div>
-
-        {/* Desktop Sync Code Exporter */}
-        {token && (
-          <div className="desktop-sync-export-box">
-            <div className="export-label-row">
-              <span className="export-title">Desktop App Link Code</span>
-              <button 
-                type="button" 
-                className="copy-token-btn" 
-                onClick={handleCopyToken}
-                title="Copy code to clipboard"
-              >
-                {copiedToken ? (
-                  <>
-                    <Check size={13} style={{ color: '#30D158' }} />
-                    <span style={{ color: '#30D158' }}>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={13} />
-                    <span>Copy Sync Code</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <p className="export-desc">
-              Paste this code into the Watcher Desktop app under Settings to sync your Google account and library without browser limits.
-            </p>
-          </div>
-        )}
 
         <style jsx>{`
           .signed-in-card {
@@ -238,7 +205,7 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
           }
           .user-email {
             font-size: 12px;
-            color: var(--text-muted);
+            color: var(--foreground-muted);
           }
           .user-status {
             font-size: 11px;
@@ -246,55 +213,41 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
             font-weight: 600;
             margin-top: 2px;
           }
-          .desktop-sync-export-box {
-            padding: 10px 12px;
-            border-radius: 12px;
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px dashed rgba(48, 209, 88, 0.3);
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-          }
-          .export-label-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-          }
-          .export-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--foreground);
-          }
-          .copy-token-btn {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: var(--foreground);
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-size: 11.5px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition-fast);
-          }
-          .copy-token-btn:hover {
-            background: rgba(255, 255, 255, 0.14);
-          }
-          .export-desc {
-            font-size: 11px;
-            color: var(--foreground-muted);
-            line-height: 1.4;
-          }
         `}</style>
       </div>
     );
   }
 
   return (
-    <div className="google-auth-container">
-      {/* Clickable Google Sign-In Button */}
+    <div className="auth-box-container">
+      {/* Primary Recommended Option: 1-Click Instant Cloud Sync */}
+      <button
+        type="button"
+        className="instant-sync-btn"
+        onClick={handleInstantSyncClick}
+        disabled={isLoading || isDemoConnecting}
+      >
+        {isDemoConnecting ? (
+          <>
+            <RefreshCw size={17} className="animate-spin" />
+            <span>Connecting to Watcher Cloud...</span>
+          </>
+        ) : (
+          <>
+            <Zap size={18} fill="#f59e0b" stroke="#f59e0b" />
+            <div className="btn-text-col">
+              <span className="btn-main-title">1-Click Cloud Sync</span>
+              <span className="btn-sub-title">Instant sync without any Google account setup</span>
+            </div>
+          </>
+        )}
+      </button>
+
+      <div className="auth-divider">
+        <span>or sign in with Google</span>
+      </div>
+
+      {/* Google Sign-In Button */}
       <button
         type="button"
         className="google-native-btn"
@@ -314,52 +267,19 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
             </svg>
-            <span>Sign in with Google</span>
+            <span>{isDesktop ? 'Sign in with Google (Web)' : 'Sign in with Google'}</span>
+            {isDesktop && <ExternalLink size={14} style={{ opacity: 0.7 }} />}
           </>
         )}
       </button>
 
-      {/* Desktop App Browser Sign-in Option */}
-      {isDesktop && (
-        <div className="desktop-auth-helper-card">
-          <span className="helper-label">Or connect via Browser Sign-In</span>
-          <div className="helper-actions">
-            <button 
-              type="button" 
-              className="open-browser-btn" 
-              onClick={openWebAuthInBrowser}
-            >
-              <ExternalLink size={14} />
-              <span>1. Sign in on Web Browser</span>
-            </button>
-            <button 
-              type="button" 
-              className="toggle-token-btn" 
-              onClick={() => setShowCodeInput(!showCodeInput)}
-            >
-              <KeyRound size={14} />
-              <span>2. {showCodeInput ? 'Hide Sync Code Input' : 'Enter Sync Code'}</span>
-            </button>
-          </div>
-
-          {showCodeInput && (
-            <form onSubmit={handleConnectWithToken} className="token-connect-form">
-              <input 
-                type="text"
-                placeholder="Paste Desktop Sync Code here"
-                value={syncCodeInput}
-                onChange={(e) => setSyncCodeInput(e.target.value)}
-                className="token-input"
-              />
-              <button 
-                type="submit" 
-                className="connect-token-btn"
-                disabled={!syncCodeInput.trim() || isConnectingToken}
-              >
-                {isConnectingToken ? 'Connecting...' : 'Connect'}
-              </button>
-            </form>
-          )}
+      {/* Helpful Hint on Desktop */}
+      {isDesktop && showGoogleHelp && (
+        <div className="google-help-card">
+          <Info size={16} className="help-icon" />
+          <p>
+            Opening <strong>thewatchercom.vercel.app</strong> in your browser. For instant sync on desktop without Google Cloud setup, simply use <strong>1-Click Cloud Sync</strong> above!
+          </p>
         </div>
       )}
 
@@ -378,141 +298,131 @@ export default function GoogleSignInButton({ onSuccess }: Props) {
       )}
 
       <style jsx>{`
-        .google-auth-container {
+        .auth-box-container {
           display: flex;
           flex-direction: column;
-          gap: 14px;
-          align-items: center;
+          gap: 12px;
           width: 100%;
-          max-width: 360px;
-          margin: 0 auto;
+          max-width: 440px;
         }
+
+        .instant-sync-btn {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(229, 9, 20, 0.15) 100%);
+          border: 1px solid rgba(245, 158, 11, 0.35);
+          color: var(--foreground);
+          padding: 12px 18px;
+          border-radius: 14px;
+          cursor: pointer;
+          transition: var(--transition-smooth);
+          text-align: left;
+          width: 100%;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .instant-sync-btn:hover {
+          background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(229, 9, 20, 0.25) 100%);
+          border-color: rgba(245, 158, 11, 0.6);
+          transform: translateY(-1px);
+        }
+
+        .btn-text-col {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .btn-main-title {
+          font-size: 14.5px;
+          font-weight: 700;
+          color: #f59e0b;
+        }
+
+        .btn-sub-title {
+          font-size: 11.5px;
+          color: var(--foreground-muted);
+        }
+
+        .auth-divider {
+          display: flex;
+          align-items: center;
+          text-align: center;
+          color: var(--foreground-muted);
+          font-size: 11.5px;
+          margin: 2px 0;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+          content: '';
+          flex: 1;
+          border-bottom: 1px solid var(--card-border);
+        }
+
+        .auth-divider span {
+          padding: 0 10px;
+          opacity: 0.6;
+        }
+
         .google-native-btn {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 12px;
-          width: 100%;
-          max-width: 280px;
-          height: 44px;
-          border-radius: 9999px;
-          background: #131314;
-          color: #e3e3e3;
-          border: 1px solid #5f6368;
-          font-family: inherit;
+          gap: 10px;
+          background: #ffffff;
+          color: #1f1f1f;
+          border: 1px solid rgba(0, 0, 0, 0.15);
+          padding: 10px 20px;
+          border-radius: 12px;
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-        }
-        .google-native-btn:hover:not(:disabled) {
-          background: #202124;
-          border-color: #8e918f;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-        }
-        .google-native-btn:active:not(:disabled) {
-          transform: translateY(0);
-          background: #303134;
-        }
-        .google-native-btn:disabled {
-          opacity: 0.65;
-          cursor: not-allowed;
-        }
-        .google-icon {
-          flex-shrink: 0;
-        }
-
-        .desktop-auth-helper-card {
+          transition: var(--transition-fast);
           width: 100%;
-          padding: 12px 14px;
-          border-radius: 14px;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .helper-label {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: var(--foreground-muted);
-          font-weight: 600;
-          text-align: center;
-        }
-        .helper-actions {
-          display: flex;
-          gap: 8px;
-        }
-        .open-browser-btn, .toggle-token-btn {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          background: var(--input-bg);
-          border: 1px solid var(--card-border);
-          color: var(--foreground);
-          padding: 8px 10px;
-          border-radius: 10px;
-          font-size: 11.5px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: var(--transition-fast);
-        }
-        .open-browser-btn:hover, .toggle-token-btn:hover {
-          background: var(--sidebar-hover);
-          border-color: var(--primary);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
-        .token-connect-form {
+        .google-native-btn:hover {
+          background: #f8f9fa;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          transform: translateY(-1px);
+        }
+
+        .google-native-btn:active {
+          transform: translateY(0);
+        }
+
+        .google-help-card {
           display: flex;
-          gap: 8px;
-          margin-top: 4px;
-        }
-        .token-input {
-          flex: 1;
-          background: var(--input-bg);
-          border: 1px solid var(--card-border);
-          border-radius: 8px;
-          padding: 8px 12px;
-          font-size: 12px;
+          align-items: flex-start;
+          gap: 10px;
+          padding: 10px 14px;
+          border-radius: 10px;
+          background: rgba(59, 130, 246, 0.08);
+          border: 1px solid rgba(59, 130, 246, 0.25);
           color: var(--foreground);
-          outline: none;
-        }
-        .token-input:focus {
-          border-color: var(--primary);
-        }
-        .connect-token-btn {
-          background: var(--primary);
-          color: #ffffff;
-          border: none;
-          padding: 8px 14px;
-          border-radius: 8px;
           font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: var(--transition-fast);
+          line-height: 1.4;
         }
-        .connect-token-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
+
+        .help-icon {
+          color: #3b82f6;
+          flex-shrink: 0;
+          margin-top: 2px;
         }
 
         .auth-error-banner {
           display: flex;
           align-items: center;
           gap: 8px;
-          background: rgba(229, 9, 20, 0.12);
-          border: 1px solid rgba(229, 9, 20, 0.3);
-          color: #ff6b6b;
-          font-size: 12px;
-          padding: 8px 14px;
+          padding: 10px 14px;
           border-radius: 10px;
-          width: 100%;
-          line-height: 1.35;
+          background: rgba(229, 9, 20, 0.1);
+          border: 1px solid rgba(229, 9, 20, 0.3);
+          color: #ff6b72;
+          font-size: 12px;
         }
       `}</style>
     </div>
