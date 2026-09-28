@@ -61,7 +61,7 @@ jobs:
       - name: Build Next.js frontend
         run: npm run build
         env:
-          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '36298979840-vdgsir6fd1kkaj28m24r6mmdq7p1fdg7.apps.googleusercontent.com' }}
 
       - name: Build & sign Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -69,7 +69,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '36298979840-vdgsir6fd1kkaj28m24r6mmdq7p1fdg7.apps.googleusercontent.com' }}
         with:
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'watcher-v__VERSION__' }}
           releaseName: Watcher App ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v__VERSION__' }}
