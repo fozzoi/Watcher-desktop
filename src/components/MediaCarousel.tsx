@@ -13,7 +13,7 @@ interface MediaCarouselProps {
   toggleWatchlist: (item: any, e: React.MouseEvent) => void;
 }
 
-export default function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCarouselProps) {
+function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCarouselProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   if (!data || data.length === 0) return null;
@@ -111,7 +111,7 @@ export default function MediaCarousel({ title, type, data, savedIds, toggleWatch
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          background: rgba(255, 255, 255, 0.05);
+          background: var(--card-bg);
           border: 1px solid var(--card-border);
           color: var(--foreground-muted);
           display: flex;
@@ -142,7 +142,8 @@ export default function MediaCarousel({ title, type, data, savedIds, toggleWatch
 
         .carousel-wrapper {
           position: relative;
-          margin: 0 -10px;
+          margin: 0;
+          width: 100%;
         }
 
         .scroll-container {
@@ -151,7 +152,7 @@ export default function MediaCarousel({ title, type, data, savedIds, toggleWatch
           overflow-x: auto;
           scroll-snap-type: x mandatory;
           scroll-behavior: smooth;
-          padding: 10px;
+          padding: 6px 0 16px 0;
           scrollbar-width: none; /* Firefox */
         }
 
@@ -173,6 +174,36 @@ export default function MediaCarousel({ title, type, data, savedIds, toggleWatch
             width: 180px;
             min-width: 180px;
             max-width: 180px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .carousel-wrapper {
+            margin: 0;
+          }
+
+          .scroll-container {
+            gap: 12px;
+            padding: 4px 0 14px 0;
+          }
+
+          .scroll-item {
+            flex: 0 0 135px;
+            width: 135px;
+            min-width: 135px;
+            max-width: 135px;
+          }
+
+          .carousel-section {
+            margin-bottom: 28px;
+          }
+
+          .carousel-title {
+            font-size: 17px;
+          }
+
+          .carousel-header {
+            margin-bottom: 12px;
           }
         }
 
@@ -219,11 +250,14 @@ export default function MediaCarousel({ title, type, data, savedIds, toggleWatch
         }
 
         @media (max-width: 768px) {
-          .nav-btn {
-            display: none; /* touch scroll is preferred on mobile */
+          .nav-btn,
+          .header-nav-arrows {
+            display: none !important; /* touch scroll is preferred on small screens */
           }
         }
       `}</style>
     </div>
   );
 }
+
+export default React.memo(MediaCarousel);

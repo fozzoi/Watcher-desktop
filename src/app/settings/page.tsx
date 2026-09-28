@@ -511,23 +511,10 @@ export default function SettingsPage() {
               </div>
             ) : (
               <div className="cloud-signin-box">
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid var(--card-border)',
-                  marginBottom: '16px',
-                  fontSize: '13px',
-                  color: 'var(--text-secondary)'
-                }}>
-                  <Shield size={16} style={{ color: '#30D158', flexShrink: 0 }} />
+                <div className="privacy-badge-box">
+                  <Shield size={16} className="privacy-shield-icon" />
                   <span>
-                    <strong>Local-First &amp;
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px); Private:</strong> No account required to use Watcher. Sign in below only if you want cross-device library synchronization.
+                    <strong>Local-First &amp; Private:</strong> No account required to use Watcher. Sign in below only if you want cross-device library synchronization.
                   </span>
                 </div>
                 <GoogleSignInButton />
@@ -986,8 +973,6 @@ export default function SettingsPage() {
       <style jsx>{`
         .settings-container {
           max-width: 820px;
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
           margin: 0 auto;
           padding-bottom: 60px;
         }
@@ -1026,9 +1011,10 @@ export default function SettingsPage() {
           border-radius: var(--border-radius-md);
           border: 1px solid var(--card-border);
           padding: 24px;
-          background: rgba(20, 20, 25, 0.4);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: var(--card-bg);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          box-shadow: 0 4px 20px var(--shadow-color);
         }
 
         .section-header {
@@ -1036,7 +1022,7 @@ export default function SettingsPage() {
           align-items: center;
           gap: 10px;
           margin-bottom: 18px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          border-bottom: 1px solid var(--input-border);
           padding-bottom: 12px;
         }
 
@@ -1065,10 +1051,10 @@ export default function SettingsPage() {
 
         /* Profile Summary Box */
         .profile-summary-box {
-          background: rgba(255, 255, 255, 0.02);
+          background: var(--input-bg);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
-          border: 1px solid var(--card-border);
+          border: 1px solid var(--input-border);
           border-radius: var(--border-radius-md);
           padding: 16px;
           display: flex;
@@ -1097,10 +1083,8 @@ export default function SettingsPage() {
         }
 
         .summary-chip {
-          background: rgba(255, 255, 255, 0.06);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: var(--card-bg);
+          border: 1px solid var(--input-border);
           border-radius: 14px;
           padding: 3px 10px;
           font-size: 12px;
@@ -1109,11 +1093,14 @@ export default function SettingsPage() {
         }
 
         .summary-chip.star-chip {
-          border-color: rgba(234, 179, 8, 0.3);
+          border-color: rgba(234, 179, 8, 0.35);
+          color: #d97706;
+          background: rgba(245, 158, 11, 0.1);
+        }
+
+        [data-theme="dark"] .summary-chip.star-chip {
           color: #facc15;
-          background: rgba(234, 179, 8, 0.08);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: rgba(234, 179, 8, 0.12);
         }
 
         .summary-muted {
@@ -1152,7 +1139,7 @@ export default function SettingsPage() {
 
         .btn-secondary-setting {
           background: var(--input-bg);
-          border: 1px solid var(--card-border);
+          border: 1px solid var(--input-border);
           color: var(--foreground);
           padding: 8px 16px;
           border-radius: 12px;
@@ -1239,7 +1226,7 @@ export default function SettingsPage() {
         .memory-clear-btn {
           background: transparent;
           border: none;
-          color: #fca5a5;
+          color: #ef4444;
           font-size: 11.5px;
           font-weight: 600;
           cursor: pointer;
@@ -1293,11 +1280,11 @@ export default function SettingsPage() {
         /* Segmented Selector */
         .segmented-selector {
           display: flex;
-          gap: 6px;
+          gap: 4px;
           background: var(--input-bg);
           padding: 4px;
           border-radius: 12px;
-          border: 1px solid var(--card-border);
+          border: 1px solid var(--input-border);
         }
 
         .segmented-selector button {
@@ -1319,8 +1306,8 @@ export default function SettingsPage() {
         .segmented-selector button.active {
           background: var(--card-bg);
           color: var(--foreground);
-          border-color: var(--card-border);
-          box-shadow: 0 1px 4px var(--shadow-color);
+          border-color: var(--input-border);
+          box-shadow: 0 2px 6px var(--shadow-color);
         }
 
         /* Switch list */
@@ -1375,11 +1362,9 @@ export default function SettingsPage() {
           left: 0;
           right: 0;
           bottom: 0;
-          background-color: rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background-color: var(--input-border);
           transition: .3s;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid var(--input-border);
         }
 
         .slider:before {
@@ -1391,11 +1376,12 @@ export default function SettingsPage() {
           bottom: 3px;
           background-color: white;
           transition: .3s;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
         input:checked + .slider {
           background-color: var(--primary);
+          border-color: var(--primary);
         }
 
         input:checked + .slider:before {
@@ -1420,7 +1406,7 @@ export default function SettingsPage() {
           justify-content: space-between;
           align-items: center;
           padding-bottom: 16px;
-          border-bottom: 1px dashed rgba(255,255,255,0.04);
+          border-bottom: 1px dashed var(--input-border);
           gap: 24px;
         }
 
@@ -1453,10 +1439,8 @@ export default function SettingsPage() {
         }
 
         .btn-danger-setting {
-          background: rgba(239, 68, 68, 0.12);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          color: #fca5a5;
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
           border: 1px solid rgba(239, 68, 68, 0.25);
           padding: 8px 16px;
           border-radius: 20px;
@@ -1470,11 +1454,8 @@ export default function SettingsPage() {
         }
 
         .btn-danger-setting:hover {
-          background: rgba(239, 68, 68, 0.25);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border-color: rgba(239, 68, 68, 0.5);
-          color: #fff;
+          background: rgba(239, 68, 68, 0.2);
+          border-color: rgba(239, 68, 68, 0.4);
           transform: translateY(-1px);
         }
 
@@ -1483,10 +1464,8 @@ export default function SettingsPage() {
           display: flex;
           flex-direction: column;
           gap: 16px;
-          background: rgba(0, 180, 216, 0.04);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(0, 180, 216, 0.2);
+          background: var(--input-bg);
+          border: 1px solid rgba(0, 180, 216, 0.25);
           border-radius: 16px;
           padding: 20px;
         }
@@ -1547,16 +1526,18 @@ export default function SettingsPage() {
           padding: 2px 8px;
           border-radius: 9999px;
           background: rgba(48, 209, 88, 0.15);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          color: #30D158;
+          color: #16a34a;
           font-size: 11px;
           font-weight: 700;
         }
 
+        [data-theme="dark"] .cloud-badge {
+          color: #30D158;
+        }
+
         .cloud-user-email {
           font-size: 13px;
-          color: var(--text-muted);
+          color: var(--foreground-muted);
         }
 
         .cloud-sync-time {
@@ -1569,8 +1550,12 @@ export default function SettingsPage() {
           display: inline-flex;
           align-items: center;
           gap: 5px;
-          color: #FFD60A;
+          color: #d97706;
           font-weight: 600;
+        }
+
+        [data-theme="dark"] .syncing-text {
+          color: #FFD60A;
         }
 
         .cloud-actions-row {
@@ -1578,11 +1563,34 @@ export default function SettingsPage() {
           flex-wrap: wrap;
           gap: 10px;
           padding-top: 12px;
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          border-top: 1px solid var(--input-border);
         }
 
         .cloud-signin-box {
           padding: 10px 0;
+        }
+
+        .privacy-badge-box {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 14px;
+          border-radius: 10px;
+          background: var(--input-bg);
+          border: 1px solid var(--input-border);
+          margin-bottom: 16px;
+          font-size: 13px;
+          color: var(--foreground-muted);
+          line-height: 1.4;
+        }
+
+        .privacy-shield-icon {
+          color: #16a34a;
+          flex-shrink: 0;
+        }
+
+        [data-theme="dark"] .privacy-shield-icon {
+          color: #30D158;
         }
 
         .sync-feedback-banner {
@@ -1590,10 +1598,8 @@ export default function SettingsPage() {
           align-items: center;
           gap: 8px;
           background: rgba(48, 209, 88, 0.12);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(48, 209, 88, 0.3);
-          color: #30D158;
+          color: #16a34a;
           font-size: 13px;
           font-weight: 600;
           padding: 10px 16px;
@@ -1601,19 +1607,43 @@ export default function SettingsPage() {
           margin-top: 12px;
         }
 
+        [data-theme="dark"] .sync-feedback-banner {
+          color: #30D158;
+        }
+
         .sync-error-banner {
           display: flex;
           align-items: center;
           gap: 8px;
-          background: rgba(229, 9, 20, 0.12);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(229, 9, 20, 0.3);
-          color: #ff6b6b;
+          background: rgba(229, 9, 20, 0.1);
+          border: 1px solid rgba(229, 9, 20, 0.25);
+          color: #dc2626;
           font-size: 13px;
           padding: 10px 16px;
           border-radius: 12px;
           margin-top: 12px;
+        }
+
+        [data-theme="dark"] .sync-error-banner {
+          color: #ff6b6b;
+        }
+
+        @media (max-width: 640px) {
+          .settings-section {
+            padding: 18px 16px;
+          }
+
+          .toggle-item {
+            gap: 14px;
+          }
+
+          .toggle-title {
+            font-size: 13.5px;
+          }
+
+          .toggle-desc {
+            font-size: 11.5px;
+          }
         }
       `}</style>
     </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { Star, Heart } from 'lucide-react';
 import { getImageUrl } from '@/utils/tmdb';
 
@@ -12,7 +13,9 @@ interface MovieCardProps {
   showTitle?: boolean;
 }
 
-export default function MovieCard({ item, isAdded, toggleWatchlist, showTitle = false }: MovieCardProps) {
+function MovieCard({ item, isAdded, toggleWatchlist, showTitle = false }: MovieCardProps) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+
   if (!item.poster_path) return null;
 
   const titleText = item.title || item.name;
@@ -21,32 +24,53 @@ export default function MovieCard({ item, isAdded, toggleWatchlist, showTitle = 
   const mediaType = item.media_type || (item.first_air_date ? 'tv' : 'movie');
 
   return (
-    <div className="movie-card-container">
+    <motion.div 
+      className="movie-card-container"
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      whileHover={{ y: -4, transition: { duration: 0.18, ease: "easeOut" } }}
+      whileTap={{ scale: 0.98 }}
+    >
       <Link href={`/detail?id=${item.id}&type=${mediaType}`} className="movie-card-link">
         <div className="image-wrapper">
           <img
             src={getImageUrl(item.poster_path, 'w342')}
             alt={titleText}
-            className="card-image"
+            className={`card-image ${imageLoaded ? 'loaded' : ''}`}
             loading="lazy"
+            decoding="async"
+            fetchPriority="low"
+            onLoad={() => setImageLoaded(true)}
           />
-          <button
+
+          <motion.button
+            type="button"
             className={`quick-add-btn ${isAdded ? 'added' : ''}`}
             onClick={(e) => toggleWatchlist(item, e)}
-            aria-label="Add to watchlist"
+            whileHover={{ scale: 1.15 }}
+            whileTap={{ scale: 0.88 }}
+            aria-label={isAdded ? "Remove from watchlist" : "Add to watchlist"}
+            title={isAdded ? "In Watchlist" : "Add to Watchlist"}
           >
-            <Heart size={16} fill={isAdded ? "var(--primary)" : "none"} />
-          </button>
+            <Heart 
+              size={18} 
+              fill={isAdded ? "var(--primary)" : "none"} 
+              color={isAdded ? "var(--primary)" : "#ffffff"} 
+              strokeWidth={2.2} 
+            />
+          </motion.button>
           
           {rating && (
             <div className="rating-overlay">
               <div className="rating-badge">
-                <Star size={10} fill="gold" stroke="gold" />
+                <Star size={12} fill="#f59e0b" stroke="#f59e0b" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' }} />
                 <span>{rating}</span>
               </div>
             </div>
           )}
         </div>
+
         {showTitle && (
           <h3 className="card-title" title={titleText}>
             {titleText}
@@ -59,11 +83,7 @@ export default function MovieCard({ item, isAdded, toggleWatchlist, showTitle = 
           width: 100%;
           min-width: 0;
           max-width: 100%;
-          transition: var(--transition-smooth);
-        }
-
-        .movie-card-container:hover {
-          transform: translateY(-4px);
+          will-change: transform;
         }
 
         .movie-card-link {
@@ -81,79 +101,88 @@ export default function MovieCard({ item, isAdded, toggleWatchlist, showTitle = 
           aspect-ratio: 2/3;
           border-radius: var(--border-radius-md);
           overflow: hidden;
-          background: #151518;
-          border: 1px solid var(--card-border);
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-          transition: var(--transition-smooth);
+          background: rgba(255, 255, 255, 0.04);
+          border: none;
+          box-shadow: 0 4px 16px var(--shadow-color);
+          transition: box-shadow 0.25s ease;
         }
 
         .movie-card-container:hover .image-wrapper {
-          border-color: var(--primary-glow);
-          box-shadow: 0 6px 24px rgba(229, 9, 20, 0.15);
+          box-shadow: 0 8px 24px var(--shadow-color);
         }
 
         .card-image {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: var(--transition-smooth);
+          opacity: 0;
+          transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          will-change: opacity, transform;
+        }
+
+        .card-image.loaded {
+          opacity: 1;
         }
 
         .movie-card-container:hover .card-image {
-          scale: 1.05;
+          transform: scale(1.04);
         }
 
         .quick-add-btn {
           position: absolute;
-          top: 10px;
-          right: 10px;
+          top: 8px;
+          right: 8px;
           width: 32px;
           height: 32px;
           border-radius: 50%;
-          background: rgba(0, 0, 0, 0.6);
+          background: rgba(14, 14, 18, 0.65);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          color: var(--foreground);
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          color: #ffffff;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
           z-index: 10;
-          transition: var(--transition-smooth);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+          transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .quick-add-btn:hover {
-          background: rgba(0, 0, 0, 0.85);
-          scale: 1.1;
+          background: rgba(14, 14, 18, 0.9);
+          border-color: rgba(255, 255, 255, 0.4);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
         }
 
         .quick-add-btn.added {
+          background: rgba(229, 9, 20, 0.25);
+          border-color: var(--primary);
           color: var(--primary);
-          border-color: rgba(229, 9, 20, 0.3);
+          box-shadow: 0 0 14px rgba(229, 9, 20, 0.55);
         }
 
         .rating-overlay {
           position: absolute;
-          bottom: 10px;
-          left: 10px;
+          bottom: 8px;
+          left: 8px;
           z-index: 5;
+          pointer-events: none;
         }
 
         .rating-badge {
           display: flex;
           align-items: center;
           gap: 4px;
-          background: rgba(0, 0, 0, 0.75);
-          backdrop-filter: blur(6px);
-          -webkit-backdrop-filter: blur(6px);
-          padding: 4px 8px;
-          border-radius: var(--border-radius-sm);
-          font-size: 11px;
+          background: transparent;
+          border: none;
+          box-shadow: none;
+          padding: 0;
+          font-size: 12px;
           font-weight: 700;
-          color: var(--foreground);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+          color: #ffffff;
+          filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.95));
+          letter-spacing: 0.2px;
         }
 
         .card-title {
@@ -172,7 +201,36 @@ export default function MovieCard({ item, isAdded, toggleWatchlist, showTitle = 
         .movie-card-container:hover .card-title {
           color: var(--foreground);
         }
+
+        @media (max-width: 640px) {
+          .image-wrapper {
+            border-radius: 12px;
+          }
+
+          .quick-add-btn {
+            top: 6px;
+            right: 6px;
+            width: 24px;
+            height: 24px;
+          }
+
+          .rating-overlay {
+            bottom: 6px;
+            left: 6px;
+          }
+
+          .rating-badge {
+            font-size: 11px;
+            gap: 3px;
+          }
+
+          .card-title {
+            font-size: 11.5px;
+          }
+        }
       `}</style>
-    </div>
+    </motion.div>
   );
 }
+
+export default React.memo(MovieCard);

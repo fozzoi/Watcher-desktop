@@ -4,7 +4,7 @@
   --bg-color: #0c0c0e;
   --bg-gradient-start: #0a0a0f;
   --bg-gradient-end: #040406;
-  --card-bg: rgba(20, 20, 25, 0.7);
+  --card-bg: rgba(20, 20, 26, 0.8);
   --card-border: rgba(255, 255, 255, 0.08);
   --card-hover-border: rgba(229, 9, 20, 0.4);
   --foreground: #f5f5f7;
@@ -13,40 +13,42 @@
   --primary-glow: rgba(229, 9, 20, 0.35);
   --primary-gradient: linear-gradient(135deg, #f51b27 0%, #b81d24 100%);
   --accent: #ff4a5a;
-  --sidebar-bg: linear-gradient(135deg, rgba(25, 25, 30, 0.75) 0%, rgba(10, 10, 15, 0.85) 100%);
-  --sidebar-hover: rgba(255, 255, 255, 0.04);
+  --sidebar-bg: #0e0e13;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-hover: rgba(255, 255, 255, 0.05);
   --input-bg: rgba(255, 255, 255, 0.06);
-  --input-border: rgba(255, 255, 255, 0.1);
+  --input-border: rgba(255, 255, 255, 0.12);
   --input-focus-bg: rgba(255, 255, 255, 0.09);
   --scrollbar-thumb: rgba(255, 255, 255, 0.15);
-  --shadow-color: rgba(0, 0, 0, 0.37);
-  --badge-bg: rgba(255, 255, 255, 0.03);
-  --badge-border: rgba(255, 255, 255, 0.08);
+  --shadow-color: rgba(0, 0, 0, 0.35);
+  --badge-bg: rgba(255, 255, 255, 0.05);
+  --badge-border: rgba(255, 255, 255, 0.1);
   color-scheme: dark;
 }
 
 /* ===== Light Theme ===== */
 [data-theme="light"] {
-  --bg-color: #f5f5f7;
-  --bg-gradient-start: #f0f0f4;
-  --bg-gradient-end: #e8e8ee;
-  --card-bg: rgba(255, 255, 255, 0.94);
+  --bg-color: #f6f7fb;
+  --bg-gradient-start: #f8f9fd;
+  --bg-gradient-end: #edf0f7;
+  --card-bg: #ffffff;
   --card-border: rgba(0, 0, 0, 0.08);
-  --card-hover-border: rgba(229, 9, 20, 0.35);
-  --foreground: #1a1a2e;
-  --foreground-muted: rgba(26, 26, 46, 0.62);
-  --primary: #d40812;
-  --primary-glow: rgba(212, 8, 18, 0.2);
-  --primary-gradient: linear-gradient(135deg, #e51c28 0%, #c41920 100%);
-  --accent: #e83545;
-  --sidebar-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 245, 250, 0.98) 100%);
-  --sidebar-hover: rgba(0, 0, 0, 0.05);
+  --card-hover-border: rgba(229, 9, 20, 0.4);
+  --foreground: #111827;
+  --foreground-muted: #6b7280;
+  --primary: #e50914;
+  --primary-glow: rgba(229, 9, 20, 0.25);
+  --primary-gradient: linear-gradient(135deg, #f51b27 0%, #c41920 100%);
+  --accent: #ef4444;
+  --sidebar-bg: #ffffff;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-hover: rgba(0, 0, 0, 0.04);
   --input-bg: #ffffff;
   --input-border: rgba(0, 0, 0, 0.12);
   --input-focus-bg: #ffffff;
-  --scrollbar-thumb: rgba(0, 0, 0, 0.15);
-  --shadow-color: rgba(0, 0, 0, 0.08);
-  --badge-bg: rgba(0, 0, 0, 0.05);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --shadow-color: rgba(0, 0, 0, 0.06);
+  --badge-bg: rgba(0, 0, 0, 0.04);
   --badge-border: rgba(0, 0, 0, 0.08);
   color-scheme: light;
 }
@@ -70,12 +72,22 @@
   font-family: var(--font-sans);
 }
 
+html {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   color: var(--foreground);
   background-color: var(--bg-color);
   background-attachment: fixed;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
   overflow-x: hidden;
+  position: relative;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
@@ -176,25 +188,69 @@ a {
   transform: translateY(-1px);
 }
 
-/* Layout structural elements */
+/* Hide Next.js dev overlay indicator */
+nextjs-portal, [data-nextjs-toast], #__next-build-watcher {
+  display: none !important;
+}
+
 .layout-container {
   display: flex;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  position: relative;
 }
 
 .main-content {
   flex: 1;
-  padding: 30px 40px 100px 40px;
-  margin-left: var(--sidebar-width);
-  transition: margin-left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  width: calc(100% - var(--sidebar-width));
+  margin-left: calc(var(--sidebar-width) + 24px);
+  width: calc(100% - (var(--sidebar-width) + 24px));
+  max-width: calc(100% - (var(--sidebar-width) + 24px));
+  padding: 24px 32px 80px 32px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  position: relative;
+  transition: margin-left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+              width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-@media (max-width: 900px) {
+.desktop-sidebar.collapsed ~ .main-content {
+  margin-left: calc(var(--sidebar-collapsed-width) + 24px);
+  width: calc(100% - (var(--sidebar-collapsed-width) + 24px));
+  max-width: calc(100% - (var(--sidebar-collapsed-width) + 24px));
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
   .main-content {
-    margin-left: var(--sidebar-collapsed-width);
-    width: calc(100% - var(--sidebar-collapsed-width));
-    padding: 20px 20px 100px 20px;
+    margin-left: calc(var(--sidebar-collapsed-width) + 20px) !important;
+    width: calc(100% - (var(--sidebar-collapsed-width) + 20px)) !important;
+    max-width: calc(100% - (var(--sidebar-collapsed-width) + 20px)) !important;
+    padding: 20px 24px 80px 24px;
+  }
+}
+
+/* Small screen breakpoint where sidebar switches to bottom tab bar */
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    padding: 16px 16px 110px 16px;
+    box-sizing: border-box;
+  }
+}
+
+/* On small screens, hide left/right navigation arrows since native touch swiping is used */
+@media (max-width: 768px) {
+  .header-nav-arrows,
+  .carousel-nav-arrows,
+  .nav-arrow-btn,
+  .genre-nav-btn,
+  .header-arrow-btn,
+  .nav-btn {
+    display: none !important;
   }
 }
 
@@ -235,11 +291,18 @@ a {
   }
 }
 
-/* Micro-animations */
+@media (max-width: 640px) {
+  .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+  }
+}
+
+/* Micro-animations — light, subtle, performant */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -248,7 +311,7 @@ a {
 }
 
 .animate-fade-in-up {
-  animation: fadeInUp 0.5s ease forwards;
+  animation: fadeInUp 0.2s ease forwards;
 }
 
 /* ===== Universal Theme Overrides & Helpers ===== */

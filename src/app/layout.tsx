@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/context/AuthContext";
+import { Analytics } from "@vercel/analytics/next"
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -14,6 +15,14 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "Watcher - Torrent Streamer",
   description: "Seamlessly search and stream media content.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -32,6 +41,7 @@ export default function RootLayout({
                 {children}
               </main>
             </div>
+            <Analytics />
           </AuthProvider>
         </ThemeProvider>
       </body>

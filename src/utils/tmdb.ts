@@ -652,12 +652,50 @@ export const getPersonDetails = async (personId: number): Promise<TMDBPerson> =>
 
 export const getPersonCombinedCredits = async (personId: number): Promise<TMDBResult[]> => {
   const data = await fetchWithCache(`/person/${personId}/combined_credits`);
-  const castItems = data.cast || [];
-  return castItems.map((item: any) => ({
+  const castItems = (data.cast || []).map((item: any) => ({
     ...formatBasicItemData(item),
     media_type: item.media_type || (item.title ? "movie" : "tv"),
-    character: item.character || null
+    character: item.character || null,
+    credit_type: 'cast'
   }));
+
+  const crewItems = (data.crew || []).map((item: any) => ({
+    ...formatBasicItemData(item),
+    media_type: item.media_type || (item.title ? "movie" : "tv"),
+    job: item.job || null,
+    department: item.department || null,
+    credit_type: 'crew'
+  }));
+
+  // Merge cast and crew into a deduplicated list, preserving directorial work
+  const combinedMap = new Map<number, any>();
+  
+  // Prioritize crew/directorial credits
+  crewItems.forEach((item: any) => {
+    if (!combinedMap.has(item.id)) {
+      combinedMap.set(item.id, item);
+    } else {
+      const existing = combinedMap.get(item.id);
+      if (item.job === 'Director' || item.department === 'Directing') {
+        combinedMap.set(item.id, { ...existing, ...item });
+      }
+    }
+  });
+
+  // Merge cast credits
+  castItems.forEach((item: any) => {
+    if (!combinedMap.has(item.id)) {
+      combinedMap.set(item.id, item);
+    } else {
+      const existing = combinedMap.get(item.id);
+      combinedMap.set(item.id, {
+        ...existing,
+        character: item.character || existing.character
+      });
+    }
+  });
+
+  return Array.from(combinedMap.values());
 };
 
 export const getPersonImages = async (personId: number): Promise<TMDBImage[]> => {

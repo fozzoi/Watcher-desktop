@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -35,7 +36,23 @@ function CastDetailContent() {
   const [activeTab, setActiveTab] = useState<'all' | 'movie' | 'tv'>('all');
   const [watchlistIds, setWatchlistIds] = useState<Set<number>>(new Set());
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
   const galleryScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (selectedImageIndex !== null) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [selectedImageIndex]);
 
   // Keyboard controls for Lightbox
   useEffect(() => {
@@ -177,7 +194,7 @@ function CastDetailContent() {
           onClick={toggleFavorite}
           style={{ marginLeft: 'auto', gap: 8 }}
         >
-          <Heart size={18} fill={isFavorite ? "var(--primary)" : "none"} color={isFavorite ? "var(--primary)" : "#fff"} />
+          <Heart size={18} fill={isFavorite ? "var(--primary)" : "none"} color={isFavorite ? "var(--primary)" : "currentColor"} />
           <span>{isFavorite ? 'Favorited' : 'Add to Favorites'}</span>
         </button>
       </div>
@@ -345,7 +362,7 @@ function CastDetailContent() {
       </div>
 
       {/* Lightbox / Enlarged Photo Modal */}
-      {selectedImageIndex !== null && personImages[selectedImageIndex] && (
+      {isMounted && selectedImageIndex !== null && personImages[selectedImageIndex] && createPortal(
         <div 
           className="lightbox-backdrop"
           onClick={() => setSelectedImageIndex(null)}
@@ -401,7 +418,8 @@ function CastDetailContent() {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <style jsx>{`
@@ -557,13 +575,14 @@ function CastDetailContent() {
         }
         .gallery-carousel-wrapper {
           position: relative;
-          margin: 0 -8px;
+          margin: 0;
+          width: 100%;
         }
         .cast-gallery-scroll {
           display: flex;
           gap: 14px;
           overflow-x: auto;
-          padding: 6px 8px 12px;
+          padding: 6px 0 16px 0;
           scrollbar-width: none;
         }
         .cast-gallery-scroll::-webkit-scrollbar {
@@ -645,126 +664,132 @@ function CastDetailContent() {
         }
 
         /* Lightbox Fullscreen Modal */
-        .lightbox-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.88);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 2000;
-          padding: 24px;
+        :global(.lightbox-backdrop) {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          background: rgba(0, 0, 0, 0.92) !important;
+          backdrop-filter: blur(20px) !important;
+          -webkit-backdrop-filter: blur(20px) !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          z-index: 999999 !important;
+          padding: 24px !important;
+          box-sizing: border-box !important;
           animation: fadeIn 0.2s ease-out;
         }
 
-        .lightbox-content {
-          position: relative;
-          max-width: 90vw;
-          max-height: 90vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
+        :global(.lightbox-content) {
+          position: relative !important;
+          max-width: 90vw !important;
+          max-height: 90vh !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          justify-content: center !important;
         }
 
-        .lightbox-header {
-          position: absolute;
-          top: -48px;
-          left: 0;
-          right: 0;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
+        :global(.lightbox-header) {
+          position: absolute !important;
+          top: -48px !important;
+          left: 0 !important;
+          right: 0 !important;
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: center !important;
         }
 
-        .lightbox-counter {
-          font-size: 14px;
-          font-weight: 600;
-          color: rgba(255, 255, 255, 0.8);
-          letter-spacing: 0.5px;
+        :global(.lightbox-counter) {
+          font-size: 14px !important;
+          font-weight: 600 !important;
+          color: rgba(255, 255, 255, 0.85) !important;
+          letter-spacing: 0.5px !important;
         }
 
-        .lightbox-close-btn {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.12);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: var(--transition-fast);
+        :global(.lightbox-close-btn) {
+          width: 36px !important;
+          height: 36px !important;
+          border-radius: 50% !important;
+          background: rgba(255, 255, 255, 0.12) !important;
+          backdrop-filter: blur(12px) !important;
+          -webkit-backdrop-filter: blur(12px) !important;
+          border: 1px solid rgba(255, 255, 255, 0.2) !important;
+          color: #ffffff !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          cursor: pointer !important;
+          transition: var(--transition-fast) !important;
         }
 
-        .lightbox-close-btn:hover {
-          background: var(--primary);
-          border-color: var(--primary);
-          transform: scale(1.1);
+        :global(.lightbox-close-btn:hover) {
+          background: var(--primary) !important;
+          border-color: var(--primary) !important;
+          transform: scale(1.1) !important;
         }
 
-        .lightbox-image-wrap {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          max-height: calc(88vh - 50px);
-          border-radius: 12px;
-          overflow: hidden;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+        :global(.lightbox-image-wrap) {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          max-height: calc(88vh - 50px) !important;
+          border-radius: 12px !important;
+          overflow: hidden !important;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8) !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
         }
 
-        .lightbox-img {
-          max-width: 85vw;
-          max-height: calc(88vh - 50px);
-          object-fit: contain;
-          border-radius: 12px;
-          display: block;
-          user-select: none;
+        :global(.lightbox-img) {
+          max-width: 85vw !important;
+          max-height: calc(88vh - 50px) !important;
+          object-fit: contain !important;
+          border-radius: 12px !important;
+          display: block !important;
+          user-select: none !important;
         }
 
-        .lightbox-nav-btn {
-          position: absolute;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 48px;
-          height: 48px;
-          border-radius: 50%;
-          background: rgba(20, 20, 24, 0.85);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: var(--transition-fast);
-          z-index: 10;
+        :global(.lightbox-nav-btn) {
+          position: absolute !important;
+          top: 50% !important;
+          transform: translateY(-50%) !important;
+          width: 48px !important;
+          height: 48px !important;
+          border-radius: 50% !important;
+          background: rgba(20, 20, 24, 0.85) !important;
+          backdrop-filter: blur(10px) !important;
+          -webkit-backdrop-filter: blur(10px) !important;
+          border: 1px solid rgba(255, 255, 255, 0.2) !important;
+          color: #ffffff !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          cursor: pointer !important;
+          transition: var(--transition-fast) !important;
+          z-index: 10 !important;
         }
 
-        .lightbox-nav-btn:hover {
-          background: var(--primary);
-          border-color: var(--primary);
-          transform: translateY(-50%) scale(1.1);
+        :global(.lightbox-nav-btn:hover) {
+          background: var(--primary) !important;
+          border-color: var(--primary) !important;
+          transform: translateY(-50%) scale(1.1) !important;
         }
 
-        .lightbox-nav-btn.prev {
-          left: -64px;
+        :global(.lightbox-nav-btn.prev) {
+          left: -64px !important;
         }
 
-        .lightbox-nav-btn.next {
-          right: -64px;
+        :global(.lightbox-nav-btn.next) {
+          right: -64px !important;
         }
 
         @media (max-width: 820px) {
-          .lightbox-nav-btn.prev { left: 10px; }
-          .lightbox-nav-btn.next { right: 10px; }
+          :global(.lightbox-nav-btn.prev) { left: 10px !important; }
+          :global(.lightbox-nav-btn.next) { right: 10px !important; }
         }
 
         @keyframes fadeIn {

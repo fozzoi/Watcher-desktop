@@ -322,6 +322,14 @@ function DetailContent() {
     setTimeout(() => setCopiedMagnet(null), 2000);
   };
 
+  const handleCopyShareLink = () => {
+    if (typeof window !== 'undefined') {
+      navigator.clipboard.writeText(window.location.href);
+      setIsCopiedLink(true);
+      setTimeout(() => setIsCopiedLink(false), 2000);
+    }
+  };
+
   const handleSendMovieChat = async () => {
     if (!movieChatInput.trim() || movieChatLoading) return;
     const userMsg = movieChatInput.trim();
@@ -367,6 +375,20 @@ function DetailContent() {
   const ratingText = movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A';
   const yearText = (movie.release_date || movie.first_air_date || '').substring(0, 4);
 
+  const formatAirDate = (dateStr?: string | null) => {
+    if (!dateStr) return null;
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="detail-container">
       {/* Backdrop cover and banner */}
@@ -396,7 +418,7 @@ function DetailContent() {
             
             <div className="details-badges">
               <div className="rating-badge">
-                <Star size={14} fill="gold" stroke="gold" />
+                <Star size={14} fill="#f59e0b" stroke="#f59e0b" />
                 <span>{ratingText}</span>
               </div>
               <span className="badge year" title="Release Date">{movie.release_date || movie.first_air_date || 'Unknown Date'}</span>
@@ -461,7 +483,7 @@ function DetailContent() {
                 className={`btn-secondary ${isInWatchlist ? 'watchlist-added' : ''}`}
                 onClick={toggleWatchlist}
               >
-                <Heart size={18} fill={isInWatchlist ? "var(--primary)" : "none"} color={isInWatchlist ? "var(--primary)" : "#fff"} />
+                <Heart size={18} fill={isInWatchlist ? "var(--primary)" : "none"} color={isInWatchlist ? "var(--primary)" : "currentColor"} />
                 <span>{isInWatchlist ? 'In Watchlist' : 'Watchlist'}</span>
               </button>
 
@@ -949,45 +971,77 @@ function DetailContent() {
             ) : episodes.length > 0 ? (
               <div className="episodes-carousel-wrapper">
                 <div className="episodes-scroll-container" ref={episodesScrollRef}>
-                  {episodes.map((ep) => (
-                    <Link
-                      key={ep.id}
-                      href={`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`}
-                      className="episode-item-card glass"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        router.push(`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`);
-                      }}
-                    >
-                      <div className="ep-still-box">
-                        <img 
-                          src={getImageUrl(ep.still_path || movie.backdrop_path || movie.poster_path, 'w300')} 
-                          alt={ep.name} 
-                          className="ep-still-img" 
-                          loading="lazy"
-                        />
-                        
-                        <div className="ep-play-overlay">
-                          <div className="ep-play-circle">
-                            <Play size={20} fill="white" style={{ marginLeft: 2 }} />
-                          </div>
-                        </div>
-                      </div>
+                  {episodes.map((ep) => {
+                    const isResumeTarget = Boolean(
+                      historyProgress && 
+                      historyProgress.lastSeason === ep.season_number && 
+                      historyProgress.lastEpisode === ep.episode_number
+                    );
 
-                      <div className="ep-details">
-                        <div className="ep-header">
-                          <h3>Ep {ep.episode_number}: {ep.name}</h3>
-                          {ep.air_date && (
-                            <span className="ep-air-date">
-                              <Calendar size={11} />
-                              <span>{ep.air_date}</span>
-                            </span>
-                          )}
-                        </div>
-                        <p className="ep-overview">{ep.overview || "No episode description available."}</p>
+                    return (
+                      <div key={ep.id} className="episode-card-item">
+                        <Link
+                          href={`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`}
+                          className={`episode-item-card glass ${isResumeTarget ? 'episode-active' : ''}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            router.push(`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`);
+                          }}
+                        >
+                          <div className="ep-still-box">
+                            <img 
+                              src={getImageUrl(ep.still_path || movie.backdrop_path || movie.poster_path, 'w500')} 
+                              alt={ep.name} 
+                              className="ep-still-img" 
+                              loading="lazy"
+                            />
+                            
+                            <div className="ep-badge-pill">
+                              <span>EP {ep.episode_number}</span>
+                            </div>
+
+                            {ep.runtime && ep.runtime > 0 ? (
+                              <div className="ep-runtime-pill">
+                                <span>{ep.runtime}m</span>
+                              </div>
+                            ) : null}
+
+                            <div className="ep-play-overlay">
+                              <div className="ep-play-circle">
+                                <Play size={18} fill="white" style={{ marginLeft: 2 }} />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="ep-details">
+                            <h3 className="ep-title" title={`Episode ${ep.episode_number}: ${ep.name}`}>
+                              {ep.episode_number}. {ep.name || `Episode ${ep.episode_number}`}
+                            </h3>
+
+                            <div className="ep-meta-row">
+                              {ep.air_date ? (
+                                <span className="ep-meta-item">
+                                  <Calendar size={11} />
+                                  <span>{formatAirDate(ep.air_date)}</span>
+                                </span>
+                              ) : null}
+                              {ep.vote_average && ep.vote_average > 0 ? (
+                                <span className="ep-meta-item ep-rating-item">
+                                  <Star size={11} fill="#FFB800" color="#FFB800" />
+                                  <span>{ep.vote_average.toFixed(1)}</span>
+                                </span>
+                              ) : null}
+                              {isResumeTarget ? (
+                                <span className="ep-resume-badge">Resume</span>
+                              ) : null}
+                            </div>
+
+                            <p className="ep-overview">{ep.overview || "No episode description available."}</p>
+                          </div>
+                        </Link>
                       </div>
-                    </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ) : (
@@ -1139,9 +1193,22 @@ function DetailContent() {
       <style jsx>{`
         .detail-container {
           position: relative;
-          margin-top: -30px;
-          margin-left: -40px;
-          margin-right: -40px;
+          margin-top: -32px;
+          margin-left: -36px;
+          margin-right: -36px;
+          width: calc(100% + 72px);
+          max-width: calc(100% + 72px);
+          box-sizing: border-box;
+        }
+
+        @media (max-width: 1024px) {
+          .detail-container {
+            margin-top: -24px;
+            margin-left: -24px;
+            margin-right: -24px;
+            width: calc(100% + 48px);
+            max-width: calc(100% + 48px);
+          }
         }
 
         @media (max-width: 900px) {
@@ -1149,36 +1216,79 @@ function DetailContent() {
             margin-top: -20px;
             margin-left: -20px;
             margin-right: -20px;
+            width: calc(100% + 40px);
+            max-width: calc(100% + 40px);
+          }
+        }
+
+        @media (max-width: 640px) {
+          .detail-container {
+            margin-top: -16px;
+            margin-left: -16px;
+            margin-right: -16px;
+            width: calc(100% + 32px);
+            max-width: calc(100% + 32px);
+          }
+        }
+
+        @media (max-width: 768px) {
+          .carousel-nav-arrows,
+          .nav-arrow-btn {
+            display: none !important;
           }
         }
 
         .backdrop-header {
           position: relative;
           width: 100%;
-          height: 380px;
+          height: 480px;
+          min-height: 420px;
+          max-height: 55vh;
           overflow: hidden;
           background: var(--bg-color);
+        }
+
+        @media (max-width: 900px) {
+          .backdrop-header {
+            height: 340px;
+            min-height: 300px;
+          }
         }
 
         .backdrop-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          opacity: 0.55;
+          object-position: center 20%;
+          opacity: 0.88;
+          transition: opacity 0.3s ease;
+        }
+
+        :global([data-theme="light"]) .backdrop-img {
+          opacity: 0.95;
         }
 
         .backdrop-overlay {
           position: absolute;
           inset: 0;
-          background: linear-gradient(180deg, rgba(12, 12, 14, 0.1) 0%, rgba(12, 12, 14, 0.95) 100%);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: linear-gradient(
+            180deg, 
+            rgba(12, 12, 14, 0.08) 0%, 
+            rgba(12, 12, 14, 0.25) 45%, 
+            rgba(12, 12, 14, 0.75) 80%, 
+            var(--bg-color) 100%
+          );
+          pointer-events: none;
         }
 
-        [data-theme="light"] .backdrop-overlay {
-          background: linear-gradient(180deg, rgba(245, 245, 247, 0.1) 0%, rgba(245, 245, 247, 0.95) 100%);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+        :global([data-theme="light"]) .backdrop-overlay {
+          background: linear-gradient(
+            180deg, 
+            rgba(255, 255, 255, 0.02) 0%, 
+            rgba(245, 245, 247, 0.2) 45%, 
+            rgba(245, 245, 247, 0.75) 80%, 
+            var(--bg-color) 100%
+          );
         }
 
         .back-btn {
@@ -1275,14 +1385,19 @@ function DetailContent() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          background: rgba(255, 215, 0, 0.15);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          color: #ffd700;
+          background: rgba(245, 158, 11, 0.12);
+          color: #d97706;
+          border: 1px solid rgba(245, 158, 11, 0.25);
           padding: 4px 10px;
-          border-radius: var(--border-radius-sm);
+          border-radius: 9999px;
           font-weight: 700;
-          font-size: 14px;
+          font-size: 13px;
+        }
+
+        [data-theme="dark"] .rating-badge {
+          background: rgba(250, 204, 21, 0.15);
+          color: #facc15;
+          border-color: rgba(250, 204, 21, 0.3);
         }
 
         .badge {
@@ -1305,7 +1420,9 @@ function DetailContent() {
         }
 
         .watchlist-added {
-          border-color: var(--primary);
+          border-color: var(--primary) !important;
+          color: var(--primary) !important;
+          background: rgba(229, 9, 20, 0.1) !important;
         }
 
         .watched-active {
@@ -1362,22 +1479,28 @@ function DetailContent() {
           position: relative;
           width: 100%;
           height: 180px;
-          border-radius: 20px;
+          border-radius: 0;
           overflow: hidden;
           display: flex;
           align-items: stretch;
           background: #0d0d12;
           border: 1px solid rgba(255, 255, 255, 0.12);
-          box-shadow: 0 12px 35px rgba(0, 0, 0, 0.55);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
           text-decoration: none;
           cursor: pointer;
-          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+          transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        :global([data-theme="light"]) .franchise-card {
+          background: #111827;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
         }
 
         .franchise-card:hover {
-          transform: translateY(-3px) scale(1.004);
+          transform: translateY(-2px) scale(1.002);
           border-color: rgba(229, 9, 20, 0.45);
-          box-shadow: 0 18px 45px rgba(0, 0, 0, 0.75), 0 0 25px rgba(229, 9, 20, 0.2);
+          box-shadow: 0 14px 35px rgba(0, 0, 0, 0.65), 0 0 20px rgba(229, 9, 20, 0.15);
         }
 
         .franchise-backdrop-img {
@@ -1624,6 +1747,20 @@ function DetailContent() {
           letter-spacing: 0.5px;
         }
 
+        :global([data-theme="light"]) .director-card {
+          background: rgba(0, 0, 0, 0.04);
+          border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        :global([data-theme="light"]) .director-card:hover {
+          background: rgba(0, 0, 0, 0.07);
+          border-color: rgba(0, 0, 0, 0.15);
+        }
+
+        :global([data-theme="light"]) .director-avatar {
+          border-color: rgba(0, 0, 0, 0.1);
+        }
+
         .ai-panel {
           padding: 24px;
           border-radius: var(--border-radius-lg);
@@ -1633,6 +1770,12 @@ function DetailContent() {
           -webkit-backdrop-filter: blur(16px);
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
           margin-top: 4px;
+        }
+
+        :global([data-theme="light"]) .ai-panel {
+          background: rgba(255, 255, 255, 0.95);
+          border: 1px solid rgba(138, 43, 226, 0.22);
+          box-shadow: 0 10px 30px rgba(138, 43, 226, 0.08), 0 2px 10px rgba(0, 0, 0, 0.04);
         }
 
         .ai-header {
@@ -1646,6 +1789,10 @@ function DetailContent() {
           gap: 14px;
         }
 
+        :global([data-theme="light"]) .ai-header {
+          border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
         .ai-header-left {
           display: flex;
           align-items: center;
@@ -1655,6 +1802,11 @@ function DetailContent() {
         .ai-sparkle-icon {
           color: #a78bfa;
           filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.5));
+        }
+
+        :global([data-theme="light"]) .ai-sparkle-icon {
+          color: #7c3aed;
+          filter: drop-shadow(0 0 8px rgba(124, 58, 237, 0.35));
         }
 
         .ai-header-title {
@@ -1681,6 +1833,11 @@ function DetailContent() {
           gap: 4px;
         }
 
+        :global([data-theme="light"]) .ai-tabs {
+          background: rgba(0, 0, 0, 0.05);
+          border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
         .ai-tab-btn {
           padding: 6px 18px;
           border-radius: 100px;
@@ -1697,6 +1854,14 @@ function DetailContent() {
           color: var(--foreground);
         }
 
+        :global([data-theme="light"]) .ai-tab-btn {
+          color: var(--foreground-muted);
+        }
+
+        :global([data-theme="light"]) .ai-tab-btn:hover {
+          color: var(--foreground);
+        }
+
         .ai-tab-btn.active {
           background: rgba(138, 43, 226, 0.25);
           backdrop-filter: blur(12px);
@@ -1704,6 +1869,13 @@ function DetailContent() {
           border-color: rgba(167, 139, 250, 0.4);
           color: #a78bfa;
           box-shadow: 0 2px 10px rgba(138, 43, 226, 0.3);
+        }
+
+        :global([data-theme="light"]) .ai-tab-btn.active {
+          background: #ffffff;
+          border-color: rgba(124, 58, 237, 0.3);
+          color: #7c3aed;
+          box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
         }
 
         .ai-tab-body {
@@ -1727,13 +1899,14 @@ function DetailContent() {
           line-height: 1.5;
         }
 
+        .ai-action-btn,
         .ai-generate-btn {
           display: inline-flex;
           align-items: center;
           gap: 10px;
           padding: 12px 24px;
           border-radius: 100px;
-          background: linear-gradient(135deg, rgba(138, 43, 226, 0.35) 0%, rgba(74, 0, 224, 0.35) 100%);
+          background: linear-gradient(135deg, rgba(138, 43, 226, 0.85) 0%, rgba(109, 40, 217, 0.9) 100%);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(167, 139, 250, 0.5);
@@ -1742,15 +1915,14 @@ function DetailContent() {
           font-weight: 600;
           cursor: pointer;
           transition: var(--transition-smooth);
-          box-shadow: 0 4px 15px rgba(138, 43, 226, 0.3);
+          box-shadow: 0 4px 15px rgba(138, 43, 226, 0.35);
         }
 
+        .ai-action-btn:hover,
         .ai-generate-btn:hover {
           transform: translateY(-2px);
-          background: linear-gradient(135deg, rgba(138, 43, 226, 0.55) 0%, rgba(74, 0, 224, 0.55) 100%);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border-color: #a78bfa;
+          background: linear-gradient(135deg, rgba(147, 51, 234, 0.95) 0%, rgba(124, 58, 237, 1) 100%);
+          border-color: #c4b5fd;
           box-shadow: 0 6px 20px rgba(138, 43, 226, 0.5);
         }
 
@@ -1775,6 +1947,67 @@ function DetailContent() {
         .re-generate-btn:hover {
           color: var(--foreground);
           border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        :global([data-theme="light"]) .re-generate-btn {
+          background: rgba(0, 0, 0, 0.04);
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          color: var(--foreground-muted);
+        }
+
+        :global([data-theme="light"]) .re-generate-btn:hover {
+          background: rgba(0, 0, 0, 0.08);
+          border-color: rgba(0, 0, 0, 0.2);
+          color: var(--foreground);
+        }
+
+        :global([data-theme="light"]) .verdict-pill {
+          background: rgba(124, 58, 237, 0.1);
+          border: 1px solid rgba(124, 58, 237, 0.3);
+          color: #6d28d9;
+        }
+
+        :global([data-theme="light"]) .friend-verdict {
+          color: var(--foreground);
+          border-left: 3px solid #7c3aed;
+        }
+
+        :global([data-theme="light"]) .lens-field-card {
+          background: rgba(0, 0, 0, 0.02);
+          border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        :global([data-theme="light"]) .lens-advisory {
+          background: rgba(245, 158, 11, 0.08);
+          border: 1px solid rgba(245, 158, 11, 0.25);
+        }
+
+        :global([data-theme="light"]) .advisory-title {
+          color: #b45309;
+        }
+
+        :global([data-theme="light"]) .chat-bubble-row.bot .bubble-content {
+          background: rgba(0, 0, 0, 0.04);
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          color: var(--foreground);
+        }
+
+        :global([data-theme="light"]) .chat-input {
+          background: #ffffff;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          color: var(--foreground);
+        }
+
+        :global([data-theme="light"]) .chat-input:focus {
+          border-color: #7c3aed;
+        }
+
+        :global([data-theme="light"]) .shimmer-bar {
+          background: linear-gradient(90deg, rgba(0,0,0,0.02) 25%, rgba(124,58,237,0.1) 50%, rgba(0,0,0,0.02) 75%);
+        }
+
+        :global([data-theme="light"]) .vibe-skeleton-card {
+          background: linear-gradient(90deg, rgba(0,0,0,0.02) 25%, rgba(124,58,237,0.08) 50%, rgba(0,0,0,0.02) 75%);
         }
 
         /* Lens Output */
@@ -2023,26 +2256,7 @@ function DetailContent() {
           gap: 12px;
         }
 
-        .vibe-carousel-wrapper {
-          position: relative;
-          margin: 0 -8px;
-        }
 
-        .vibe-scroll-container {
-          display: flex;
-          gap: 16px;
-          overflow-x: auto;
-          padding: 8px;
-          scrollbar-width: none;
-        }
-
-        .vibe-scroll-container::-webkit-scrollbar {
-          display: none;
-        }
-
-        .vibe-card-item {
-          flex: 0 0 160px;
-        }
 
         .vibe-loading-row {
           display: flex;
@@ -2100,7 +2314,8 @@ function DetailContent() {
 
         .cast-carousel-wrapper, .episodes-carousel-wrapper, .similar-carousel-wrapper, .vibe-carousel-wrapper {
           position: relative;
-          margin: 0 -8px;
+          margin: 0;
+          width: 100%;
         }
 
         .cast-scroll-container {
@@ -2110,7 +2325,7 @@ function DetailContent() {
           overflow-x: auto;
           scroll-behavior: smooth;
           scroll-snap-type: x mandatory;
-          padding: 6px 8px 12px;
+          padding: 6px 0 16px 0;
           scrollbar-width: none;
         }
 
@@ -2211,11 +2426,30 @@ function DetailContent() {
           opacity: 1;
         }
 
-        .prev-btn { left: 4px; }
-        .next-btn { right: 4px; }
+        .prev-btn { left: 8px; }
+        .next-btn { right: 8px; }
 
         @media (max-width: 768px) {
           .nav-btn { display: none; }
+          .cast-carousel-wrapper,
+          .episodes-carousel-wrapper,
+          .similar-carousel-wrapper,
+          .vibe-carousel-wrapper {
+            margin: 0;
+          }
+          .cast-scroll-container,
+          .episodes-scroll-container,
+          .similar-scroll-container,
+          .vibe-scroll-container {
+            padding: 4px 0 14px 0;
+            gap: 12px;
+          }
+          .episode-card-item {
+            flex: 0 0 230px;
+            width: 230px;
+            min-width: 230px;
+            max-width: 230px;
+          }
         }
 
         /* TV Episodes section */
@@ -2340,7 +2574,9 @@ function DetailContent() {
           display: flex;
           gap: 16px;
           overflow-x: auto;
-          padding: 6px 8px 12px;
+          scroll-behavior: smooth;
+          scroll-snap-type: x mandatory;
+          padding: 16px 16px 24px 16px;
           scrollbar-width: none;
         }
 
@@ -2348,47 +2584,98 @@ function DetailContent() {
           display: none;
         }
 
-        .episode-item-card {
-          flex: 0 0 320px;
-          display: flex;
-          flex-direction: column;
+        .episode-card-item {
+          flex: 0 0 280px;
+          width: 280px;
+          min-width: 280px;
+          max-width: 280px;
+          scroll-snap-align: start;
+        }
+
+        :global(.episode-item-card) {
+          width: 100%;
+          height: 100%;
+          display: flex !important;
+          flex-direction: column !important;
           gap: 10px;
-          padding: 12px;
-          border-radius: var(--border-radius-md);
+          padding: 10px;
+          box-sizing: border-box;
+          border-radius: 14px;
           border: 1px solid var(--card-border);
           background: var(--card-bg);
           box-shadow: 0 4px 16px var(--shadow-color);
           cursor: pointer;
           text-decoration: none;
           color: inherit;
-          transition: var(--transition-smooth);
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+                      border-color 0.25s ease, 
+                      box-shadow 0.25s ease;
         }
 
-        .episode-item-card:hover {
+        :global(.episode-item-card:hover) {
           transform: translateY(-4px);
-          border-color: var(--primary-glow);
-          box-shadow: 0 8px 24px rgba(229, 9, 20, 0.2);
+          border-color: var(--primary-glow, rgba(229, 9, 20, 0.4));
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+        }
+
+        :global(.episode-item-card.episode-active) {
+          border-color: var(--primary);
+          box-shadow: 0 0 16px rgba(229, 9, 20, 0.25);
         }
 
         .ep-still-box {
           position: relative;
           width: 100%;
-          height: 160px;
-          border-radius: 8px;
+          aspect-ratio: 16 / 9;
+          border-radius: 10px;
           overflow: hidden;
+          background: rgba(0, 0, 0, 0.25);
           flex-shrink: 0;
-          background: #111;
         }
 
         .ep-still-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: transform 0.3s ease;
+          display: block;
+          transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .episode-item-card:hover .ep-still-img {
+        :global(.episode-item-card:hover) .ep-still-img {
           transform: scale(1.05);
+        }
+
+        .ep-badge-pill {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          background: rgba(0, 0, 0, 0.65);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          color: #ffffff;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.4px;
+          padding: 3px 7px;
+          border-radius: 6px;
+          z-index: 2;
+        }
+
+        .ep-runtime-pill {
+          position: absolute;
+          bottom: 8px;
+          right: 8px;
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: rgba(255, 255, 255, 0.9);
+          font-size: 11px;
+          font-weight: 500;
+          padding: 2px 6px;
+          border-radius: 4px;
+          z-index: 2;
         }
 
         .ep-play-overlay {
@@ -2397,78 +2684,102 @@ function DetailContent() {
           display: flex;
           align-items: center;
           justify-content: center;
+          background: rgba(0, 0, 0, 0.2);
+          transition: background 0.25s ease;
+          z-index: 1;
+        }
+
+        :global(.episode-item-card:hover) .ep-play-overlay {
           background: rgba(0, 0, 0, 0.35);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          transition: var(--transition-fast);
         }
 
         .ep-play-circle {
-          width: 46px;
-          height: 46px;
+          width: 44px;
+          height: 44px;
           border-radius: 50%;
-          background: rgba(229, 9, 20, 0.9);
-          backdrop-filter: blur(6px);
-          -webkit-backdrop-filter: blur(6px);
+          background: rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.25);
           display: flex;
           align-items: center;
           justify-content: center;
           color: #ffffff;
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-          transition: var(--transition-smooth);
-          transform: scale(0.92);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          transform: scale(0.95);
         }
 
-        .episode-item-card:hover .ep-play-circle {
-          transform: scale(1.08);
+        :global(.episode-item-card:hover) .ep-play-circle {
+          transform: scale(1.1);
           background: var(--primary);
+          border-color: var(--primary);
           box-shadow: 0 0 20px rgba(229, 9, 20, 0.6);
         }
 
         .ep-details {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
           flex: 1;
         }
 
-        .ep-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 6px;
-        }
-
-        .ep-header h3 {
+        .ep-title {
           font-size: 14px;
           font-weight: 600;
+          color: var(--foreground);
+          margin: 0;
+          line-height: 1.35;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        .ep-air-date {
-          font-size: 11px;
+        .ep-meta-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .ep-meta-item {
+          font-size: 11.5px;
           color: var(--foreground-muted);
           display: inline-flex;
           align-items: center;
           gap: 4px;
-          flex-shrink: 0;
+        }
+
+        .ep-rating-item {
+          color: #FFB800;
+          font-weight: 600;
+        }
+
+        .ep-resume-badge {
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          padding: 1px 6px;
+          border-radius: 4px;
+          background: var(--primary);
+          color: #ffffff;
         }
 
         .ep-overview {
-          font-size: 12.5px;
+          font-size: 12px;
           line-height: 1.45;
           color: var(--foreground-muted);
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
+          margin: 2px 0 0;
+          min-height: 34px;
         }
 
         /* AI Vibe Carousel */
-        .vibe-carousel-wrapper {
-          position: relative;
-          margin: 0 -8px;
-        }
-
         .vibe-scroll-container {
           display: flex;
           align-items: flex-start;
@@ -2476,7 +2787,7 @@ function DetailContent() {
           overflow-x: auto;
           scroll-behavior: smooth;
           scroll-snap-type: x mandatory;
-          padding: 6px 8px 16px;
+          padding: 16px 16px 24px 16px;
           scrollbar-width: none;
         }
 
@@ -2509,7 +2820,7 @@ function DetailContent() {
           overflow-x: auto;
           scroll-behavior: smooth;
           scroll-snap-type: x mandatory;
-          padding: 6px 8px 16px;
+          padding: 16px 16px 24px 16px;
           scrollbar-width: none;
         }
 

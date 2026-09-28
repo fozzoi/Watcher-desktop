@@ -13,6 +13,7 @@ import {
 } from '@/utils/tmdb';
 import { 
   getUserPreferences, 
+  setUserPreferences,
   isOnboardingComplete, 
   LANGUAGE_OPTIONS, 
   UserPreferences 
@@ -91,6 +92,15 @@ export default function ExplorePage() {
       console.error("Failed to load user data:", e);
     }
   }, []);
+
+  const handleSkipOnboarding = async () => {
+    setOnboardingDone(true);
+    try {
+      await setUserPreferences({ onboardingComplete: true });
+    } catch (e) {
+      console.error("Failed to dismiss onboarding banner:", e);
+    }
+  };
 
   // Fetch explore content using personalization
   const fetchContent = useCallback(async (genreId: number = 0, forceRefresh: boolean = false) => {
@@ -217,11 +227,6 @@ export default function ExplorePage() {
             className="search-input-field glass"
           />
         </div>
-        
-        <button className="ai-btn" onClick={() => router.push('/ai-search')}>
-          <Sparkles size={16} />
-          <span>Ask AI</span>
-        </button>
       </div>
 
       {/* Onboarding Welcome Banner if not yet completed */}
@@ -236,10 +241,19 @@ export default function ExplorePage() {
               <p>Choose your preferred languages (*Hollywood, Bollywood, Mollywood, Anime, etc.*), favorite genres, and favorite stars to customize this feed.</p>
             </div>
           </div>
-          <Link href="/onboarding" className="btn-primary" style={{ flexShrink: 0 }}>
-            <span>Personalize Now</span>
-            <ChevronRight size={16} />
-          </Link>
+          <div className="welcome-actions">
+            <button 
+              type="button"
+              className="btn-skip" 
+              onClick={handleSkipOnboarding}
+            >
+              Not Now
+            </button>
+            <Link href="/onboarding" className="btn-primary" style={{ flexShrink: 0 }}>
+              <span>Personalize Now</span>
+              <ChevronRight size={16} />
+            </Link>
+          </div>
         </div>
       )}
 
@@ -307,11 +321,10 @@ export default function ExplorePage() {
                   
                   <div className="hero-content">
                     <h1 className="hero-title">{currentHeroMovie.title || currentHeroMovie.name}</h1>
-                    <p className="hero-overview">{currentHeroMovie.overview}</p>
                     
                     <div className="hero-meta">
                       <div className="hero-rating">
-                        <Star size={16} fill="gold" stroke="gold" />
+                        <Star size={15} fill="#f59e0b" stroke="#f59e0b" />
                         <span>{currentHeroMovie.vote_average?.toFixed(1) || 'N/A'}</span>
                       </div>
                       <span className="hero-year">
@@ -400,7 +413,7 @@ export default function ExplorePage() {
               {becauseYouWatched.length > 0 && becauseYouWatched.map((sec, idx) => (
                 <MediaCarousel 
                   key={idx}
-                  title={`Because you watched ${sec.sourceTitle}`}
+                  title={`More Like ${sec.sourceTitle}`}
                   type={`similar/${sec.items[0]?.media_type || 'movie'}/${sec.items[0]?.id}`}
                   data={sec.items}
                   savedIds={savedIds}
@@ -412,7 +425,7 @@ export default function ExplorePage() {
               {rawContent?.actorData?.length > 0 && rawContent.actorData.map((act: any) => (
                 <MediaCarousel 
                   key={`actor-${act.actorId}`}
-                  title={`Because you love ${act.actorName}`}
+                  title={`${act.actorName} Spotlight`}
                   type={`actor-${act.actorId}`}
                   data={act.items}
                   savedIds={savedIds}
@@ -423,12 +436,12 @@ export default function ExplorePage() {
               {/* Tailored Language Carousels */}
               {rawContent?.langData && Object.entries(rawContent.langData).map(([langCode, data]: [string, any]) => {
                 const langMeta = LANGUAGE_OPTIONS.find(l => l.code === langCode);
-                const title = langMeta ? `Trending in ${langMeta.label} (${langMeta.industry})` : `Trending in ${langCode.toUpperCase()}`;
+                const baseName = langMeta ? langMeta.label : langCode.toUpperCase();
                 return (
                   <React.Fragment key={langCode}>
                     {data.movies?.length > 0 && (
                       <MediaCarousel 
-                        title={`${title} - Movies`}
+                        title={`${baseName} Movies`}
                         type={`lang-movies-${langCode}`}
                         data={data.movies}
                         savedIds={savedIds}
@@ -437,7 +450,7 @@ export default function ExplorePage() {
                     )}
                     {data.tv?.length > 0 && (
                       <MediaCarousel 
-                        title={`${title} - Series`}
+                        title={`${baseName} Series`}
                         type={`lang-tv-${langCode}`}
                         data={data.tv}
                         savedIds={savedIds}
@@ -449,25 +462,29 @@ export default function ExplorePage() {
               })}
 
               {/* Tailored Genre Carousels */}
-              {rawContent?.genreData?.length > 0 && rawContent.genreData.map((gen: any) => (
-                <MediaCarousel 
-                  key={`genre-${gen.genreId}`}
-                  title="Curated for Your Taste"
-                  type={`genre/${gen.genreId}`}
-                  data={gen.items}
-                  savedIds={savedIds}
-                  toggleWatchlist={toggleWatchlist}
-                />
-              ))}
+              {rawContent?.genreData?.length > 0 && rawContent.genreData.map((gen: any) => {
+                const genreName = GENRE_DATA.find(g => g.id === gen.genreId)?.name;
+                const title = genreName && genreName !== 'All' ? `${genreName} Movies` : 'Curated for You';
+                return (
+                  <MediaCarousel 
+                    key={`genre-${gen.genreId}`}
+                    title={title}
+                    type={`genre/${gen.genreId}`}
+                    data={gen.items}
+                    savedIds={savedIds}
+                    toggleWatchlist={toggleWatchlist}
+                  />
+                );
+              })}
 
               {/* Global Discovery Categories */}
               {rawContent && (
                 <div className="carousels-container">
-                  <MediaCarousel title="Trending Movies Worldwide" type="trendingMovies" data={rawContent.trendingMovies} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-                  <MediaCarousel title="Trending Television Series" type="trendingTV" data={rawContent.trendingTV} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-                  <MediaCarousel title="Top Rated Masterpieces" type="topRated" data={rawContent.topRated} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-                  <MediaCarousel title="Upcoming Releases" type="upcoming" data={rawContent.upcoming} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-                  <MediaCarousel title="Hidden Cinema Gems" type="hiddenGems" data={rawContent.hiddenGems} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+                  <MediaCarousel title="Trending Movies" type="trendingMovies" data={rawContent.trendingMovies} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+                  <MediaCarousel title="Trending Series" type="trendingTV" data={rawContent.trendingTV} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+                  <MediaCarousel title="Top Rated" type="topRated" data={rawContent.topRated} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+                  <MediaCarousel title="Upcoming" type="upcoming" data={rawContent.upcoming} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+                  <MediaCarousel title="Hidden Gems" type="hiddenGems" data={rawContent.hiddenGems} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
                 </div>
               )}
             </>
@@ -497,7 +514,7 @@ export default function ExplorePage() {
           height: 60vw;
           border-radius: 50%;
           filter: blur(80px);
-          opacity: 0.15;
+          opacity: 0.08;
         }
 
         .rotate-1 {
@@ -661,28 +678,6 @@ export default function ExplorePage() {
           100% { background-position: -200% 0; }
         }
 
-        .ai-btn {
-          background: linear-gradient(135deg, #8a2be2 0%, #4a00e0 100%);
-          color: white;
-          border: none;
-          padding: 0 24px;
-          height: 48px;
-          border-radius: 14px;
-          font-weight: 600;
-          font-size: 14px;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-          transition: var(--transition-smooth);
-          box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4);
-        }
-
-        .ai-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(138, 43, 226, 0.6);
-          filter: brightness(1.1);
-        }
 
         .onboarding-welcome-card {
           display: flex;
@@ -725,17 +720,56 @@ export default function ExplorePage() {
           margin-top: 2px;
         }
 
+        .welcome-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+
+        .btn-skip {
+          background: var(--input-bg);
+          border: 1px solid var(--card-border);
+          color: var(--foreground-muted);
+          padding: 10px 18px;
+          border-radius: var(--border-radius-sm);
+          font-size: 13.5px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: var(--transition-fast);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          white-space: nowrap;
+          height: 42px;
+          box-sizing: border-box;
+        }
+
+        .btn-skip:hover {
+          background: var(--sidebar-hover);
+          color: var(--foreground);
+          border-color: var(--card-hover-border);
+          transform: translateY(-1px);
+        }
+
+        .btn-skip:active {
+          transform: translateY(0);
+        }
+
         /* Genre Chip Row */
         .genres-wrapper {
           position: relative;
           margin-bottom: 24px;
+          width: 100%;
         }
 
         .genres-container {
           display: flex;
           gap: 10px;
           overflow-x: auto;
-          padding: 4px 38px 8px 38px;
+          scroll-behavior: smooth;
+          padding: 6px 44px 10px 44px;
+          margin: 0;
           scrollbar-width: none;
         }
 
@@ -757,7 +791,7 @@ export default function ExplorePage() {
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          opacity: 0.85;
+          opacity: 0.9;
           box-shadow: 0 4px 12px var(--shadow-color);
           transition: var(--transition-fast);
           z-index: 5;
@@ -766,12 +800,23 @@ export default function ExplorePage() {
         .genre-nav-btn:hover {
           background: var(--primary);
           border-color: var(--primary);
+          color: #ffffff;
           opacity: 1;
-          transform: translateY(-50%) scale(1.1);
+          transform: translateY(-50%) scale(1.08);
         }
 
-        .genre-nav-btn.prev-btn { left: 0; }
-        .genre-nav-btn.next-btn { right: 0; }
+        .genre-nav-btn.prev-btn { left: 4px; }
+        .genre-nav-btn.next-btn { right: 4px; }
+
+        @media (max-width: 768px) {
+          .genres-container {
+            padding: 4px 6px 10px 6px !important;
+            gap: 8px;
+          }
+          .genre-nav-btn {
+            display: none !important;
+          }
+        }
 
         .genre-loading-bar {
           position: absolute;
@@ -899,11 +944,11 @@ export default function ExplorePage() {
           display: flex;
           align-items: center;
           gap: 6px;
-          background: rgba(0, 0, 0, 0.6);
+          background: rgba(0, 0, 0, 0.55);
           backdrop-filter: blur(8px);
           padding: 4px 10px;
-          border-radius: var(--border-radius-sm);
-          color: #ffd700;
+          border-radius: 9999px;
+          color: #ffffff;
           font-weight: 700;
         }
 
@@ -1015,6 +1060,155 @@ export default function ExplorePage() {
           border-left-color: var(--primary);
           border-radius: 50%;
           animation: spin 1s linear infinite;
+        }
+
+        /* ===== Tablet ===== */
+        @media (max-width: 1024px) {
+          .hero-section {
+            height: 360px;
+            padding: 30px;
+            margin-bottom: 28px;
+          }
+
+          .hero-title {
+            font-size: 34px;
+          }
+
+          .hero-overview {
+            font-size: 14px;
+            -webkit-line-clamp: 2;
+          }
+        }
+
+        /* ===== Phone ===== */
+        @media (max-width: 640px) {
+          .explore-header-row {
+            gap: 10px;
+            margin-bottom: 16px;
+          }
+
+          .search-input-field {
+            height: 42px;
+            font-size: 13px;
+            padding: 0 14px 0 42px !important;
+            border-radius: 12px;
+          }
+
+          .search-icon-wrapper {
+            left: 14px;
+          }
+
+
+          .hero-section {
+            height: 280px;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+          }
+
+          .hero-title {
+            font-size: 24px;
+          }
+
+          .hero-overview {
+            font-size: 12.5px;
+            -webkit-line-clamp: 2;
+          }
+
+          .hero-meta {
+            font-size: 12px;
+            gap: 8px;
+          }
+
+          .hero-actions {
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+
+          .hero-actions .btn-primary,
+          .hero-actions .btn-secondary {
+            padding: 8px 14px;
+            font-size: 12px;
+            border-radius: 10px;
+          }
+
+          .hero-indicators {
+            bottom: 12px;
+            right: 14px;
+            gap: 5px;
+          }
+
+          .indicator-dot {
+            width: 6px;
+            height: 6px;
+          }
+
+          .indicator-dot.active {
+            width: 18px;
+          }
+
+          .genres-wrapper {
+            margin: 0 0 18px 0;
+            width: 100%;
+          }
+
+          .genres-container {
+            padding: 4px 0 8px 0 !important;
+            gap: 8px;
+          }
+
+          .genre-chip {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 16px;
+          }
+
+          .genre-nav-btn {
+            display: none !important;
+          }
+
+          .onboarding-welcome-card {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 16px;
+            gap: 12px;
+          }
+
+          .welcome-actions {
+            width: 100%;
+            justify-content: flex-end;
+            gap: 8px;
+          }
+
+          .welcome-actions .btn-skip {
+            height: 38px;
+            padding: 8px 14px;
+            font-size: 12.5px;
+          }
+
+          .welcome-actions .btn-primary {
+            height: 38px;
+            padding: 8px 16px;
+            font-size: 12.5px;
+          }
+
+          .welcome-left h3 {
+            font-size: 14px;
+          }
+
+          .welcome-left p {
+            font-size: 12px;
+          }
+
+          .skeleton-hero {
+            height: 220px;
+            border-radius: 16px;
+          }
+
+          .skeleton-card {
+            width: 130px;
+            height: 195px;
+          }
         }
       `}</style>
     </div>

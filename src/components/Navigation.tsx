@@ -1,37 +1,98 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/context/AuthContext';
+import { motion } from 'framer-motion';
 import { 
-  Compass, Search, Bookmark, History, Sparkles, Settings, Film, 
-  ChevronLeft, ChevronRight, Sun, Moon, Monitor, BarChart3, Cloud, RefreshCw, User
+  Compass, Search, Bookmark, Sparkles, Settings, Film, 
+  ChevronLeft, ChevronRight, Sun, Moon, Monitor, BarChart3, Cloud
 } from 'lucide-react';
 
 interface NavItem {
   name: string;
   href: string;
   icon: React.ComponentType<any>;
+  badge?: string;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
 }
 
 export default function Navigation() {
   const pathname = usePathname();
-  const { theme, setTheme, resolvedTheme } = useTheme();
-  const { user, isSyncing, syncNow } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const { user, isSyncing } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = useRef(0);
 
   useEffect(() => setMounted(true), []);
 
-  const navItems: NavItem[] = [
+  // Listen to scroll for mobile bottom dock hiding/revealing
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const diff = currentScrollY - lastScrollY.current;
+
+      if (Math.abs(diff) < 6) return;
+
+      if (currentScrollY <= 40) {
+        setIsVisible(true);
+      } else if (diff > 0 && currentScrollY > 70) {
+        setIsVisible(false);
+      } else if (diff < 0) {
+        setIsVisible(true);
+      }
+
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    setIsVisible(true);
+    lastScrollY.current = typeof window !== 'undefined' ? window.scrollY : 0;
+  }, [pathname]);
+
+  if (pathname === '/player') return null;
+
+  const navGroups: NavGroup[] = [
+    {
+      label: 'DISCOVER',
+      items: [
+        { name: 'Explore', href: '/', icon: Compass },
+        { name: 'Search', href: '/search', icon: Search },
+        { name: 'Watchlist', href: '/watchlist', icon: Bookmark },
+      ],
+    },
+    {
+      label: 'EXPERIENCE',
+      items: [
+        { name: 'AI Companion', href: '/ai-search', icon: Sparkles, badge: 'AI' },
+        { name: 'Stats', href: '/stats', icon: BarChart3 },
+      ],
+    },
+    {
+      label: 'SYSTEM',
+      items: [
+        { name: 'Settings', href: '/settings', icon: Settings },
+      ],
+    },
+  ];
+
+  const mobileNavItems: NavItem[] = [
     { name: 'Explore', href: '/', icon: Compass },
     { name: 'Search', href: '/search', icon: Search },
     { name: 'Watchlist', href: '/watchlist', icon: Bookmark },
-    { name: 'History', href: '/history', icon: History },
-    { name: 'AI Companion', href: '/ai-search', icon: Sparkles },
-    { name: 'Stats', href: '/stats', icon: BarChart3 },
+    { name: 'AI', href: '/ai-search', icon: Sparkles },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
@@ -48,10 +109,10 @@ export default function Navigation() {
   };
 
   const getThemeIcon = () => {
-    if (!mounted) return <Monitor size={18} />;
-    if (theme === 'system') return <Monitor size={18} />;
-    if (theme === 'dark') return <Moon size={18} />;
-    return <Sun size={18} />;
+    if (!mounted) return <Monitor size={17} />;
+    if (theme === 'system') return <Monitor size={17} />;
+    if (theme === 'dark') return <Moon size={17} />;
+    return <Sun size={17} />;
   };
 
   const getThemeLabel = () => {
@@ -63,326 +124,669 @@ export default function Navigation() {
 
   return (
     <>
-      <aside className={`sidebar glass-premium ${collapsed ? 'collapsed' : ''}`}>
-        {/* Logo area */}
-        <div className="sidebar-logo">
-          <Film className="logo-icon" size={collapsed ? 24 : 22} />
-          {!collapsed && <span className="logo-text">WATCHER</span>}
+      {/* ===== Desktop Docked Sidebar ===== */}
+      <aside className={`desktop-sidebar ${collapsed ? 'collapsed' : ''}`}>
+        {/* Brand Area */}
+        <div className="sidebar-brand-wrapper">
+          <Link href="/" className="sidebar-brand" title="Watcher Home">
+            <div className="brand-emblem">
+              <Film size={18} className="emblem-icon" />
+            </div>
+            {!collapsed && (
+              <div className="brand-text-block">
+                <span className="brand-name">WATCHER</span>
+                <span className="brand-tag">CINEMA</span>
+              </div>
+            )}
+          </Link>
         </div>
 
-        {/* Nav links */}
-        <nav className="sidebar-nav">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`sidebar-link ${active ? 'active' : ''}`}
-                title={collapsed ? item.name : undefined}
-              >
-                <Icon size={20} className="sidebar-link-icon" />
-                {!collapsed && <span className="sidebar-link-text">{item.name}</span>}
-                {active && <div className="sidebar-active-indicator" />}
-              </Link>
-            );
-          })}
+        {/* Categorized Navigation Groups */}
+        <nav className="sidebar-nav-scroll">
+          {navGroups.map((group) => (
+            <div key={group.label} className="nav-group-section">
+              {!collapsed && <span className="nav-group-title">{group.label}</span>}
+              <div className="nav-group-items">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={`nav-item-btn ${active ? 'active' : ''}`}
+                      title={collapsed ? item.name : undefined}
+                    >
+                      <div className="nav-icon-container">
+                        <Icon size={18} className="nav-item-icon" />
+                        {active && <span className="active-glow-pill" />}
+                      </div>
+                      {!collapsed && (
+                        <>
+                          <span className="nav-item-label">{item.name}</span>
+                          {item.badge && <span className="nav-badge-pill">{item.badge}</span>}
+                        </>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        {/* Bottom section: account + theme toggle + collapse */}
+        {/* Sidebar Footer with User Card & System Controls */}
         <div className="sidebar-footer">
-          {/* Cloud Account Status Pill */}
+          {/* Cloud Sync / Profile Card */}
           {user ? (
             <Link
               href="/settings"
-              className="sidebar-link user-profile-link"
+              className="user-profile-tile"
               title={collapsed ? `${user.name} (Cloud Connected)` : undefined}
             >
-              <div className="user-nav-avatar">
+              <div className="avatar-wrapper">
                 {user.picture ? (
-                  <img src={user.picture} alt={user.name} className="nav-avatar-img" />
+                  <img src={user.picture} alt={user.name} className="user-avatar-img" />
                 ) : (
-                  <div className="nav-avatar-placeholder">{user.name.charAt(0).toUpperCase()}</div>
+                  <div className="user-avatar-initial">{user.name.charAt(0).toUpperCase()}</div>
                 )}
-                <span className={`sync-status-dot ${isSyncing ? 'syncing' : 'active'}`} />
+                <span className={`status-indicator ${isSyncing ? 'syncing' : 'active'}`} />
               </div>
               {!collapsed && (
-                <div className="user-nav-text-group">
-                  <span className="user-nav-name">{user.name}</span>
-                  <span className="user-nav-status">
-                    {isSyncing ? 'Syncing...' : 'Cloud Synced'}
-                  </span>
+                <div className="user-info-text">
+                  <span className="user-display-name">{user.name}</span>
+                  <span className="user-sync-label">{isSyncing ? 'Syncing...' : 'Cloud Synced'}</span>
                 </div>
               )}
             </Link>
           ) : (
             <Link
               href="/settings"
-              className="sidebar-link signin-prompt-link"
+              className="cloud-sync-tile"
               title={collapsed ? "Cloud Sync (Optional)" : undefined}
             >
-              <Cloud size={19} className="sidebar-link-icon" style={{ color: '#00B4D8' }} />
-              {!collapsed && <span className="sidebar-link-text" style={{ color: '#00B4D8' }}>Sync (Optional)</span>}
+              <div className="sync-icon-box">
+                <Cloud size={17} style={{ color: '#00B4D8' }} />
+              </div>
+              {!collapsed && (
+                <div className="sync-text-box">
+                  <span className="sync-title">Cloud Sync</span>
+                  <span className="sync-sub">Backup library</span>
+                </div>
+              )}
             </Link>
-
           )}
 
-          <button className="sidebar-link theme-toggle" onClick={cycleTheme} title={`Theme: ${getThemeLabel()}`}>
-            {getThemeIcon()}
-            {!collapsed && <span className="sidebar-link-text">{getThemeLabel()}</span>}
-          </button>
+          {/* Quick Action Buttons */}
+          <div className="sidebar-bottom-actions">
+            <button
+              className="action-icon-btn"
+              onClick={cycleTheme}
+              title={`Theme: ${getThemeLabel()}`}
+              aria-label="Toggle theme"
+            >
+              {getThemeIcon()}
+              {!collapsed && <span className="btn-label-text">{getThemeLabel()}</span>}
+            </button>
 
-          <button
-            className="sidebar-link collapse-toggle"
-            onClick={() => setCollapsed(!collapsed)}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-            {!collapsed && <span className="sidebar-link-text">Collapse</span>}
-          </button>
+            <button
+              className="action-icon-btn collapse-btn"
+              onClick={() => setCollapsed(!collapsed)}
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-label="Toggle sidebar width"
+            >
+              {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+              {!collapsed && <span className="btn-label-text">Collapse</span>}
+            </button>
+          </div>
         </div>
       </aside>
 
+      {/* ===== Phone: Floating Bottom Dock Tab Bar (Android-like) ===== */}
+      <nav className={`mobile-bottom-dock glass-premium ${!isVisible ? 'hidden' : ''}`}>
+        {mobileNavItems.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`dock-tab-btn ${active ? 'active' : ''}`}
+              title={item.name}
+            >
+              <div className="dock-icon-wrapper">
+                <Icon size={21} className="dock-icon" />
+                {active && <span className="dock-active-dot" />}
+              </div>
+              <span className="dock-label">{item.name}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
       <style jsx global>{`
-        /* ===== Sidebar ===== */
-        .sidebar {
+        /* ===== Desktop Floating Sidebar ===== */
+        .desktop-sidebar {
           position: fixed;
-          top: 0;
-          left: 0;
-          bottom: 0;
+          top: 14px;
+          left: 14px;
+          bottom: 14px;
           width: var(--sidebar-width);
+          border-radius: 18px;
           display: flex;
           flex-direction: column;
-          padding: 24px 12px;
           z-index: 100;
-          border-right: 1px solid var(--card-border);
-          transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          box-sizing: border-box;
+          padding: 16px 10px 14px 10px;
+          border: 1px solid var(--sidebar-border);
+          background: rgba(14, 14, 18, 0.85);
+          backdrop-filter: blur(28px) saturate(180%);
+          -webkit-backdrop-filter: blur(28px) saturate(180%);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+          transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+                      padding 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
           overflow: hidden;
         }
 
-        .sidebar.collapsed {
+        [data-theme="light"] .desktop-sidebar,
+        :global([data-theme="light"]) .desktop-sidebar {
+          background: rgba(255, 255, 255, 0.92);
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        }
+
+        .desktop-sidebar.collapsed {
           width: var(--sidebar-collapsed-width);
+          padding: 16px 8px 14px 8px;
         }
 
-        /* Adjust main content when sidebar is collapsed */
-        .sidebar.collapsed ~ .main-content {
-          margin-left: var(--sidebar-collapsed-width);
-          width: calc(100% - var(--sidebar-collapsed-width));
+        /* Brand Area */
+        .sidebar-brand-wrapper {
+          padding: 4px 6px 18px 6px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+          margin-bottom: 14px;
         }
 
-        /* Logo */
-        .sidebar-logo {
+        [data-theme="light"] .sidebar-brand-wrapper {
+          border-bottom-color: rgba(0, 0, 0, 0.06);
+        }
+
+        .sidebar-brand {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 8px 12px;
-          margin-bottom: 32px;
-          white-space: nowrap;
-          overflow: hidden;
+          text-decoration: none;
+          color: inherit;
+          min-height: 38px;
         }
 
-        .logo-icon {
-          color: var(--primary);
-          filter: drop-shadow(0 0 8px var(--primary-glow));
+        .brand-emblem {
+          width: 38px;
+          height: 38px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, rgba(229, 9, 20, 0.22) 0%, rgba(229, 9, 20, 0.06) 100%);
+          border: 1px solid rgba(229, 9, 20, 0.35);
+          display: flex;
+          align-items: center;
+          justify-content: center;
           flex-shrink: 0;
+          box-shadow: 0 4px 14px rgba(229, 9, 20, 0.25);
+          transition: var(--transition-fast);
         }
 
-        .logo-text {
-          font-size: 18px;
+        .sidebar-brand:hover .brand-emblem {
+          transform: scale(1.05);
+          border-color: var(--primary);
+        }
+
+        .emblem-icon {
+          color: var(--primary);
+          filter: drop-shadow(0 0 6px var(--primary-glow));
+        }
+
+        .brand-text-block {
+          display: flex;
+          flex-direction: column;
+          line-height: 1.1;
+          overflow: hidden;
+          white-space: nowrap;
+        }
+
+        .brand-name {
+          font-size: 16.5px;
           font-weight: 800;
           letter-spacing: 2px;
           background: linear-gradient(135deg, var(--foreground) 0%, var(--foreground-muted) 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-          white-space: nowrap;
         }
 
-        /* Nav */
-        .sidebar-nav {
+        .brand-tag {
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          color: var(--primary);
+          opacity: 0.9;
+        }
+
+        /* Nav Scrollable Area */
+        .sidebar-nav-scroll {
+          flex: 1;
           display: flex;
           flex-direction: column;
-          gap: 4px;
-          flex: 1;
+          gap: 14px;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-width: none;
         }
 
-        .sidebar-link {
+        .sidebar-nav-scroll::-webkit-scrollbar {
+          display: none;
+        }
+
+        .nav-group-section {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .nav-group-title {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.8px;
+          color: var(--foreground-muted);
+          opacity: 0.65;
+          padding: 4px 10px 4px 10px;
+          user-select: none;
+        }
+
+        .nav-group-items {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .nav-item-btn {
+          position: relative;
           display: flex;
           align-items: center;
-          gap: 14px;
-          padding: 12px 14px;
-          border-radius: var(--border-radius-sm);
+          gap: 12px;
+          padding: 9px 12px;
+          border-radius: 12px;
           color: var(--foreground-muted);
+          font-size: 13.5px;
           font-weight: 600;
-          font-size: 14px;
-          transition: var(--transition-smooth);
-          position: relative;
-          cursor: pointer;
-          border: none;
-          background: transparent;
-          white-space: nowrap;
-          overflow: hidden;
-          text-align: left;
-          width: 100%;
+          text-decoration: none;
+          transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+          border: 1px solid transparent;
         }
 
-        .sidebar-link:hover {
+        .desktop-sidebar.collapsed .nav-item-btn {
+          justify-content: center;
+          padding: 10px 0;
+        }
+
+        .nav-item-btn:hover {
           color: var(--foreground);
           background: var(--sidebar-hover);
         }
 
-        .sidebar-link.active {
-          color: var(--foreground);
-          background: rgba(229, 9, 20, 0.1);
+        .nav-item-btn.active {
+          color: #ffffff;
+          background: linear-gradient(135deg, rgba(229, 9, 20, 0.16) 0%, rgba(229, 9, 20, 0.08) 100%);
+          border-color: rgba(229, 9, 20, 0.28);
+          font-weight: 700;
+          box-shadow: 0 4px 14px rgba(229, 9, 20, 0.16);
         }
 
-        [data-theme="light"] .sidebar-link.active {
+        [data-theme="light"] .nav-item-btn,
+        :global([data-theme="light"]) .nav-item-btn {
+          color: #4b5563;
+        }
+
+        [data-theme="light"] .nav-item-btn:hover,
+        :global([data-theme="light"]) .nav-item-btn:hover {
+          color: #111827;
+          background: rgba(0, 0, 0, 0.04);
+        }
+
+        [data-theme="light"] .nav-item-btn.active,
+        :global([data-theme="light"]) .nav-item-btn.active {
+          color: var(--primary);
           background: rgba(229, 9, 20, 0.08);
+          border-color: rgba(229, 9, 20, 0.22);
         }
 
-        .sidebar-link.active .sidebar-link-icon {
+        .nav-icon-container {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .nav-item-btn.active .nav-item-icon {
           color: var(--primary);
           filter: drop-shadow(0 0 6px var(--primary-glow));
         }
 
-        .sidebar-link-icon {
-          flex-shrink: 0;
-        }
-
-        .sidebar-link-text {
+        .nav-item-label {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          flex: 1;
         }
 
-        .sidebar-active-indicator {
-          position: absolute;
-          right: 0;
-          top: 15%;
-          height: 70%;
-          width: 3px;
-          background: var(--primary);
-          border-radius: 3px 0 0 3px;
-          box-shadow: -2px 0 8px var(--primary);
+        .nav-badge-pill {
+          font-size: 9.5px;
+          font-weight: 800;
+          padding: 2px 6px;
+          border-radius: 6px;
+          background: linear-gradient(135deg, rgba(138, 43, 226, 0.3) 0%, rgba(229, 9, 20, 0.3) 100%);
+          border: 1px solid rgba(138, 43, 226, 0.45);
+          color: #d8b4fe;
+          letter-spacing: 0.5px;
         }
 
-        /* Footer */
+        [data-theme="light"] .nav-badge-pill,
+        :global([data-theme="light"]) .nav-badge-pill {
+          background: rgba(124, 58, 237, 0.12);
+          border-color: rgba(124, 58, 237, 0.25);
+          color: #7c3aed;
+        }
+
+        /* Sidebar Footer */
         .sidebar-footer {
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 8px;
           padding-top: 12px;
-          border-top: 1px solid var(--card-border);
+          border-top: 1px solid rgba(255, 255, 255, 0.07);
+          margin-top: 6px;
         }
 
-        .theme-toggle .sidebar-link-icon,
-        .collapse-toggle .sidebar-link-icon {
-          color: var(--foreground-muted);
+        [data-theme="light"] .sidebar-footer {
+          border-top-color: rgba(0, 0, 0, 0.06);
         }
 
-        /* User & Sync Status Styles */
-        .user-nav-avatar {
+        .user-profile-tile {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 10px;
+          border-radius: 12px;
+          background: var(--input-bg);
+          border: 1px solid var(--card-border);
+          text-decoration: none;
+          color: inherit;
+          transition: var(--transition-fast);
+        }
+
+        .desktop-sidebar.collapsed .user-profile-tile {
+          justify-content: center;
+          padding: 8px 0;
+        }
+
+        .user-profile-tile:hover {
+          background: var(--sidebar-hover);
+          border-color: var(--card-hover-border);
+        }
+
+        .avatar-wrapper {
           position: relative;
-          width: 24px;
-          height: 24px;
+          width: 28px;
+          height: 28px;
           flex-shrink: 0;
         }
 
-        .nav-avatar-img {
-          width: 24px;
-          height: 24px;
-          border-radius: 12px;
+        .user-avatar-img {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
           object-fit: cover;
         }
 
-        .nav-avatar-placeholder {
-          width: 24px;
-          height: 24px;
-          border-radius: 12px;
+        .user-avatar-initial {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
           background: var(--primary);
-          color: #fff;
-          font-size: 11px;
+          color: #ffffff;
+          font-size: 12px;
           font-weight: 800;
           display: flex;
           align-items: center;
           justify-content: center;
         }
 
-        .sync-status-dot {
+        .status-indicator {
           position: absolute;
           bottom: -1px;
           right: -1px;
-          width: 7px;
-          height: 7px;
+          width: 8px;
+          height: 8px;
           border-radius: 50%;
-          border: 1px solid var(--background);
+          border: 1.5px solid var(--card-bg);
         }
 
-        .sync-status-dot.active {
+        .status-indicator.active {
           background: #30D158;
           box-shadow: 0 0 5px #30D158;
         }
 
-        .sync-status-dot.syncing {
+        .status-indicator.syncing {
           background: #FFD60A;
           box-shadow: 0 0 5px #FFD60A;
-          animation: pulse 1s infinite;
+          animation: navSyncPulse 1s infinite;
         }
 
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-
-        .user-nav-text-group {
+        .user-info-text {
           display: flex;
           flex-direction: column;
           line-height: 1.2;
           overflow: hidden;
+          white-space: nowrap;
         }
 
-        .user-nav-name {
+        .user-display-name {
           font-size: 13px;
           font-weight: 700;
           color: var(--foreground);
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .user-sync-label {
+          font-size: 10px;
+          color: var(--foreground-muted);
+        }
+
+        .cloud-sync-tile {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 10px;
+          border-radius: 12px;
+          background: rgba(0, 180, 216, 0.08);
+          border: 1px dashed rgba(0, 180, 216, 0.35);
+          text-decoration: none;
+          color: inherit;
+          transition: var(--transition-fast);
+        }
+
+        .desktop-sidebar.collapsed .cloud-sync-tile {
+          justify-content: center;
+          padding: 8px 0;
+        }
+
+        .cloud-sync-tile:hover {
+          background: rgba(0, 180, 216, 0.16);
+          border-color: rgba(0, 180, 216, 0.6);
+        }
+
+        .sync-icon-box {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .sync-text-box {
+          display: flex;
+          flex-direction: column;
+          line-height: 1.2;
+          overflow: hidden;
+          white-space: nowrap;
+        }
+
+        .sync-title {
+          font-size: 12.5px;
+          font-weight: 700;
+          color: #00B4D8;
+        }
+
+        .sync-sub {
+          font-size: 9.5px;
+          color: var(--foreground-muted);
+        }
+
+        .sidebar-bottom-actions {
+          display: flex;
+          gap: 6px;
+        }
+
+        .desktop-sidebar.collapsed .sidebar-bottom-actions {
+          flex-direction: column;
+        }
+
+        .action-icon-btn {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 7px 10px;
+          border-radius: 10px;
+          background: var(--input-bg);
+          border: 1px solid var(--card-border);
+          color: var(--foreground-muted);
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+          transition: var(--transition-fast);
+        }
+
+        .action-icon-btn:hover {
+          background: var(--sidebar-hover);
+          color: var(--foreground);
+          border-color: var(--card-hover-border);
+        }
+
+        .btn-label-text {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        .user-nav-status {
-          font-size: 10px;
-          color: var(--text-muted);
+        /* ===== Mobile Bottom Dock (Android-style) ===== */
+        .mobile-bottom-dock {
+          display: none;
         }
 
-        .signin-prompt-link {
-          background: rgba(0, 180, 216, 0.08);
-          border: 1px dashed rgba(0, 180, 216, 0.3);
-        }
-
-        .signin-prompt-link:hover {
-          background: rgba(0, 180, 216, 0.16);
-          border-color: rgba(0, 180, 216, 0.6);
-        }
-
-        /* ===== Responsive: auto-collapse on narrow windows ===== */
-        @media (max-width: 900px) {
-          .sidebar {
-            width: var(--sidebar-collapsed-width);
+        /* ===== Responsive Breakpoints ===== */
+        @media (max-width: 768px) {
+          .desktop-sidebar {
+            display: none !important;
           }
 
-          .sidebar .sidebar-link-text,
-          .sidebar .logo-text {
-            display: none;
+          .mobile-bottom-dock {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            height: calc(56px + env(safe-area-inset-bottom, 0px));
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            border-radius: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding-left: 8px;
+            padding-right: 8px;
+            z-index: 1000;
+            box-sizing: border-box;
+            backdrop-filter: blur(28px) saturate(190%);
+            -webkit-backdrop-filter: blur(28px) saturate(190%);
+            border: none;
+            border-top: 1px solid var(--sidebar-border);
+            background: rgba(14, 14, 18, 0.85);
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+                        opacity 0.25s ease;
           }
 
-          .main-content {
-            margin-left: var(--sidebar-collapsed-width) !important;
-            width: calc(100% - var(--sidebar-collapsed-width)) !important;
+          [data-theme="light"] .mobile-bottom-dock,
+          :global([data-theme="light"]) .mobile-bottom-dock {
+            background: rgba(255, 255, 255, 0.9);
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
           }
 
-          .collapse-toggle {
-            display: none;
+          .mobile-bottom-dock.hidden {
+            transform: translateY(100%);
+            opacity: 0;
+            pointer-events: none;
+          }
+
+          .dock-tab-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            color: var(--foreground-muted);
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 20px;
+            transition: var(--transition-fast);
+            min-width: 52px;
+          }
+
+          .dock-icon-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .dock-tab-btn.active {
+            color: var(--primary);
+          }
+
+          .dock-tab-btn.active .dock-icon {
+            color: var(--primary);
+            filter: drop-shadow(0 0 8px var(--primary-glow));
+          }
+
+          .dock-active-dot {
+            position: absolute;
+            bottom: -3px;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: 0 0 6px var(--primary);
+          }
+
+          .dock-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: -0.2px;
+          }
+
+          .dock-tab-btn.active .dock-label {
+            color: var(--foreground);
+            font-weight: 700;
           }
         }
       `}</style>

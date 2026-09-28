@@ -128,8 +128,13 @@ function TorrentSearchContent() {
       {/* Header section */}
       <div className="header-row animate-fade-in-up">
         <div className="title-section">
-          <Magnet className="header-icon" />
-          <h1 className="header-title">Torrent Search</h1>
+          <div className="header-icon-box">
+            <Magnet className="header-icon" size={24} />
+          </div>
+          <div>
+            <h1 className="header-title">Torrent Search</h1>
+            <p className="header-subtitle">Find & stream high-speed verified magnet links</p>
+          </div>
         </div>
         <button 
           className="history-pill"
@@ -158,6 +163,21 @@ function TorrentSearchContent() {
             <X size={18} />
           </button>
         )}
+        <button 
+          className="search-submit-btn" 
+          onClick={handleSearch}
+          disabled={loading || !searchQuery.trim()}
+          aria-label="Submit search"
+        >
+          {loading ? (
+            <div className="submit-btn-spinner" />
+          ) : (
+            <>
+              <Search size={16} />
+              <span className="submit-btn-text">Search</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Dynamic Status Banner */}
@@ -277,8 +297,9 @@ function TorrentSearchContent() {
 
       <style jsx>{`
         .search-container {
-          max-width: 800px;
+          max-width: 820px;
           margin: 0 auto;
+          width: 100%;
         }
 
         .header-row {
@@ -286,12 +307,25 @@ function TorrentSearchContent() {
           justify-content: space-between;
           align-items: center;
           margin-bottom: 24px;
+          flex-wrap: wrap;
+          gap: 16px;
         }
 
         .title-section {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 14px;
+        }
+
+        .header-icon-box {
+          width: 44px;
+          height: 44px;
+          border-radius: 14px;
+          background: rgba(229, 9, 20, 0.12);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
         }
 
         .header-icon {
@@ -300,15 +334,22 @@ function TorrentSearchContent() {
         }
 
         .header-title {
-          font-size: 24px;
+          font-size: 26px;
           font-weight: 800;
           color: var(--foreground);
-          letter-spacing: 0.5px;
+          letter-spacing: -0.5px;
+          line-height: 1.15;
+        }
+
+        .header-subtitle {
+          font-size: 13px;
+          color: var(--foreground-muted);
+          margin-top: 3px;
         }
 
         .history-pill {
-          background: var(--badge-bg);
-          border: 1px solid var(--card-border);
+          background: var(--card-bg);
+          border: 1px solid var(--input-border);
           border-radius: 12px;
           padding: 8px 16px;
           color: var(--foreground-muted);
@@ -324,7 +365,7 @@ function TorrentSearchContent() {
         .history-pill:hover {
           color: var(--foreground);
           background: var(--sidebar-hover);
-          border-color: var(--foreground-muted);
+          border-color: var(--card-hover-border);
         }
 
         .search-input-wrapper {
@@ -332,54 +373,52 @@ function TorrentSearchContent() {
           width: 100%;
           display: flex;
           align-items: center;
-          margin-bottom: 20px;
+          margin-bottom: 24px;
+          background: var(--input-bg);
+          border: 1.5px solid var(--input-border);
+          border-radius: 18px;
+          box-shadow: 0 4px 20px var(--shadow-color);
+          box-sizing: border-box;
+          padding: 5px 6px 5px 16px;
+          gap: 10px;
+          transition: var(--transition-smooth);
+        }
+
+        .search-input-wrapper:focus-within {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px var(--primary-glow), 0 8px 25px var(--shadow-color);
         }
 
         .search-icon-wrapper {
-          position: absolute;
-          left: 18px;
-          top: 50%;
-          transform: translateY(-50%);
           color: var(--foreground-muted);
           pointer-events: none;
-          z-index: 2;
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 20px;
-          height: 20px;
+          width: 22px;
+          height: 22px;
+          flex-shrink: 0;
         }
 
         .search-input-field {
-          width: 100%;
-          height: 52px;
-          padding: 0 50px 0 52px;
-          background: rgba(255, 255, 255, 0.04);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid var(--card-border);
-          border-radius: var(--border-radius-md);
+          flex: 1;
+          height: 46px;
+          padding: 0 8px;
+          background: transparent !important;
+          border: none !important;
           color: var(--foreground);
           font-size: 15px;
           font-weight: 500;
           outline: none;
           box-sizing: border-box;
-          transition: var(--transition-smooth);
         }
 
-        .search-input-field:focus {
-          border-color: var(--primary);
-          background: rgba(255, 255, 255, 0.07);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          box-shadow: 0 0 15px rgba(229, 9, 20, 0.25);
+        .search-input-field::placeholder {
+          color: var(--foreground-muted);
+          opacity: 0.75;
         }
 
         .clear-btn {
-          position: absolute;
-          right: 18px;
-          top: 50%;
-          transform: translateY(-50%);
           background: transparent;
           border: none;
           color: var(--foreground-muted);
@@ -387,12 +426,79 @@ function TorrentSearchContent() {
           display: flex;
           align-items: center;
           justify-content: center;
+          padding: 8px;
+          border-radius: 50%;
           transition: var(--transition-smooth);
-          z-index: 2;
+          flex-shrink: 0;
         }
 
         .clear-btn:hover {
           color: var(--foreground);
+          background: var(--sidebar-hover);
+        }
+
+        .search-submit-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          height: 44px;
+          padding: 0 20px;
+          border-radius: 12px;
+          background: var(--primary-gradient);
+          color: #ffffff;
+          border: none;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: var(--transition-fast);
+          box-shadow: 0 2px 10px var(--primary-glow);
+        }
+
+        .search-submit-btn:hover:not(:disabled) {
+          filter: brightness(1.1);
+          transform: translateY(-1px);
+        }
+
+        .search-submit-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .submit-btn-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: #ffffff;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @media (max-width: 640px) {
+          .header-row {
+            margin-bottom: 18px;
+          }
+          .header-title {
+            font-size: 22px;
+          }
+          .search-input-wrapper {
+            padding: 4px 5px 4px 12px;
+            border-radius: 14px;
+            margin-bottom: 18px;
+          }
+          .search-input-field {
+            height: 40px;
+            font-size: 13.5px;
+          }
+          .search-submit-btn {
+            height: 38px;
+            padding: 0 12px;
+            border-radius: 10px;
+          }
+          .submit-btn-text {
+            display: none;
+          }
         }
 
         /* Status banner */

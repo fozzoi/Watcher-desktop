@@ -182,7 +182,7 @@ export default function WatchHistoryCarousel({ history, onRemove }: WatchHistory
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          background: rgba(255, 255, 255, 0.05);
+          background: var(--card-bg);
           border: 1px solid var(--card-border);
           color: var(--foreground-muted);
           display: flex;
@@ -209,7 +209,8 @@ export default function WatchHistoryCarousel({ history, onRemove }: WatchHistory
 
         .carousel-wrapper {
           position: relative;
-          margin: 0 -10px;
+          margin: 0;
+          width: 100%;
         }
 
         .scroll-container {
@@ -218,7 +219,7 @@ export default function WatchHistoryCarousel({ history, onRemove }: WatchHistory
           overflow-x: auto;
           scroll-snap-type: x mandatory;
           scroll-behavior: smooth;
-          padding: 10px;
+          padding: 6px 0 16px 0;
           scrollbar-width: none;
         }
 
@@ -228,25 +229,26 @@ export default function WatchHistoryCarousel({ history, onRemove }: WatchHistory
 
         .history-card {
           flex: 0 0 200px;
-          background: rgba(20, 20, 25, 0.6);
+          background: var(--card-bg);
           border-radius: var(--border-radius-md);
           border: 1px solid var(--card-border);
           overflow: hidden;
           scroll-snap-align: start;
           transition: var(--transition-smooth);
+          box-shadow: 0 2px 10px var(--shadow-color);
         }
 
         .history-card:hover {
-          border-color: var(--primary-glow);
+          border-color: var(--card-hover-border);
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+          box-shadow: 0 4px 16px var(--shadow-color);
         }
 
         .poster-container {
           position: relative;
           width: 100%;
           height: 125px;
-          background: #111;
+          background: var(--card-bg);
           overflow: hidden;
         }
 
@@ -449,7 +451,46 @@ export default function WatchHistoryCarousel({ history, onRemove }: WatchHistory
         .next-btn { right: 12px; }
 
         @media (max-width: 768px) {
-          .nav-btn { display: none; }
+          .nav-btn,
+          .header-nav-arrows { 
+            display: none !important; 
+          }
+        }
+
+        @media (max-width: 640px) {
+          .carousel-wrapper {
+            margin: 0;
+          }
+
+          .history-card {
+            flex: 0 0 160px;
+          }
+
+          .scroll-container {
+            gap: 12px;
+            padding: 4px 0 14px 0;
+          }
+
+          .history-section {
+            margin-bottom: 28px;
+          }
+
+          .section-title {
+            font-size: 16px;
+          }
+
+          .card-title {
+            font-size: 12px;
+          }
+
+          .card-info {
+            padding: 8px;
+            gap: 4px;
+          }
+
+          .poster-container {
+            height: 100px;
+          }
         }
       `}</style>
     </div>

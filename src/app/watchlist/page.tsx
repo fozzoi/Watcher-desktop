@@ -1327,11 +1327,11 @@ export default function WatchListPage() {
         /* Grid elements */
         .library-card-wrapper {
           width: 100%;
-          transition: var(--transition-smooth);
+          transition: transform 0.2s ease;
         }
 
         .library-card-wrapper:hover {
-          transform: translateY(-4px);
+          transform: translateY(-2px);
         }
 
         .card-link {
@@ -1347,33 +1347,31 @@ export default function WatchListPage() {
           aspect-ratio: 2/3;
           border-radius: var(--border-radius-md);
           overflow: hidden;
-          background: #151518;
-          border: 1px solid var(--card-border);
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+          background: var(--input-bg);
+          border: none !important;
+          box-shadow: 0 4px 16px var(--shadow-color);
+          transition: box-shadow 0.2s ease;
         }
 
         .library-card-wrapper:hover .card-image-box {
-          border-color: var(--card-hover-border);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 6px 22px var(--shadow-color);
         }
 
         .card-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: var(--transition-smooth);
+          transition: transform 0.25s ease;
         }
 
         .library-card-wrapper:hover .card-img {
-          scale: 1.05;
+          transform: scale(1.02);
         }
 
         .card-overlay {
           position: absolute;
           inset: 0;
-          background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 40%);
           pointer-events: none;
         }
 
@@ -1402,31 +1400,23 @@ export default function WatchListPage() {
 
         .type-badge {
           background: rgba(0, 0, 0, 0.7);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          color: var(--foreground);
+          color: #ffffff;
           border: 1px solid rgba(255, 255, 255, 0.15);
         }
 
         .franchise-badge {
-          background: rgba(168, 85, 247, 0.7);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: rgba(168, 85, 247, 0.8);
           color: #fff;
           border: 1px solid rgba(168, 85, 247, 0.3);
         }
 
         .artist-badge {
-          background: rgba(229, 9, 20, 0.7);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: rgba(229, 9, 20, 0.8);
           color: #fff;
         }
 
         .rating-badge {
           background: rgba(0, 0, 0, 0.75);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
           color: #facc15;
           border: 1px solid rgba(250, 204, 21, 0.3);
         }
@@ -1439,8 +1429,6 @@ export default function WatchListPage() {
           height: 28px;
           border-radius: 50%;
           background: rgba(0, 0, 0, 0.75);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.15);
           color: var(--foreground-muted);
           display: flex;
@@ -1449,7 +1437,7 @@ export default function WatchListPage() {
           cursor: pointer;
           opacity: 0;
           z-index: 10;
-          transition: var(--transition-smooth);
+          transition: opacity 0.2s ease, transform 0.2s ease;
         }
 
         .library-card-wrapper:hover .remove-btn {
@@ -1458,11 +1446,30 @@ export default function WatchListPage() {
 
         .remove-btn:hover {
           background: rgba(239, 68, 68, 0.9);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
           border-color: transparent;
           color: #fff;
-          transform: scale(1.1);
+          transform: scale(1.08);
+        }
+
+        [data-theme="light"] .card-image-box {
+          background: #e5e7eb;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+        }
+
+        [data-theme="light"] .library-card-wrapper:hover .card-image-box {
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        [data-theme="light"] .type-badge {
+          background: rgba(255, 255, 255, 0.92);
+          color: #111827;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+        }
+
+        [data-theme="light"] .remove-btn {
+          background: rgba(255, 255, 255, 0.92);
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          color: #ef4444;
         }
 
         .card-info {
@@ -1737,6 +1744,75 @@ export default function WatchListPage() {
         @keyframes skeleton-shimmer {
           0% { background-position: 200% 0; }
           100% { background-position: -200% 0; }
+        }
+
+        @media (max-width: 640px) {
+          .header-row {
+            margin-bottom: 16px;
+            gap: 12px;
+          }
+
+          .header-left {
+            gap: 10px;
+          }
+
+          .header-title {
+            font-size: 22px;
+          }
+
+          .header-actions {
+            gap: 6px;
+          }
+
+          .header-actions .btn-text {
+            display: none !important;
+          }
+
+          .icon-btn {
+            padding: 8px !important;
+            border-radius: 10px !important;
+            min-width: 36px;
+            height: 36px;
+            justify-content: center;
+          }
+
+          .tabs-row {
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            max-width: 100%;
+            gap: 6px;
+            padding: 4px;
+            border-radius: 14px;
+            margin-bottom: 14px;
+          }
+
+          .tabs-row::-webkit-scrollbar {
+            display: none;
+          }
+
+          .tab-btn {
+            flex: 0 0 auto;
+            padding: 0 12px;
+            height: 36px;
+            font-size: 12.5px;
+            gap: 6px;
+          }
+
+          .filters-container {
+            margin-bottom: 16px;
+            gap: 10px;
+          }
+
+          .pill-btn {
+            padding: 5px 10px;
+            font-size: 11.5px;
+          }
+
+          .media-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 12px !important;
+          }
         }
       `}</style>
     </div>

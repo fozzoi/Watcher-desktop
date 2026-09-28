@@ -292,27 +292,28 @@ function CollectionDetailContent() {
         .backdrop-header {
           position: relative;
           width: 100%;
-          height: 320px;
+          height: 420px;
           border-radius: var(--border-radius-lg);
           overflow: hidden;
           margin-bottom: -80px;
+          background: var(--bg-color);
         }
         .backdrop-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
+          object-position: center 20%;
+          opacity: 0.88;
         }
         .backdrop-overlay {
           position: absolute;
           inset: 0;
-          background: linear-gradient(180deg, rgba(12,12,14,0.2) 0%, rgba(12,12,14,0.95) 100%);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: linear-gradient(180deg, rgba(12,12,14,0.1) 0%, rgba(12,12,14,0.3) 40%, rgba(12,12,14,0.85) 80%, var(--bg-color) 100%);
+          pointer-events: none;
         }
-        [data-theme="light"] .backdrop-overlay {
-          background: linear-gradient(180deg, rgba(245, 245, 247, 0.1) 0%, rgba(245, 245, 247, 0.95) 100%);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+        [data-theme="light"] .backdrop-overlay,
+        :global([data-theme="light"]) .backdrop-overlay {
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(245, 245, 247, 0.2) 40%, rgba(245, 245, 247, 0.8) 80%, var(--bg-color) 100%);
         }
         .back-btn {
           position: absolute;
