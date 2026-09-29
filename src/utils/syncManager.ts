@@ -58,6 +58,22 @@ export const syncManager = {
     }
 
     try {
+      if (mode === 'merge') {
+        const knownRevision = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
+        if (knownRevision > 0) {
+          const delta = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${knownRevision}`, {
+            headers: { Authorization: `Bearer ${token}` }, timeout: 12000,
+          });
+          if (Array.isArray(delta.data?.changes) && delta.data.changes.some((change: any) => change.action === 'clear' && !change.type)) {
+            const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 });
+            if (snapshot.data?.library) {
+              await saveCloudLibrary(snapshot.data.library);
+              await AsyncStorage.setItem('watcher_cloud_revision', String(snapshot.data.revision || delta.data.revision || 0));
+              return { success: true, library: snapshot.data.library };
+            }
+          }
+        }
+      }
       // 1. Gather all local data
       const [wStr, hStr, aStr, cStr, pStr, prefStr, convStr, memStr, aiNameStr] = await Promise.all([
         AsyncStorage.getItem('watchlist'),
