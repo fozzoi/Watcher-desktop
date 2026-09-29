@@ -47,12 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!token || typeof window === 'undefined') return;
-    const onLocalLibraryChange = () => {
-      if (!isApplyingCloudState()) syncManager.queueSync(token);
+    const onLocalLibraryChange = (event: Event) => {
+      if (!isApplyingCloudState()) syncManager.queueLocalChange(token, (event as CustomEvent).detail || {});
     };
     const pollCloud = () => syncManager.pullIfChanged(token);
     window.addEventListener('watcher_local_library_changed', onLocalLibraryChange);
-    const interval = window.setInterval(pollCloud, 5000);
+    const interval = window.setInterval(pollCloud, 2000);
     window.addEventListener('focus', pollCloud);
     return () => {
       window.removeEventListener('watcher_local_library_changed', onLocalLibraryChange);

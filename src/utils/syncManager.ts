@@ -20,6 +20,8 @@ export interface CloudLibrary {
 
 let syncTimeout: any = null;
 let applyingCloudState = false;
+let syncInFlight = false;
+let pendingMutations: Promise<unknown> = Promise.resolve();
 export const isApplyingCloudState = () => applyingCloudState;
 
 async function saveCloudLibrary(library: CloudLibrary) {
@@ -122,30 +124,85 @@ export const syncManager = {
     if (!token) return;
     if (syncTimeout) clearTimeout(syncTimeout);
     syncTimeout = setTimeout(() => {
-      if (!applyingCloudState) this.performSync(token, 'replace');
+      if (!applyingCloudState) this.performSync(token, 'merge');
     }, delayMs);
   },
 
+  queueLocalChange(token: string, detail: { key?: string; previousValue?: string | null; value?: string | null }) {
+    if (!token || applyingCloudState) return;
+    const typeByKey: Record<string, string> = {
+      watchlist: 'watchlist', history: 'history', favoriteArtists: 'favoriteArtists', savedCollections: 'savedCollections',
+    };
+    const type = detail?.key ? typeByKey[detail.key] : undefined;
+    if (!type) {
+      this.queueSync(token, 700);
+      return;
+    }
+    try {
+      const before = detail.previousValue ? JSON.parse(detail.previousValue) : [];
+      const after = detail.value ? JSON.parse(detail.value) : [];
+      const id = (item: any) => String(item?.id ?? item?.media_id ?? '');
+      const oldMap = new Map((Array.isArray(before) ? before : []).map((item: any) => [id(item), item]));
+      const newMap = new Map((Array.isArray(after) ? after : []).map((item: any) => [id(item), item]));
+      const mutations: any[] = [];
+      for (const [key, item] of newMap) {
+        if (!oldMap.has(key) || JSON.stringify(oldMap.get(key)) !== JSON.stringify(item)) mutations.push({ type, action: 'add', item });
+      }
+      for (const key of oldMap.keys()) if (!newMap.has(key)) mutations.push({ type, action: 'remove', mediaId: Number(key) });
+      if (!mutations.length && oldMap.size && !newMap.size) mutations.push({ type, action: 'clear' });
+      for (const mutation of mutations) {
+        pendingMutations = pendingMutations.then(async () => {
+          const response = await axios.post(`${SYNC_API_BASE}/api/sync`, { action: 'mutate', mutation }, {
+            headers: { Authorization: `Bearer ${token}` }, timeout: 12000,
+          });
+          await AsyncStorage.setItem('watcher_cloud_revision', String(response.data?.revision || 0));
+        }).catch(error => console.warn('Cloud library edit failed:', error?.response?.data || error.message));
+      }
+    } catch (error) {
+      console.warn('Could not build cloud library changes:', error);
+      this.queueSync(token, 700);
+    }
+  },
+
   async pullIfChanged(token: string): Promise<boolean> {
-    if (!token) return false;
+    if (!token || syncInFlight) return false;
+    syncInFlight = true;
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [revisionResponse, savedRevision] = await Promise.all([
-        axios.get(`${SYNC_API_BASE}/api/sync?version_only=true`, { headers, timeout: 12000 }),
-        AsyncStorage.getItem('watcher_cloud_revision'),
-      ]);
-      const revision = Number(revisionResponse.data?.revision || 0);
+      const savedRevision = await AsyncStorage.getItem('watcher_cloud_revision');
+      const response = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${Number(savedRevision || 0)}`, { headers, timeout: 15000 });
+      const revision = Number(response.data?.revision || 0);
       if (!revision || revision === Number(savedRevision || 0)) return false;
-      const response = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
-      const library = response.data?.library as CloudLibrary | undefined;
+      if (response.data?.status === 'delta' && Array.isArray(response.data.changes) && response.data.changes.every((change: any) => ['watchlist', 'history', 'favoriteArtists', 'savedCollections'].includes(change.type) && ['add', 'remove', 'clear'].includes(change.action))) {
+        applyingCloudState = true;
+        const lists: Record<string, any[]> = {};
+        for (const change of response.data.changes) {
+          const list = lists[change.type] || JSON.parse((await AsyncStorage.getItem(change.type)) || '[]');
+          if (change.action === 'clear') lists[change.type] = [];
+          else if (change.action === 'remove') lists[change.type] = list.filter((item: any) => Number(item?.id ?? item?.media_id) !== Number(change.mediaId));
+          else if (change.action === 'add' && change.item) lists[change.type] = [change.item, ...list.filter((item: any) => String(item?.id ?? item?.media_id) !== String(change.item.id))];
+          else lists[change.type] = list;
+        }
+        for (const [type, list] of Object.entries(lists)) await AsyncStorage.setItem(type, JSON.stringify(list));
+        await AsyncStorage.setItem('watcher_cloud_revision', String(revision));
+        return true;
+      }
+      let library = response.data?.library as CloudLibrary | undefined;
+      if (!library) {
+        const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
+        library = snapshot.data?.library as CloudLibrary | undefined;
+      }
       if (!library) return false;
       await saveCloudLibrary(library);
-      await AsyncStorage.setItem('watcher_cloud_revision', String(response.data?.revision || revision));
+      await AsyncStorage.setItem('watcher_cloud_revision', String(revision));
       await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
       return true;
     } catch (err) {
       console.warn('Cloud change check failed:', err);
       return false;
+    } finally {
+      applyingCloudState = false;
+      syncInFlight = false;
     }
   },
 

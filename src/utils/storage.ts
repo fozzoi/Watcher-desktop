@@ -7,13 +7,15 @@ export const AsyncStorage = {
   },
   setItem: async (key: string, value: string): Promise<void> => {
     if (typeof window === "undefined") return;
+    const previousValue = window.localStorage.getItem(key);
     window.localStorage.setItem(key, value);
-    if (LIBRARY_KEYS.has(key)) window.dispatchEvent(new Event("watcher_local_library_changed"));
+    if (LIBRARY_KEYS.has(key)) window.dispatchEvent(new CustomEvent("watcher_local_library_changed", { detail: { key, previousValue, value } }));
   },
   removeItem: async (key: string): Promise<void> => {
     if (typeof window === "undefined") return;
+    const previousValue = window.localStorage.getItem(key);
     window.localStorage.removeItem(key);
-    if (LIBRARY_KEYS.has(key)) window.dispatchEvent(new Event("watcher_local_library_changed"));
+    if (LIBRARY_KEYS.has(key)) window.dispatchEvent(new CustomEvent("watcher_local_library_changed", { detail: { key, previousValue, value: null } }));
   },
   clear: async (): Promise<void> => {
     if (typeof window === "undefined") return;
