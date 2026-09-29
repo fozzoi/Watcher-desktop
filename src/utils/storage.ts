@@ -8,8 +8,7 @@ export function setCloudOnlyStorage(enabled: boolean) {
   if (enabled === cloudOnly) return;
   if (enabled) {
     for (const key of LIBRARY_KEYS) {
-      const value = window.localStorage.getItem(key);
-      if (value !== null) cloudMemory.set(key, value);
+      cloudMemory.delete(key);
       window.localStorage.removeItem(key);
     }
     cloudOnly = true;
@@ -64,7 +63,7 @@ export const AsyncStorage = {
 
 const LIBRARY_KEYS = new Set([
   "watchlist", "history", "favoriteArtists", "savedCollections",
-  "watch_progress_v1", "user_preferences", "watcher.chat.conversations.v1",
+  "watch_progress_v1", "watcher.chat.conversations.v1",
   "watcher.chat.userMemory.v1", "watcher.chat.aiName.v1",
 ]);
 

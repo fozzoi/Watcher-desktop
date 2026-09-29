@@ -52,7 +52,6 @@ async function saveCloudLibrary(library: CloudLibrary) {
       AsyncStorage.setItem('favoriteArtists', JSON.stringify(library.favoriteArtists || [])),
       AsyncStorage.setItem('savedCollections', JSON.stringify(library.savedCollections || [])),
       AsyncStorage.setItem('watch_progress_v1', JSON.stringify(library.watchProgress || {})),
-      AsyncStorage.setItem('user_preferences', JSON.stringify(library.preferences || {})),
     ];
     if (library.aiChatData) {
       if (Array.isArray(library.aiChatData.conversations)) saveOps.push(AsyncStorage.setItem('watcher.chat.conversations.v1', JSON.stringify(library.aiChatData.conversations)));
@@ -103,13 +102,12 @@ export const syncManager = {
         }
       }
       // 1. Gather all local data
-      const [wStr, hStr, aStr, cStr, pStr, prefStr, convStr, memStr, aiNameStr] = await Promise.all([
+      const [wStr, hStr, aStr, cStr, pStr, convStr, memStr, aiNameStr] = await Promise.all([
         AsyncStorage.getItem('watchlist'),
         AsyncStorage.getItem('history'),
         AsyncStorage.getItem('favoriteArtists'),
         AsyncStorage.getItem('savedCollections'),
         AsyncStorage.getItem('watch_progress_v1'),
-        AsyncStorage.getItem('user_preferences'),
         AsyncStorage.getItem('watcher.chat.conversations.v1'),
         AsyncStorage.getItem('watcher.chat.userMemory.v1'),
         AsyncStorage.getItem('watcher.chat.aiName.v1'),
@@ -121,7 +119,6 @@ export const syncManager = {
         favoriteArtists: aStr ? JSON.parse(aStr) : [],
         savedCollections: cStr ? JSON.parse(cStr) : [],
         watchProgress: pStr ? JSON.parse(pStr) : {},
-        preferences: prefStr ? JSON.parse(prefStr) : {},
         aiChatData: {
           conversations: convStr ? JSON.parse(convStr) : [],
           userMemory: memStr || '',
@@ -255,16 +252,31 @@ export const syncManager = {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const savedRevision = await AsyncStorage.getItem('watcher_cloud_revision');
+      if (Number(savedRevision || 0) <= 0) {
+        setCloudOnlyStorage(true);
+        const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
+        if (!snapshot.data?.library) return false;
+        await saveCloudLibrary(snapshot.data.library);
+        await AsyncStorage.setItem('watcher_cloud_revision', String(snapshot.data.revision || 0));
+        return true;
+      }
       const response = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${Number(savedRevision || 0)}`, { headers, timeout: 15000 });
       const revision = Number(response.data?.revision || 0);
       if (!revision || revision === Number(savedRevision || 0)) return false;
-      if (response.data?.status === 'delta' && Array.isArray(response.data.changes) && response.data.changes.every((change: any) => ['watchlist', 'history', 'favoriteArtists', 'savedCollections'].includes(change.type) && ['add', 'remove', 'clear'].includes(change.action))) {
+      const changes = response.data?.changes;
+      const previousRevision = Number(savedRevision || 0);
+      const completeDelta = Array.isArray(changes) && changes.length > 0 &&
+        changes.length === revision - previousRevision &&
+        changes.every((change: any, index: number) => change.revision === previousRevision + index + 1 &&
+          ['watchlist', 'history', 'favoriteArtists', 'savedCollections'].includes(change.type) &&
+          ['add', 'remove', 'clear'].includes(change.action));
+      if (response.data?.status === 'delta' && completeDelta) {
         const lists: Record<string, any[]> = {};
         const itemKey = (item: any) => `${item?.media_type === 'tv' ? 'tv' : 'movie'}:${String(item?.id ?? item?.media_id)}`;
-        for (const type of new Set<string>(response.data.changes.map((change: any) => String(change.type)))) {
+        for (const type of new Set<string>(changes.map((change: any) => String(change.type)))) {
           lists[type] = JSON.parse((await AsyncStorage.getItem(type)) || '[]');
         }
-        for (const change of response.data.changes) {
+        for (const change of changes) {
           const list = lists[change.type] || [];
           if (change.action === 'clear') lists[change.type] = [];
           else if (change.action === 'remove') lists[change.type] = list.filter((item: any) => Number(item?.id ?? item?.media_id) !== Number(change.mediaId) || (change.mediaType && (item?.media_type === 'tv' ? 'tv' : 'movie') !== change.mediaType));
@@ -325,12 +337,23 @@ export const syncManager = {
   },
 
   async syncOnStartup(token: string): Promise<boolean> {
-    const knownRevision = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
-    if (knownRevision > 0) {
-      setCloudOnlyStorage(true);
-      return this.pullFromCloud(token);
-    }
-    return (await this.performSync(token, 'merge')).success;
+    if (!token || syncInFlight) return false;
+    syncInFlight = true;
+    setCloudOnlyStorage(true);
+    try {
+      await AsyncStorage.removeItem('watcher_cloud_revision');
+      const response = await axios.get(`${SYNC_API_BASE}/api/sync`, {
+        headers: { Authorization: `Bearer ${token}` }, timeout: 20000,
+      });
+      if (!response.data?.library) return false;
+      await saveCloudLibrary(response.data.library);
+      await AsyncStorage.setItem('watcher_cloud_revision', String(response.data.revision || 0));
+      await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
+      return true;
+    } catch (error) {
+      console.warn('Could not load the signed-in cloud library on startup:', error);
+      return false;
+    } finally { syncInFlight = false; }
   },
 
   /**
