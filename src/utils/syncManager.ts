@@ -296,6 +296,9 @@ export const syncManager = {
           saveOps.push(AsyncStorage.setItem('watcher_cloud_revision', String(revision)));
         } finally { applyingCloudState = false; }
         await Promise.all(saveOps);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('watcher_cloud_synced', { detail: { revision } }));
+        }
         return true;
       }
       let library = response.data?.library as CloudLibrary | undefined;

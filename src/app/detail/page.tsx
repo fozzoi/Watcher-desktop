@@ -177,6 +177,16 @@ function DetailContent() {
     loadWatchlistState();
   }, [fetchDetails, loadWatchlistState]);
 
+  useEffect(() => {
+    const refreshLibraryState = () => { void loadWatchlistState(); };
+    window.addEventListener('watcher_cloud_synced', refreshLibraryState);
+    window.addEventListener('watcher_local_library_changed', refreshLibraryState);
+    return () => {
+      window.removeEventListener('watcher_cloud_synced', refreshLibraryState);
+      window.removeEventListener('watcher_local_library_changed', refreshLibraryState);
+    };
+  }, [loadWatchlistState]);
+
   // Manual trigger for Gemini AI vibes (does not auto-run on mount)
   const handleFetchAiVibes = async () => {
     if (!movie) return;
