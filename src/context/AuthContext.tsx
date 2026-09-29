@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { AsyncStorage } from '@/utils/storage';
+import { AsyncStorage, setCloudOnlyStorage } from '@/utils/storage';
 import { syncManager, isApplyingCloudState } from '@/utils/syncManager';
 
 const AUTH_API_BASE = 'https://watcher-api-rho.vercel.app';
@@ -48,9 +48,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!token || typeof window === 'undefined') return;
     const onLocalLibraryChange = (event: Event) => {
-      if (!isApplyingCloudState()) syncManager.queueLocalChange(token, (event as CustomEvent).detail || {});
+      if (!isApplyingCloudState()) syncManager.queueLocalChange(token, (event as CustomEvent).detail || {}, user?.userId || 'default');
     };
-    const pollCloud = () => syncManager.pullIfChanged(token);
+    const pollCloud = () => {
+      void syncManager.flushOutbox(token, user?.userId || 'default');
+      void syncManager.pullIfChanged(token);
+    };
+    void syncManager.flushOutbox(token, user?.userId || 'default');
     window.addEventListener('watcher_local_library_changed', onLocalLibraryChange);
     const interval = window.setInterval(pollCloud, 2000);
     window.addEventListener('focus', pollCloud);
@@ -59,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.clearInterval(interval);
       window.removeEventListener('focus', pollCloud);
     };
-  }, [token]);
+  }, [token, user?.userId]);
 
   // Load custom client id if stored
   const setGoogleClientId = useCallback((id: string) => {
@@ -98,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (savedToken && savedUser) {
+          setCloudOnlyStorage(true);
           const parsedUser = JSON.parse(savedUser);
           setUser(parsedUser);
           setToken(savedToken);
@@ -111,8 +116,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser(res.data.user);
               await AsyncStorage.setItem('watcher_auth_user', JSON.stringify(res.data.user));
               // Trigger silent initial cloud sync on launch
-              syncManager.performSync(savedToken, 'merge').then((syncRes) => {
-                if (syncRes.success) {
+              syncManager.syncOnStartup(savedToken).then((success) => {
+                if (success) {
                   setLastSyncedAt(new Date().toISOString());
                 }
               });
@@ -154,6 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!profile || !newToken) {
         throw new Error('Invalid authentication response from server');
       }
+      await syncManager.prepareLocalLibraryForAccount(profile.userId);
 
       setUser(profile);
       setToken(newToken);
@@ -194,6 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const { user: profile, token: newToken } = response.data;
       if (!profile || !newToken) throw new Error('Invalid demo response');
+      await syncManager.prepareLocalLibraryForAccount(profile.userId);
 
       setUser(profile);
       setToken(newToken);
@@ -242,6 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!profile) {
         throw new Error('Invalid authentication response from server');
       }
+      await syncManager.prepareLocalLibraryForAccount(profile.userId);
 
       setUser(profile);
       setToken(cleanToken);
@@ -271,6 +279,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout handler
   const logout = async (): Promise<void> => {
+    if (token && user?.userId) {
+      await syncManager.flushOutbox(token, user.userId);
+      await syncManager.pullFromCloud(token);
+      await AsyncStorage.setItem('watcher_local_library_owner', user.userId);
+    }
+    setCloudOnlyStorage(false);
     setUser(null);
     setToken(null);
     setSyncError(null);
@@ -290,15 +304,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsSyncing(true);
     setSyncError(null);
 
-    const res = await syncManager.performSync(token, 'merge');
+    const success = await syncManager.pullFromCloud(token);
     setIsSyncing(false);
 
-    if (res.success) {
+    if (success) {
       const now = new Date().toISOString();
       setLastSyncedAt(now);
       return true;
     } else {
-      setSyncError(res.error || 'Sync failed');
+      setSyncError('Sync failed');
       return false;
     }
   };
