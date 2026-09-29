@@ -1,5 +1,6 @@
 import { AsyncStorage, clearLocalLibraryStorage, setCloudOnlyStorage } from './storage';
 import axios from 'axios';
+import { setGlobalConfig } from './tmdb';
 
 const SYNC_API_BASE = 'https://watcher-api-rho.vercel.app';
 
@@ -25,6 +26,7 @@ let flushingOutbox = false;
 let retryAfter = 0;
 let retryDelay = 1000;
 const outboxKey = (userId: string) => `watcher_sync_outbox_v1:${userId}`;
+const snapshotCacheKey = (userId: string) => `watcher_cloud_snapshot_v1:${userId}`;
 export const isApplyingCloudState = () => applyingCloudState;
 
 function makeOperationId() {
@@ -53,6 +55,9 @@ async function saveCloudLibrary(library: CloudLibrary) {
       AsyncStorage.setItem('savedCollections', JSON.stringify(library.savedCollections || [])),
       AsyncStorage.setItem('watch_progress_v1', JSON.stringify(library.watchProgress || {})),
     ];
+    if (typeof library.preferences?.nsfwFilterEnabled === 'boolean') {
+      saveOps.push(AsyncStorage.setItem('settings_nsfw', JSON.stringify(library.preferences.nsfwFilterEnabled)));
+    }
     if (library.aiChatData) {
       if (Array.isArray(library.aiChatData.conversations)) saveOps.push(AsyncStorage.setItem('watcher.chat.conversations.v1', JSON.stringify(library.aiChatData.conversations)));
       if (typeof library.aiChatData.userMemory === 'string') saveOps.push(AsyncStorage.setItem('watcher.chat.userMemory.v1', library.aiChatData.userMemory));
@@ -62,10 +67,44 @@ async function saveCloudLibrary(library: CloudLibrary) {
     applyingCloudState = false;
   }
   await Promise.all(saveOps);
+  if (typeof library.preferences?.nsfwFilterEnabled === 'boolean') {
+    setGlobalConfig('nsfwFilterEnabled', library.preferences.nsfwFilterEnabled);
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watcher_nsfw_setting_changed', { detail: { value: library.preferences.nsfwFilterEnabled } }));
+  }
+  await persistCloudSnapshot(library);
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watcher_cloud_synced', { detail: library }));
 }
 
+async function persistCloudSnapshot(library: Partial<CloudLibrary>) {
+  try {
+    const rawUser = await AsyncStorage.getItem('watcher_auth_user');
+    const userId = rawUser ? JSON.parse(rawUser)?.userId : null;
+    if (!userId) return;
+    await AsyncStorage.setItem(snapshotCacheKey(userId), JSON.stringify({
+      watchlist: Array.isArray(library.watchlist) ? library.watchlist : [],
+      history: Array.isArray(library.history) ? library.history : [],
+      favoriteArtists: Array.isArray(library.favoriteArtists) ? library.favoriteArtists : [],
+      savedCollections: Array.isArray(library.savedCollections) ? library.savedCollections : [],
+      preferences: library.preferences && typeof library.preferences === 'object'
+        ? library.preferences
+        : {},
+    }));
+  } catch (error) {
+    console.warn('Could not save the cloud library display cache:', error);
+  }
+}
+
 export const syncManager = {
+  async primeCachedLibrary(userId: string) {
+    try {
+      const raw = await AsyncStorage.getItem(snapshotCacheKey(userId));
+      const cached = raw ? JSON.parse(raw) : null;
+      if (!cached || !Array.isArray(cached.watchlist) || !Array.isArray(cached.history)) return false;
+      await saveCloudLibrary(cached as CloudLibrary);
+      return true;
+    } catch { return false; }
+  },
+
   async prepareLocalLibraryForAccount(userId: string) {
     const owner = await AsyncStorage.getItem('watcher_local_library_owner');
     if (owner && owner !== userId) {
@@ -214,6 +253,13 @@ export const syncManager = {
     await this.flushOutbox(token, userId);
   },
 
+  async queueNsfwSetting(token: string | null, userId: string, enabled: boolean) {
+    if (!token) return;
+    await this.enqueueMutations(token, userId, [{
+      type: 'preferences', action: 'set', value: { nsfwFilterEnabled: enabled },
+    }]);
+  },
+
   async flushOutbox(token: string, userId: string) {
     if (!token || flushingOutbox || Date.now() < retryAfter) return;
     flushingOutbox = true;
@@ -267,16 +313,18 @@ export const syncManager = {
       const previousRevision = Number(savedRevision || 0);
       const completeDelta = Array.isArray(changes) && changes.length > 0 &&
         changes.length === revision - previousRevision &&
-        changes.every((change: any, index: number) => change.revision === previousRevision + index + 1 &&
-          ['watchlist', 'history', 'favoriteArtists', 'savedCollections'].includes(change.type) &&
-          ['add', 'remove', 'clear'].includes(change.action));
+        changes.every((change: any, index: number) => change.revision === previousRevision + index + 1 && (
+          (['watchlist', 'history', 'favoriteArtists', 'savedCollections'].includes(change.type) && ['add', 'remove', 'clear'].includes(change.action)) ||
+          (['preferences', 'watchProgress'].includes(change.type) && change.action === 'set')
+        ));
       if (response.data?.status === 'delta' && completeDelta) {
         const lists: Record<string, any[]> = {};
+        const listChanges = changes.filter((change: any) => ['watchlist', 'history', 'favoriteArtists', 'savedCollections'].includes(change.type));
         const itemKey = (item: any) => `${item?.media_type === 'tv' ? 'tv' : 'movie'}:${String(item?.id ?? item?.media_id)}`;
-        for (const type of new Set<string>(changes.map((change: any) => String(change.type)))) {
+        for (const type of new Set<string>(listChanges.map((change: any) => String(change.type)))) {
           lists[type] = JSON.parse((await AsyncStorage.getItem(type)) || '[]');
         }
-        for (const change of changes) {
+        for (const change of listChanges) {
           const list = lists[change.type] || [];
           if (change.action === 'clear') lists[change.type] = [];
           else if (change.action === 'remove') lists[change.type] = list.filter((item: any) => Number(item?.id ?? item?.media_id) !== Number(change.mediaId) || (change.mediaType && (item?.media_type === 'tv' ? 'tv' : 'movie') !== change.mediaType));
@@ -296,6 +344,26 @@ export const syncManager = {
           saveOps.push(AsyncStorage.setItem('watcher_cloud_revision', String(revision)));
         } finally { applyingCloudState = false; }
         await Promise.all(saveOps);
+        for (const change of changes) {
+          if (change.type === 'preferences' && change.action === 'set' && typeof change.value?.nsfwFilterEnabled === 'boolean') {
+            await AsyncStorage.setItem('settings_nsfw', JSON.stringify(change.value.nsfwFilterEnabled));
+            setGlobalConfig('nsfwFilterEnabled', change.value.nsfwFilterEnabled);
+            if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watcher_nsfw_setting_changed', { detail: { value: change.value.nsfwFilterEnabled } }));
+          }
+          if (change.type === 'watchProgress' && change.action === 'set' && change.value && typeof change.value === 'object') {
+            await AsyncStorage.setItem('watch_progress_v1', JSON.stringify(change.value));
+          }
+        }
+        const [watchlist, history, favoriteArtists, savedCollections] = await Promise.all([
+          AsyncStorage.getItem('watchlist'), AsyncStorage.getItem('history'), AsyncStorage.getItem('favoriteArtists'), AsyncStorage.getItem('savedCollections'),
+        ]);
+        await persistCloudSnapshot({
+          watchlist: watchlist ? JSON.parse(watchlist) : [],
+          history: history ? JSON.parse(history) : [],
+          favoriteArtists: favoriteArtists ? JSON.parse(favoriteArtists) : [],
+          savedCollections: savedCollections ? JSON.parse(savedCollections) : [],
+          preferences: {},
+        });
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('watcher_cloud_synced', { detail: { revision } }));
         }

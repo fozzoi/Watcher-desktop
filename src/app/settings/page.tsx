@@ -59,6 +59,7 @@ import {
   PlayerQuality
 } from '@/utils/playerPreferences';
 import { checkForUpdate, downloadAndInstallUpdate, isTauriApp, UpdateInfo } from '@/utils/tauriUpdater';
+import { syncManager } from '@/utils/syncManager';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -169,6 +170,14 @@ export default function SettingsPage() {
   useEffect(() => {
     loadAllSettings();
     setMounted(true);
+    const onNsfwSettingChanged = (event: Event) => {
+      const enabled = (event as CustomEvent).detail?.value;
+      if (typeof enabled !== 'boolean') return;
+      setIsNsfwFilter(enabled);
+      setGlobalConfig('nsfwFilterEnabled', enabled);
+    };
+    window.addEventListener('watcher_nsfw_setting_changed', onNsfwSettingChanged);
+    return () => window.removeEventListener('watcher_nsfw_setting_changed', onNsfwSettingChanged);
   }, []);
 
   const loadAllSettings = async () => {
@@ -233,6 +242,7 @@ export default function SettingsPage() {
     setIsNsfwFilter(value);
     setGlobalConfig('nsfwFilterEnabled', value);
     await AsyncStorage.setItem('settings_nsfw', JSON.stringify(value));
+    await syncManager.queueNsfwSetting(token, user?.userId || 'default', value);
   };
 
   const handleToggleAutoAi = async (value: boolean) => {

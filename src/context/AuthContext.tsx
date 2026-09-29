@@ -103,8 +103,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (savedToken && savedUser) {
           setCloudOnlyStorage(true);
-          await AsyncStorage.removeItem('watcher_cloud_revision');
           const parsedUser = JSON.parse(savedUser);
+          await syncManager.primeCachedLibrary(parsedUser.userId);
+          await AsyncStorage.removeItem('watcher_cloud_revision');
           setUser(parsedUser);
           setToken(savedToken);
 

@@ -26,7 +26,8 @@ import {
   Cloud
 } from 'lucide-react';
 import { AsyncStorage } from '@/utils/storage';
-import { getImageUrl, searchTMDB, GLOBAL_CONFIG } from '@/utils/tmdb';
+import { getImageUrl, searchTMDB, GLOBAL_CONFIG, setGlobalConfig } from '@/utils/tmdb';
+import { isAdultContent } from '@/utils/contentSafety';
 import { GENRE_OPTIONS } from '@/utils/userPreferences';
 import { useAuth } from '@/context/AuthContext';
 import axios from 'axios';
@@ -43,6 +44,7 @@ export default function WatchListPage() {
   const [history, setHistory] = useState<any[]>([]);
   const [artists, setArtists] = useState<any[]>([]);
   const [collections, setCollections] = useState<any[]>([]);
+  const [nsfwFilterEnabled, setNsfwFilterEnabled] = useState(GLOBAL_CONFIG.nsfwFilterEnabled);
   
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -87,11 +89,17 @@ export default function WatchListPage() {
       const storedArtists = await AsyncStorage.getItem('favoriteArtists');
       const storedWatched = await AsyncStorage.getItem('history');
       const storedCollections = await AsyncStorage.getItem('savedCollections');
+      const storedNsfw = await AsyncStorage.getItem('settings_nsfw');
       
       if (storedMovies) setWatchlist(JSON.parse(storedMovies));
       if (storedArtists) setArtists(JSON.parse(storedArtists));
       if (storedWatched) setHistory(JSON.parse(storedWatched));
       if (storedCollections) setCollections(JSON.parse(storedCollections));
+      if (storedNsfw !== null) {
+        const enabled = JSON.parse(storedNsfw) === true;
+        setNsfwFilterEnabled(enabled);
+        setGlobalConfig('nsfwFilterEnabled', enabled);
+      }
     } catch (error) {
       console.error('Failed to load library data', error);
     } finally {
@@ -110,6 +118,15 @@ export default function WatchListPage() {
       window.addEventListener('watcher_cloud_synced', handleCloudSync);
       return () => window.removeEventListener('watcher_cloud_synced', handleCloudSync);
     }
+  }, []);
+
+  useEffect(() => {
+    const onNsfwSettingChanged = (event: Event) => {
+      const enabled = (event as CustomEvent).detail?.value;
+      if (typeof enabled === 'boolean') setNsfwFilterEnabled(enabled);
+    };
+    window.addEventListener('watcher_nsfw_setting_changed', onNsfwSettingChanged);
+    return () => window.removeEventListener('watcher_nsfw_setting_changed', onNsfwSettingChanged);
   }, []);
 
   // Reset infinite scroll when tabs or filters change
@@ -370,6 +387,10 @@ export default function WatchListPage() {
     else if (activeTab === 'artists') list = [...artists];
     else if (activeTab === 'collections') list = [...collections];
 
+    if (activeTab === 'watchlist' && nsfwFilterEnabled) {
+      list = list.filter(item => !isAdultContent(item));
+    }
+
     // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -428,7 +449,7 @@ export default function WatchListPage() {
     }
 
     return list;
-  }, [activeTab, watchlist, history, artists, collections, searchQuery, selectedMediaType, selectedGenreIds, sortBy, sortDirection]);
+  }, [activeTab, watchlist, history, artists, collections, nsfwFilterEnabled, searchQuery, selectedMediaType, selectedGenreIds, sortBy, sortDirection]);
 
   // Setup intersection observer to load more items
   useEffect(() => {
