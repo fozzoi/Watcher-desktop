@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     void syncManager.flushOutbox(token, user?.userId || 'default');
     window.addEventListener('watcher_local_library_changed', onLocalLibraryChange);
-    const interval = window.setInterval(pollCloud, 2000);
+    const interval = window.setInterval(pollCloud, 15000);
     window.addEventListener('focus', pollCloud);
     return () => {
       window.removeEventListener('watcher_local_library_changed', onLocalLibraryChange);
@@ -104,8 +104,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (savedToken && savedUser) {
           setCloudOnlyStorage(true);
           const parsedUser = JSON.parse(savedUser);
-          await syncManager.primeCachedLibrary(parsedUser.userId);
-          await AsyncStorage.removeItem('watcher_cloud_revision');
+          const hasCachedLibrary = await syncManager.primeCachedLibrary(parsedUser.userId);
+          if (!hasCachedLibrary) await AsyncStorage.removeItem('watcher_cloud_revision');
           setUser(parsedUser);
           setToken(savedToken);
 

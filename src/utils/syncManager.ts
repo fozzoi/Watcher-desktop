@@ -409,10 +409,12 @@ export const syncManager = {
 
   async syncOnStartup(token: string): Promise<boolean> {
     if (!token || syncInFlight) return false;
+    const knownRevision = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
+    if (knownRevision > 0) return this.pullIfChanged(token);
+
     syncInFlight = true;
     setCloudOnlyStorage(true);
     try {
-      await AsyncStorage.removeItem('watcher_cloud_revision');
       const response = await axios.get(`${SYNC_API_BASE}/api/sync`, {
         headers: { Authorization: `Bearer ${token}` }, timeout: 20000,
       });
