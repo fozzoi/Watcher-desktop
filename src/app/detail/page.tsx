@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
@@ -28,11 +29,13 @@ import {
   Copy,
   Check,
   Download,
-  Send
+  Send,
+  ZoomIn
 } from 'lucide-react';
 import { 
   getImageUrl, 
   getMediaDetails, 
+  getMovieImages,
   getExternalIds, 
   getSimilarMedia, 
   getSeasonEpisodes, 
@@ -45,6 +48,7 @@ import {
   TMDBSeason,
   TMDBEpisode,
   TMDBVideo,
+  TMDBImage,
   TMDBCollectionDetails
 } from '@/utils/tmdb';
 import { searchTorrents, TorrentResult } from '@/utils/Scraper';
@@ -60,6 +64,9 @@ function DetailContent() {
   const typeStr = (searchParams.get('type') as 'movie' | 'tv') || 'movie';
 
   const [movie, setMovie] = useState<TMDBResult | null>(null);
+  const [galleryImages, setGalleryImages] = useState<TMDBImage[]>([]);
+  const [selectedGalleryIndex, setSelectedGalleryIndex] = useState<number | null>(null);
+  const [isGalleryMounted, setIsGalleryMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [watchlistIds, setWatchlistIds] = useState<Set<number>>(new Set());
   const [isInWatchlist, setIsInWatchlist] = useState(false);
@@ -91,12 +98,47 @@ function DetailContent() {
   const episodesScrollRef = useRef<HTMLDivElement>(null);
   const similarScrollRef = useRef<HTMLDivElement>(null);
   const vibeScrollRef = useRef<HTMLDivElement>(null);
+  const galleryScrollRef = useRef<HTMLDivElement>(null);
 
   const scrollCarousel = (ref: React.RefObject<HTMLDivElement | null>, direction: 'left' | 'right') => {
     if (ref.current) {
       const amount = ref.current.clientWidth * 0.75;
       ref.current.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
     }
+  };
+
+  useEffect(() => setIsGalleryMounted(true), []);
+
+  useEffect(() => {
+    if (selectedGalleryIndex === null) return;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [selectedGalleryIndex]);
+
+  useEffect(() => {
+    if (selectedGalleryIndex === null) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSelectedGalleryIndex(null);
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        const direction = event.key === 'ArrowLeft' ? -1 : 1;
+        setSelectedGalleryIndex((current) => {
+          if (current === null || galleryImages.length === 0) return null;
+          return (current + direction + galleryImages.length) % galleryImages.length;
+        });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedGalleryIndex, galleryImages.length]);
+
+  const moveGalleryImage = (direction: -1 | 1) => {
+    setSelectedGalleryIndex((current) => {
+      if (current === null || galleryImages.length === 0) return null;
+      return (current + direction + galleryImages.length) % galleryImages.length;
+    });
   };
 
   // Trailers
@@ -132,9 +174,13 @@ function DetailContent() {
   const fetchDetails = useCallback(async () => {
     if (!tmdbId || !typeStr) return;
     setLoading(true);
+    setGalleryImages([]);
+    setSelectedGalleryIndex(null);
     try {
       const details = await getMediaDetails(tmdbId, typeStr);
       setMovie(details);
+      setLoading(false);
+      void getMovieImages(tmdbId, typeStr).then(setGalleryImages);
       
       const similar = await getSimilarMedia(tmdbId, typeStr);
       setSimilarMedia(similar.slice(0, 10));
@@ -365,8 +411,201 @@ function DetailContent() {
 
   if (loading) {
     return (
-      <div className="loading-spinner-container">
-        <div className="spinner" />
+      <div className="detail-container detail-skeleton" aria-busy="true" aria-label="Loading title details">
+        <div className="skeleton-backdrop">
+          <div className="skeleton-back-button skeleton-shimmer" />
+          <div className="skeleton-backdrop-shade" />
+        </div>
+        <div className="skeleton-content">
+          <div className="skeleton-main">
+            <div className="skeleton-poster skeleton-shimmer" />
+            <div className="skeleton-meta">
+              <div className="skeleton-title skeleton-shimmer" />
+              <div className="skeleton-tagline skeleton-shimmer" />
+              <div className="skeleton-badges">
+                <div className="skeleton-badge skeleton-shimmer" />
+                <div className="skeleton-badge skeleton-shimmer" />
+                <div className="skeleton-badge skeleton-shimmer" />
+                <div className="skeleton-badge skeleton-shimmer" />
+              </div>
+              <div className="skeleton-actions">
+                <div className="skeleton-action skeleton-shimmer" />
+                <div className="skeleton-action secondary skeleton-shimmer" />
+              </div>
+            </div>
+          </div>
+          <div className="skeleton-overview">
+            <div className="skeleton-heading skeleton-shimmer" />
+            <div className="skeleton-line skeleton-shimmer" />
+            <div className="skeleton-line skeleton-shimmer" />
+            <div className="skeleton-line short skeleton-shimmer" />
+          </div>
+        </div>
+        <style jsx>{`
+          .detail-container {
+            position: relative;
+            margin: -32px -36px 0;
+            width: calc(100% + 72px);
+            min-height: 100vh;
+            overflow: hidden;
+            background: var(--bg-color);
+          }
+
+          .skeleton-backdrop {
+            position: relative;
+            height: min(55vh, 480px);
+            min-height: 420px;
+            background: var(--card-bg);
+          }
+
+          .skeleton-back-button {
+            position: absolute;
+            z-index: 1;
+            top: 30px;
+            left: 40px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+          }
+
+          .skeleton-backdrop-shade {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, transparent 25%, var(--bg-color) 100%);
+          }
+
+          .skeleton-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            margin-top: -120px;
+            padding: 0 40px 48px;
+          }
+
+          .skeleton-main {
+            display: flex;
+            align-items: flex-end;
+            gap: 32px;
+          }
+
+          .skeleton-poster {
+            flex: 0 0 220px;
+            height: 330px;
+            border: 1px solid var(--card-border);
+            border-radius: var(--border-radius-md);
+          }
+
+          .skeleton-meta {
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+            gap: 16px;
+            padding-bottom: 4px;
+          }
+
+          .skeleton-title {
+            width: min(58%, 440px);
+            height: 42px;
+            border-radius: 6px;
+          }
+
+          .skeleton-tagline {
+            width: min(38%, 300px);
+            height: 16px;
+            border-radius: 5px;
+          }
+
+          .skeleton-badges,
+          .skeleton-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+          }
+
+          .skeleton-badge {
+            width: 74px;
+            height: 28px;
+            border-radius: 14px;
+          }
+
+          .skeleton-badge:nth-child(2) { width: 110px; }
+          .skeleton-badge:nth-child(3) { width: 58px; }
+
+          .skeleton-actions { margin-top: 4px; }
+
+          .skeleton-action {
+            width: 150px;
+            height: 46px;
+            border-radius: var(--border-radius-md);
+          }
+
+          .skeleton-action.secondary { width: 112px; }
+
+          .skeleton-overview {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 760px;
+          }
+
+          .skeleton-heading {
+            width: 150px;
+            height: 24px;
+            margin-bottom: 4px;
+            border-radius: 5px;
+          }
+
+          .skeleton-line {
+            width: 100%;
+            height: 14px;
+            border-radius: 5px;
+          }
+
+          .skeleton-line.short { width: 68%; }
+
+          .skeleton-shimmer {
+            background: linear-gradient(90deg, var(--card-bg) 25%, var(--sidebar-hover) 50%, var(--card-bg) 75%);
+            background-size: 200% 100%;
+            animation: detail-skeleton-shimmer 1.5s ease-in-out infinite;
+          }
+
+          @keyframes detail-skeleton-shimmer {
+            to { background-position: -200% 0; }
+          }
+
+          @media (max-width: 1024px) {
+            .detail-container { margin: -24px -24px 0; width: calc(100% + 48px); }
+          }
+
+          @media (max-width: 900px) {
+            .detail-container { margin: -20px -20px 0; width: calc(100% + 40px); }
+            .skeleton-backdrop { height: 340px; min-height: 300px; }
+            .skeleton-content { margin-top: -100px; }
+          }
+
+          @media (max-width: 768px) {
+            .skeleton-main { flex-direction: column; align-items: center; text-align: center; }
+            .skeleton-meta { align-items: center; width: 100%; }
+            .skeleton-badges, .skeleton-actions { justify-content: center; }
+            .skeleton-overview { width: 100%; }
+          }
+
+          @media (max-width: 640px) {
+            .detail-container { margin: -16px -16px 0; width: calc(100% + 32px); }
+            .skeleton-back-button { top: 20px; left: 20px; }
+            .skeleton-content { margin-top: -88px; padding: 0 20px 36px; gap: 32px; }
+            .skeleton-poster { flex-basis: auto; width: 180px; height: 270px; }
+            .skeleton-title { width: 78%; height: 34px; }
+            .skeleton-tagline { width: 52%; }
+            .skeleton-overview { text-align: left; }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .skeleton-shimmer { animation: none; }
+          }
+        `}</style>
       </div>
     );
   }
@@ -553,6 +792,44 @@ function DetailContent() {
           <p className="overview-text">{movie.overview}</p>
         </div>
 
+        {galleryImages.length > 0 && (
+          <section className="gallery-section animate-fade-in-up" aria-label="Scenes and posters">
+            <div className="gallery-heading">
+              <h2>Scenes &amp; Posters</h2>
+              <span>{galleryImages.length}</span>
+              <div className="gallery-controls">
+                <button type="button" className="gallery-scroll-btn" onClick={() => scrollCarousel(galleryScrollRef, 'left')} aria-label="Scroll gallery left">
+                  <ChevronLeft size={18} />
+                </button>
+                <button type="button" className="gallery-scroll-btn" onClick={() => scrollCarousel(galleryScrollRef, 'right')} aria-label="Scroll gallery right">
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="gallery-track" ref={galleryScrollRef}>
+              {galleryImages.map((image, index) => {
+                const isPoster = image.aspect_ratio > 0 && image.aspect_ratio < 1;
+                return (
+                  <button
+                    type="button"
+                    className={`gallery-item ${isPoster ? 'poster' : 'backdrop'}`}
+                    key={`${image.file_path}-${index}`}
+                    onClick={() => setSelectedGalleryIndex(index)}
+                    aria-label={`View ${titleText} ${isPoster ? 'poster' : 'scene'} ${index + 1}`}
+                    title="View full size"
+                  >
+                    <img
+                      src={getImageUrl(image.file_path, isPoster ? 'w500' : 'w780')}
+                      alt={`${titleText} ${isPoster ? 'poster' : 'scene'} ${index + 1}`}
+                      loading="lazy"
+                    />
+                    <span className="gallery-zoom-icon" aria-hidden="true"><ZoomIn size={20} /></span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
 
         {/* Franchise / Collection Universe Banner */}
@@ -1200,6 +1477,35 @@ function DetailContent() {
         </div>
       )}
 
+      {isGalleryMounted && selectedGalleryIndex !== null && galleryImages[selectedGalleryIndex] && createPortal(
+        <div className="detail-lightbox-backdrop" onClick={() => setSelectedGalleryIndex(null)}>
+          <div className="detail-lightbox-content" role="dialog" aria-modal="true" aria-label="Image preview" onClick={(event) => event.stopPropagation()}>
+            <div className="detail-lightbox-header">
+              <span>{selectedGalleryIndex + 1} / {galleryImages.length}</span>
+              <button type="button" onClick={() => setSelectedGalleryIndex(null)} aria-label="Close image preview">
+                <X size={20} />
+              </button>
+            </div>
+            <img
+              className="detail-lightbox-image"
+              src={getImageUrl(galleryImages[selectedGalleryIndex].file_path, 'original')}
+              alt={`${titleText} image ${selectedGalleryIndex + 1}`}
+            />
+            {galleryImages.length > 1 && (
+              <>
+                <button type="button" className="detail-lightbox-nav previous" onClick={() => moveGalleryImage(-1)} aria-label="Previous image">
+                  <ChevronLeft size={26} />
+                </button>
+                <button type="button" className="detail-lightbox-nav next" onClick={() => moveGalleryImage(1)} aria-label="Next image">
+                  <ChevronRight size={26} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
       <style jsx>{`
         .detail-container {
           position: relative;
@@ -1485,11 +1791,11 @@ function DetailContent() {
           margin-bottom: 36px;
         }
 
-        .franchise-card {
+        :global(.franchise-card) {
           position: relative;
           width: 100%;
           height: 180px;
-          border-radius: 0;
+          border-radius: var(--border-radius-md);
           overflow: hidden;
           display: flex;
           align-items: stretch;
@@ -1501,13 +1807,13 @@ function DetailContent() {
           transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
         }
 
-        :global([data-theme="light"]) .franchise-card {
+        :global([data-theme="light"]) :global(.franchise-card) {
           background: #111827;
           border: 1px solid rgba(0, 0, 0, 0.1);
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
         }
 
-        .franchise-card:hover {
+        :global(.franchise-card:hover) {
           transform: translateY(-2px) scale(1.002);
           border-color: rgba(229, 9, 20, 0.45);
           box-shadow: 0 14px 35px rgba(0, 0, 0, 0.65), 0 0 20px rgba(229, 9, 20, 0.15);
@@ -1525,7 +1831,7 @@ function DetailContent() {
           transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
         }
 
-        .franchise-card:hover .franchise-backdrop-img {
+        :global(.franchise-card:hover) .franchise-backdrop-img {
           transform: scale(1.04);
           opacity: 0.65;
         }
@@ -1638,7 +1944,7 @@ function DetailContent() {
           transition: all 0.25s ease;
         }
 
-        .franchise-card:hover .franchise-action-btn {
+        :global(.franchise-card:hover) .franchise-action-btn {
           background: var(--primary-gradient);
           border-color: transparent;
           box-shadow: 0 4px 15px rgba(229, 9, 20, 0.5);
@@ -1646,7 +1952,7 @@ function DetailContent() {
         }
 
         @media (max-width: 768px) {
-          .franchise-card {
+          :global(.franchise-card) {
             height: auto;
             min-height: 160px;
           }
@@ -1687,6 +1993,214 @@ function DetailContent() {
           line-height: 1.7;
           color: var(--foreground-muted);
           max-width: 900px;
+        }
+
+        .gallery-section {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          min-width: 0;
+        }
+
+        .gallery-heading {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .gallery-heading h2 {
+          font-size: 20px;
+          font-weight: 600;
+        }
+
+        .gallery-heading span {
+          color: var(--foreground-muted);
+          font-size: 13px;
+        }
+
+        .gallery-controls {
+          display: flex;
+          gap: 8px;
+          margin-left: auto;
+        }
+
+        .gallery-scroll-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border: 1px solid var(--card-border);
+          border-radius: 50%;
+          color: var(--foreground);
+          background: var(--card-bg);
+          cursor: pointer;
+          transition: var(--transition-fast);
+        }
+
+        .gallery-scroll-btn:hover {
+          background: var(--sidebar-hover);
+          border-color: var(--foreground-muted);
+        }
+
+        .gallery-track {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          overflow-x: auto;
+          padding: 2px 2px 12px;
+          overscroll-behavior-x: contain;
+          scroll-snap-type: x mandatory;
+        }
+
+        .gallery-item {
+          position: relative;
+          flex: 0 0 auto;
+          width: 320px;
+          height: 180px;
+          padding: 0;
+          overflow: hidden;
+          border: 1px solid var(--card-border);
+          border-radius: 12px;
+          background: var(--card-bg);
+          color: inherit;
+          cursor: zoom-in;
+          scroll-snap-align: start;
+        }
+
+        .gallery-item.poster {
+          width: 120px;
+        }
+
+        .gallery-item img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .gallery-zoom-icon {
+          position: absolute;
+          right: 10px;
+          bottom: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          border-radius: 50%;
+          color: #fff;
+          background: rgba(0, 0, 0, 0.55);
+          opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+
+        .gallery-item:hover .gallery-zoom-icon,
+        .gallery-item:focus-visible .gallery-zoom-icon {
+          opacity: 1;
+        }
+
+        :global(.detail-lightbox-backdrop) {
+          position: fixed;
+          inset: 0;
+          z-index: 999999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 56px 72px;
+          background: rgba(0, 0, 0, 0.94);
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
+          animation: detail-lightbox-in 0.18s ease-out;
+        }
+
+        :global(.detail-lightbox-content) {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          max-width: 100%;
+          max-height: 100%;
+        }
+
+        :global(.detail-lightbox-header) {
+          position: absolute;
+          top: -44px;
+          right: 0;
+          left: 0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          color: rgba(255, 255, 255, 0.88);
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        :global(.detail-lightbox-header button),
+        :global(.detail-lightbox-nav) {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          border-radius: 50%;
+          color: #fff;
+          background: rgba(30, 30, 34, 0.85);
+          cursor: pointer;
+          transition: background 0.15s ease, transform 0.15s ease;
+        }
+
+        :global(.detail-lightbox-header button:hover),
+        :global(.detail-lightbox-nav:hover) {
+          background: var(--primary);
+          transform: scale(1.06);
+        }
+
+        :global(.detail-lightbox-image) {
+          display: block;
+          max-width: min(86vw, 1400px);
+          max-height: 82vh;
+          object-fit: contain;
+          border-radius: 8px;
+          user-select: none;
+        }
+
+        :global(.detail-lightbox-nav) {
+          position: fixed;
+          top: 50%;
+          transform: translateY(-50%);
+        }
+
+        :global(.detail-lightbox-nav:hover) {
+          transform: translateY(-50%) scale(1.06);
+        }
+
+        :global(.detail-lightbox-nav.previous) { left: 20px; }
+        :global(.detail-lightbox-nav.next) { right: 20px; }
+
+        @keyframes detail-lightbox-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @media (max-width: 640px) {
+          .gallery-item {
+            width: 278px;
+            height: 156px;
+          }
+
+          .gallery-item.poster {
+            width: 104px;
+          }
+
+          .gallery-zoom-icon { opacity: 1; }
+          :global(.detail-lightbox-backdrop) { padding: 52px 12px; }
+          :global(.detail-lightbox-image) { max-width: 94vw; max-height: 78vh; }
+          :global(.detail-lightbox-nav) { width: 38px; height: 38px; }
+          :global(.detail-lightbox-nav.previous) { left: 8px; }
+          :global(.detail-lightbox-nav.next) { right: 8px; }
         }
 
         /* Director / Creator Section */

@@ -415,7 +415,7 @@ function CollectionDetailContent() {
           flex-direction: column;
           gap: 14px;
         }
-        .part-card {
+        :global(.part-card) {
           display: flex;
           align-items: center;
           gap: 20px;
@@ -423,7 +423,7 @@ function CollectionDetailContent() {
           border-radius: var(--border-radius-md);
           transition: var(--transition-smooth);
         }
-        .part-card:hover {
+        :global(.part-card:hover) {
           transform: translateY(-2px);
           border-color: var(--primary);
         }

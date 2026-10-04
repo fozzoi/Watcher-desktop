@@ -253,9 +253,9 @@ body:has(.ai-chat-layout) {
 /* Tablet */
 @media (max-width: 1024px) {
   .main-content {
-    margin-left: calc(var(--sidebar-collapsed-width) + 20px) !important;
-    width: calc(100% - (var(--sidebar-collapsed-width) + 20px)) !important;
-    max-width: calc(100% - (var(--sidebar-collapsed-width) + 20px)) !important;
+    margin-left: calc(var(--sidebar-width) + 20px) !important;
+    width: calc(100% - (var(--sidebar-width) + 20px)) !important;
+    max-width: calc(100% - (var(--sidebar-width) + 20px)) !important;
     padding: 20px 24px 80px 24px;
   }
 }

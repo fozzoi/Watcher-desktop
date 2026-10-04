@@ -708,8 +708,16 @@ export const getPersonImages = async (personId: number): Promise<TMDBImage[]> =>
 export const getMovieImages = async (movieId: number, mediaType: "movie" | "tv"): Promise<TMDBImage[]> => {
   try {
     const data = await fetchWithCache(`/${mediaType}/${movieId}/images`);
-    const images = [...(data.posters || []), ...(data.backdrops || [])];
-    return images.slice(0, 20);
+    const posters: TMDBImage[] = data.posters || [];
+    const backdrops: TMDBImage[] = data.backdrops || [];
+    const images: TMDBImage[] = [];
+
+    for (let index = 0; index < Math.max(posters.length, backdrops.length) && images.length < 20; index += 1) {
+      if (backdrops[index]) images.push(backdrops[index]);
+      if (posters[index] && images.length < 20) images.push(posters[index]);
+    }
+
+    return images;
   } catch (error) { return []; }
 };
 
