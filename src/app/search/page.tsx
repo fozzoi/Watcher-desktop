@@ -69,7 +69,10 @@ function TorrentSearchContent() {
       setResults(scrapedResults);
     } catch (error) {
       console.error(error);
-      setStatusMessage({ text: "Failed to fetch search results.", type: "error" });
+      setStatusMessage({
+        text: error instanceof Error ? error.message : "Failed to fetch search results.",
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }

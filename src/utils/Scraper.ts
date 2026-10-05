@@ -76,7 +76,7 @@ export const searchTorrents = async (query: string): Promise<TorrentResult[]> =>
       }
     } catch (err: any) {
       console.log('⚠️ Vercel Cloud Fetch Error:', err.message);
-      throw err;
+      throw new Error(err.response?.data?.message || err.message);
     }
   };
 
