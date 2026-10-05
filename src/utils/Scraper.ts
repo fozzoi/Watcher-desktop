@@ -56,7 +56,7 @@ export const searchTorrents = async (query: string): Promise<TorrentResult[]> =>
     try {
       const response = await axios.get(`${BASE_URL}/api/torrent`, {
         params: { q: cleaned },
-        timeout: 12000, 
+        timeout: 25000,
       });
 
       if (response.data?.status === 'success' && Array.isArray(response.data.results)) {
@@ -71,14 +71,17 @@ export const searchTorrents = async (query: string): Promise<TorrentResult[]> =>
             peers: item.peers
           });
         });
+      } else {
+        throw new Error('Torrent API returned an unexpected response');
       }
     } catch (err: any) {
       console.log('⚠️ Vercel Cloud Fetch Error:', err.message);
+      throw err;
     }
   };
 
   // Fire both requests concurrently
-  await Promise.allSettled([fetchLocalTPB(), fetchVercelScrapers()]);
+  await Promise.all([fetchLocalTPB(), fetchVercelScrapers()]);
 
   // ==========================================
   // 🎯 CLIENT-SIDE FILTERING PIPELINE
