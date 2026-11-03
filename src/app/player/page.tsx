@@ -23,7 +23,7 @@ import { AsyncStorage } from '@/utils/storage';
 const CREDIT_SKIP_WINDOW_SECONDS = 90;
 const CREDIT_MIN_PROGRESS = 0.8;
 
-type StreamServer = 'vidsrc' | 'twoembed' | 'multiembed' | 'autoembed' | 'engine' | 'vidlink';
+type StreamServer = 'vidsrc' | 'vidy' | 'twoembed' | 'multiembed' | 'autoembed' | 'engine' | 'vidlink';
 
 function PlayerContent() {
   const router = useRouter();
@@ -87,6 +87,16 @@ function PlayerContent() {
           ? `https://vidsrc.pm/embed/tv/${tmdbId}/${season}/${episode}`
           : `https://vidsrc.pm/embed/movie/${tmdbId}`;
         setStreamData({ is_m3u8: false, stream_url: url });
+        setLoading(false);
+        return;
+      }
+
+      if (activeServer === 'vidy') {
+        setActiveProviderName("Vidy.st");
+        const defaultVidyUrl = isTv
+          ? `https://www.vidy.st/tv/${tmdbId}/${season}/${episode}?color=E50914&nextEpisode=true&episodeSelector=true&autoplayNextEpisode=true&autoplay=true&autoplay=1&autoPlay=true`
+          : `https://www.vidy.st/movie/${tmdbId}?color=E50914&autoplay=true&autoplay=1&autoPlay=true`;
+        setStreamData({ is_m3u8: false, stream_url: defaultVidyUrl });
         setLoading(false);
         return;
       }
@@ -301,12 +311,34 @@ function PlayerContent() {
       }).catch(() => {});
     };
 
+    const handleEnded = () => {
+      saveProgress({
+        tmdbId,
+        mediaType: typeStr as 'movie' | 'tv',
+        title: titleStr,
+        poster: posterPath,
+        lastSeason: season,
+        lastEpisode: episode,
+        position: video.duration || video.currentTime || 100,
+        duration: video.duration || 100,
+        completed: true,
+        updatedAt: Date.now()
+      });
+      if (isTv && nextEpisode) {
+        goToNextEpisode();
+      }
+    };
+
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('volumechange', handleVolumeChange);
+    video.addEventListener('ended', handleEnded);
 
     // Periodic progress saver (every 5 seconds)
     const interval = setInterval(() => {
       if (video.currentTime > 0 && video.duration > 0) {
+        const dur = video.duration;
+        const pos = video.currentTime;
+        const isDone = dur > 0 && (pos / dur >= 0.9 || dur - pos <= 60);
         saveProgress({
           tmdbId,
           mediaType: typeStr as 'movie' | 'tv',
@@ -314,8 +346,9 @@ function PlayerContent() {
           poster: posterPath,
           lastSeason: season,
           lastEpisode: episode,
-          position: video.currentTime,
-          duration: video.duration,
+          position: pos,
+          duration: dur,
+          completed: isDone,
           updatedAt: Date.now()
         });
       }
@@ -324,13 +357,48 @@ function PlayerContent() {
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('volumechange', handleVolumeChange);
+      video.removeEventListener('ended', handleEnded);
       clearInterval(interval);
       if (hlsInstance) hlsInstance.destroy();
     };
   }, [streamData, tmdbId, typeStr, season, episode, titleStr, posterPath, isTv, nextEpisode]);
 
+  // Listen to postMessage from embedded players (e.g. VidLink, Vidy)
+  useEffect(() => {
+    const handleWindowMessage = (event: MessageEvent) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (!data) return;
+        if (data.type === 'MEDIA_DATA' && data.data) {
+          const pos = Number(data.data.currentTime) || 0;
+          const dur = Number(data.data.duration) || 0;
+          if (dur > 0 && pos > 0) {
+            const isDone = pos / dur >= 0.9 || dur - pos <= 60;
+            saveProgress({
+              tmdbId,
+              mediaType: typeStr as 'movie' | 'tv',
+              title: titleStr,
+              poster: posterPath,
+              lastSeason: season,
+              lastEpisode: episode,
+              position: pos,
+              duration: dur,
+              completed: isDone,
+              updatedAt: Date.now()
+            });
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener('message', handleWindowMessage);
+    return () => window.removeEventListener('message', handleWindowMessage);
+  }, [tmdbId, typeStr, season, episode, titleStr, posterPath]);
+
   const flushProgress = async () => {
     if (videoRef.current && videoRef.current.currentTime > 0) {
+      const pos = videoRef.current.currentTime;
+      const dur = videoRef.current.duration || 0;
+      const isDone = dur > 0 && (pos / dur >= 0.9 || dur - pos <= 60);
       await saveProgress({
         tmdbId,
         mediaType: typeStr as 'movie' | 'tv',
@@ -338,8 +406,9 @@ function PlayerContent() {
         poster: posterPath,
         lastSeason: season,
         lastEpisode: episode,
-        position: videoRef.current.currentTime,
-        duration: videoRef.current.duration || 0,
+        position: pos,
+        duration: dur,
+        completed: isDone,
         updatedAt: Date.now()
       });
     }
@@ -368,6 +437,20 @@ function PlayerContent() {
 
   const goToNextEpisode = async () => {
     if (!nextEpisode) return;
+    if (videoRef.current) {
+      await saveProgress({
+        tmdbId,
+        mediaType: typeStr as 'movie' | 'tv',
+        title: titleStr,
+        poster: posterPath,
+        lastSeason: season,
+        lastEpisode: episode,
+        position: videoRef.current.duration || 100,
+        duration: videoRef.current.duration || 100,
+        completed: true,
+        updatedAt: Date.now()
+      });
+    }
     await flushProgress();
     if (hlsRef.current) hlsRef.current.destroy();
     router.replace(`/player?id=${tmdbId}&type=tv&title=${encodeURIComponent(titleStr)}&season=${season}&episode=${nextEpisode}&poster=${encodeURIComponent(posterPath)}`);
@@ -403,6 +486,13 @@ function PlayerContent() {
                 >
                   <span className="server-name">VidSrc Cloud</span>
                   <span className="server-badge">Recommended</span>
+                </button>
+                <button 
+                  className={activeServer === 'vidy' ? 'active' : ''}
+                  onClick={() => { setActiveServer('vidy'); setIsServerMenuOpen(false); }}
+                >
+                  <span className="server-name">Vidy.st</span>
+                  <span className="server-badge">Mobile-Optimized</span>
                 </button>
                 <button 
                   className={activeServer === 'twoembed' ? 'active' : ''}
@@ -463,6 +553,9 @@ function PlayerContent() {
             <div className="error-actions">
               <button className="btn-secondary" onClick={() => setActiveServer('vidsrc')}>
                 Try VidSrc
+              </button>
+              <button className="btn-secondary" onClick={() => setActiveServer('vidy')}>
+                Try Vidy.st
               </button>
               <button className="btn-secondary" onClick={() => setActiveServer('twoembed')}>
                 Try 2Embed
@@ -622,6 +715,9 @@ function PlayerContent() {
           flex-direction: column;
           border: 1px solid var(--card-border);
           box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+          background: rgba(20, 20, 26, 0.82);
+          backdrop-filter: blur(20px) saturate(180%);
+          -webkit-backdrop-filter: blur(20px) saturate(180%);
         }
 
         .server-dropdown button {

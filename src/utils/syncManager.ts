@@ -53,6 +53,7 @@ async function saveCloudLibrary(library: CloudLibrary) {
       AsyncStorage.setItem('history', JSON.stringify(library.history || [])),
       AsyncStorage.setItem('favoriteArtists', JSON.stringify(library.favoriteArtists || [])),
       AsyncStorage.setItem('savedCollections', JSON.stringify(library.savedCollections || [])),
+      AsyncStorage.setItem('@watch_progress', JSON.stringify(library.watchProgress || {})),
       AsyncStorage.setItem('watch_progress_v1', JSON.stringify(library.watchProgress || {})),
     ];
     if (typeof library.preferences?.nsfwFilterEnabled === 'boolean') {
@@ -146,7 +147,7 @@ export const syncManager = {
         AsyncStorage.getItem('history'),
         AsyncStorage.getItem('favoriteArtists'),
         AsyncStorage.getItem('savedCollections'),
-        AsyncStorage.getItem('watch_progress_v1'),
+        AsyncStorage.getItem('@watch_progress').then(res => res || AsyncStorage.getItem('watch_progress_v1')),
         AsyncStorage.getItem('watcher.chat.conversations.v1'),
         AsyncStorage.getItem('watcher.chat.userMemory.v1'),
         AsyncStorage.getItem('watcher.chat.aiName.v1'),
@@ -260,6 +261,22 @@ export const syncManager = {
     }]);
   },
 
+  async queueWatchProgress(progressPayload: Record<string, any>) {
+    try {
+      const [token, rawUser] = await Promise.all([
+        AsyncStorage.getItem('watcher_auth_token'),
+        AsyncStorage.getItem('watcher_auth_user'),
+      ]);
+      const userId = rawUser ? JSON.parse(rawUser)?.userId : null;
+      if (!token || !userId) return;
+      await this.enqueueMutations(token, userId, [{
+        type: 'watchProgress', action: 'set', value: progressPayload,
+      }]);
+    } catch (err) {
+      console.warn('Could not queue watchProgress sync:', err);
+    }
+  },
+
   async flushOutbox(token: string, userId: string) {
     if (!token || flushingOutbox || Date.now() < retryAfter) return;
     flushingOutbox = true;
@@ -351,7 +368,15 @@ export const syncManager = {
             if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watcher_nsfw_setting_changed', { detail: { value: change.value.nsfwFilterEnabled } }));
           }
           if (change.type === 'watchProgress' && change.action === 'set' && change.value && typeof change.value === 'object') {
-            await AsyncStorage.setItem('watch_progress_v1', JSON.stringify(change.value));
+            const rawCurrent = (await AsyncStorage.getItem('@watch_progress')) || (await AsyncStorage.getItem('watch_progress_v1'));
+            const currentObj = rawCurrent ? JSON.parse(rawCurrent) : {};
+            const merged = { ...currentObj, ...change.value };
+            const jsonStr = JSON.stringify(merged);
+            await AsyncStorage.setItem('watch_progress_v1', jsonStr);
+            await AsyncStorage.setItem('@watch_progress', jsonStr);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('watcher_watch_progress_changed', { detail: merged }));
+            }
           }
         }
         const [watchlist, history, favoriteArtists, savedCollections] = await Promise.all([

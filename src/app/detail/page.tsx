@@ -52,7 +52,7 @@ import {
   TMDBCollectionDetails
 } from '@/utils/tmdb';
 import { searchTorrents, TorrentResult } from '@/utils/Scraper';
-import { getProgress, WatchProgress } from '@/utils/progress';
+import { getProgress, isEpisodeCompleted, WatchProgress } from '@/utils/progress';
 import { AsyncStorage } from '@/utils/storage';
 import MovieCard from '@/components/MovieCard';
 import axios from 'axios';
@@ -225,13 +225,24 @@ function DetailContent() {
 
   useEffect(() => {
     const refreshLibraryState = () => { void loadWatchlistState(); };
+    const refreshProgress = () => {
+      if (tmdbId) {
+        void getProgress(tmdbId).then((prog) => {
+          if (prog) setHistoryProgress(prog);
+        });
+      }
+    };
     window.addEventListener('watcher_cloud_synced', refreshLibraryState);
+    window.addEventListener('watcher_cloud_synced', refreshProgress);
     window.addEventListener('watcher_local_library_changed', refreshLibraryState);
+    window.addEventListener('watcher_watch_progress_changed', refreshProgress);
     return () => {
       window.removeEventListener('watcher_cloud_synced', refreshLibraryState);
+      window.removeEventListener('watcher_cloud_synced', refreshProgress);
       window.removeEventListener('watcher_local_library_changed', refreshLibraryState);
+      window.removeEventListener('watcher_watch_progress_changed', refreshProgress);
     };
-  }, [loadWatchlistState]);
+  }, [loadWatchlistState, tmdbId]);
 
   // Manual trigger for Gemini AI vibes (does not auto-run on mount)
   const handleFetchAiVibes = async () => {
@@ -624,6 +635,58 @@ function DetailContent() {
   const ratingText = movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A';
   const yearText = (movie.release_date || movie.first_air_date || '').substring(0, 4);
 
+  // Completion & Next Episode calculation
+  const isCompleted = isEpisodeCompleted(historyProgress);
+  let playTargetSeason = 1;
+  let playTargetEpisode = 1;
+  let playIsNext = false;
+
+  if (typeStr === 'tv') {
+    if (historyProgress) {
+      const lastS = historyProgress.lastSeason || 1;
+      const lastE = historyProgress.lastEpisode || 1;
+      if (!isCompleted) {
+        playTargetSeason = lastS;
+        playTargetEpisode = lastE;
+      } else {
+        playIsNext = true;
+        const currentSeasonMeta = movie?.seasons?.find((s: any) => s.season_number === lastS);
+        const epCount = currentSeasonMeta?.episode_count || (episodes.length > 0 && selectedSeason === lastS ? episodes.length : 999);
+        if (lastE < epCount) {
+          playTargetSeason = lastS;
+          playTargetEpisode = lastE + 1;
+        } else {
+          const nextSeasonMeta = movie?.seasons?.find((s: any) => s.season_number > lastS && s.episode_count > 0);
+          if (nextSeasonMeta) {
+            playTargetSeason = nextSeasonMeta.season_number;
+            playTargetEpisode = 1;
+          } else {
+            playTargetSeason = lastS;
+            playTargetEpisode = lastE;
+            playIsNext = false;
+          }
+        }
+      }
+    } else {
+      playTargetSeason = selectedSeason || 1;
+      playTargetEpisode = 1;
+    }
+  }
+
+  const tvButtonLabel = !historyProgress
+    ? 'Play Episode 1'
+    : isCompleted
+    ? playIsNext
+      ? `Play S${playTargetSeason}:E${playTargetEpisode}`
+      : 'Watch Again (S1:E1)'
+    : `Resume S${playTargetSeason}:E${playTargetEpisode}`;
+
+  const movieButtonLabel = !historyProgress
+    ? 'Play Movie'
+    : isCompleted
+    ? 'Watch Again'
+    : 'Resume Movie';
+
   const formatAirDate = (dateStr?: string | null) => {
     if (!dateStr) return null;
     try {
@@ -697,27 +760,23 @@ function DetailContent() {
             <div className="detail-actions">
               {typeStr === 'movie' ? (
                 <Link 
-                  href={`/player?id=${movie.id}&type=movie&title=${encodeURIComponent(titleText || '')}&poster=${encodeURIComponent(movie.poster_path || '')}`}
+                  href={`/player?id=${movie.id}&type=movie&title=${encodeURIComponent(titleText || '')}&poster=${encodeURIComponent(movie.poster_path || '')}${isCompleted ? '&restart=true' : ''}`}
                   className="btn-primary"
                 >
                   <Play size={18} fill="white" />
-                  <span>Play Movie</span>
+                  <span>{movieButtonLabel}</span>
                 </Link>
               ) : (
                 <button 
                   className="btn-primary"
                   onClick={() => {
-                    const seasonNum = historyProgress?.lastSeason || selectedSeason || 1;
-                    const epNum = historyProgress?.lastEpisode || 1;
-                    router.push(`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${seasonNum}&episode=${epNum}&poster=${encodeURIComponent(movie.poster_path || '')}`);
+                    const finalS = (isCompleted && !playIsNext) ? 1 : playTargetSeason;
+                    const finalE = (isCompleted && !playIsNext) ? 1 : playTargetEpisode;
+                    router.push(`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${finalS}&episode=${finalE}&poster=${encodeURIComponent(movie.poster_path || '')}`);
                   }}
                 >
                   <Play size={18} fill="white" />
-                  <span>
-                    {historyProgress?.lastSeason 
-                      ? `Resume S${historyProgress.lastSeason}:E${historyProgress.lastEpisode}`
-                      : 'Play Episode 1'}
-                  </span>
+                  <span>{tvButtonLabel}</span>
                 </button>
               )}
 
@@ -768,20 +827,20 @@ function DetailContent() {
             <div className="resume-info">
               <Film size={20} className="resume-icon" />
               <div>
-                <h4>Resume Playback</h4>
+                <h4>{isCompleted ? (playIsNext ? 'Up Next' : 'Completed') : 'Resume Playback'}</h4>
                 <p>
                   {typeStr === 'tv' 
-                    ? `Season ${historyProgress.lastSeason}, Episode ${historyProgress.lastEpisode}`
-                    : 'Movie'}
+                    ? `Season ${playTargetSeason}, Episode ${playTargetEpisode}`
+                    : isCompleted ? 'Completed' : 'Movie'}
                 </p>
               </div>
             </div>
             <Link 
-              href={`/player?id=${movie.id}&type=${typeStr}&title=${encodeURIComponent(titleText || '')}&season=${historyProgress.lastSeason}&episode=${historyProgress.lastEpisode}`}
+              href={`/player?id=${movie.id}&type=${typeStr}&title=${encodeURIComponent(titleText || '')}&season=${(isCompleted && !playIsNext) ? 1 : playTargetSeason}&episode=${(isCompleted && !playIsNext) ? 1 : playTargetEpisode}`}
               className="btn-primary"
               style={{ padding: '8px 16px', fontSize: '13px' }}
             >
-              Resume Play
+              {isCompleted ? (playIsNext ? 'Play Next' : 'Watch Again') : 'Resume Play'}
             </Link>
           </div>
         )}
