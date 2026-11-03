@@ -166,7 +166,17 @@ const RankedTop10Carousel = memo(
           </div>
         </div>
 
-        <div className="ranked-scroll-container">
+        <div
+          className="ranked-scroll-container"
+          style={{
+            display: 'flex',
+            gap: '12px',
+            overflowX: 'auto',
+            scrollSnapType: 'x mandatory',
+            padding: '6px 16px 0 16px',
+            scrollbarWidth: 'none',
+          }}
+        >
           {top10Data.map((item, index) => renderItem({ item, index }))}
         </div>
       </div>

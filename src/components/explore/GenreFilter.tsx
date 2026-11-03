@@ -52,6 +52,13 @@ const GenreChipItem = forwardRef<HTMLButtonElement, { item: GenreItem; isSelecte
         className={`genre-chip ${isSelected ? 'active' : ''}`}
         aria-label={isSelected ? `${item.name}, selected` : item.name}
         aria-pressed={isSelected}
+        style={{
+          display: 'inline-flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+        }}
       >
         <Icon size={14} className="genre-chip-icon" />
         <span className="genre-chip-text">{item.name}</span>
@@ -135,18 +142,48 @@ const GenreFilter = memo(({ selectedGenre, onSelectGenre }: GenreFilterProps) =>
   );
 
   return (
-    <div className="genre-filter-container">
+    <div
+      className="genre-filter-container"
+      style={{
+        position: 'relative',
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
       <button
         type="button"
         className="genre-nav-btn prev-btn"
         onClick={() => scrollGenres('left')}
         aria-label="Scroll genres left"
         disabled={persistentScrollX <= 0}
+        style={{
+          position: 'absolute',
+          left: '4px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 10,
+        }}
       >
         <ChevronLeft size={18} />
       </button>
 
-      <div className="genres-container" ref={scrollRef}>
+      <div
+        className="genres-container"
+        ref={scrollRef}
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'nowrap',
+          alignItems: 'center',
+          gap: '10px',
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          width: '100%',
+          padding: '6px 44px 10px 44px',
+          margin: 0,
+        }}
+      >
         {GENRE_DATA.map((item) => (
           <GenreChipItem
             key={`genre-${item.id}`}
@@ -166,9 +203,122 @@ const GenreFilter = memo(({ selectedGenre, onSelectGenre }: GenreFilterProps) =>
         className="genre-nav-btn next-btn"
         onClick={() => scrollGenres('right')}
         aria-label="Scroll genres right"
+        style={{
+          position: 'absolute',
+          right: '4px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 10,
+        }}
       >
         <ChevronRight size={18} />
       </button>
+
+      <style jsx>{`
+        .genre-filter-container {
+          position: relative;
+          width: 100%;
+          display: flex;
+          align-items: center;
+        }
+
+        .genres-container {
+          display: flex !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          align-items: center;
+          gap: 10px;
+          overflow-x: auto;
+          scroll-behavior: smooth;
+          padding: 6px 44px 10px 44px;
+          margin: 0;
+          scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+          width: 100%;
+        }
+
+        .genres-container::-webkit-scrollbar {
+          display: none;
+        }
+
+        .genre-chip {
+          display: inline-flex !important;
+          flex-direction: row !important;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 15px;
+          border-radius: 22px;
+          border: 1px solid var(--card-border);
+          background: var(--input-bg);
+          color: var(--foreground);
+          font-size: 13px;
+          font-weight: 500;
+          letter-spacing: 0.1px;
+          cursor: pointer;
+          white-space: nowrap !important;
+          flex-shrink: 0 !important;
+          transition: all 0.2s ease;
+        }
+
+        .genre-chip:hover {
+          background: var(--sidebar-hover);
+          color: var(--foreground);
+        }
+
+        .genre-chip.active {
+          background: var(--primary-gradient);
+          color: #fff;
+          border-color: transparent;
+          box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .genre-chip-icon {
+          display: inline-flex;
+        }
+
+        .genre-chip-text {
+          font-weight: 500;
+        }
+
+        .genre-nav-btn {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: var(--card-bg);
+          border: 1px solid var(--card-border);
+          color: var(--foreground);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          z-index: 10;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          transition: all 0.2s ease;
+        }
+
+        .genre-nav-btn:hover {
+          background: var(--sidebar-hover);
+          transform: translateY(-50%) scale(1.1);
+        }
+
+        .genre-nav-btn:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+
+        .genre-nav-btn.prev-btn {
+          left: 4px;
+        }
+
+        .genre-nav-btn.next-btn {
+          right: 4px;
+        }
+      `}</style>
     </div>
   );
 });

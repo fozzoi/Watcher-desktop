@@ -116,9 +116,23 @@ const SpotlightCarousel = memo(
           <h2 className="spotlight-section-title">{title}</h2>
         </div>
 
-        <div className="spotlight-scroll-container">
+        <div
+          className="spotlight-scroll-container"
+          style={{
+            display: 'flex',
+            gap: '12px',
+            overflowX: 'auto',
+            scrollSnapType: 'x mandatory',
+            padding: '6px 16px 16px 16px',
+            scrollbarWidth: 'none',
+          }}
+        >
           {validData.map((item) => (
-            <div key={`spotlight-${item.collection_id || item.id}`} className="spotlight-item-wrapper">
+            <div
+              key={`spotlight-${item.collection_id || item.id}`}
+              className="spotlight-item-wrapper"
+              style={{ flex: '0 0 280px', width: '280px', scrollSnapAlign: 'start' }}
+            >
               <SpotlightCard item={item} eyebrow={eyebrow} onPress={() => handlePress(item)} />
             </div>
           ))}
