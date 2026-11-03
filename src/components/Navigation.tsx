@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
 import { 
   Compass, Search, Bookmark, Sparkles, Settings, Film, 
-  ChevronLeft, ChevronRight, Sun, Moon, Monitor, BarChart3, Cloud
+  ChevronLeft, ChevronRight, Sun, Moon, Monitor, BarChart3, Cloud, Download
 } from 'lucide-react';
 
 interface NavItem {
@@ -84,6 +84,7 @@ export default function Navigation() {
       label: 'SYSTEM',
       items: [
         { name: 'Settings', href: '/settings', icon: Settings },
+        { name: 'Download', href: '/download', icon: Download },
       ],
     },
   ];
@@ -94,6 +95,7 @@ export default function Navigation() {
     { name: 'Watchlist', href: '/watchlist', icon: Bookmark },
     { name: 'AI', href: '/ai-search', icon: Sparkles },
     { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Download', href: '/download', icon: Download },
   ];
 
   const isActive = (path: string) => {

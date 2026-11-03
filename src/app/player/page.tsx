@@ -23,7 +23,7 @@ import { AsyncStorage } from '@/utils/storage';
 const CREDIT_SKIP_WINDOW_SECONDS = 90;
 const CREDIT_MIN_PROGRESS = 0.8;
 
-type StreamServer = 'vidsrc' | 'vidy' | 'twoembed' | 'multiembed' | 'autoembed' | 'engine' | 'vidlink';
+type StreamServer = 'vidy' | 'vidlink' | 'vidsrc' | 'autoembed' | 'multiembed' | 'twoembed';
 
 function PlayerContent() {
   const router = useRouter();
@@ -44,9 +44,9 @@ function PlayerContent() {
 
   const [streamData, setStreamData] = useState<{ is_m3u8: boolean; stream_url: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeServer, setActiveServer] = useState<StreamServer>('vidsrc');
+  const [activeServer, setActiveServer] = useState<StreamServer>('vidy');
   const [isServerMenuOpen, setIsServerMenuOpen] = useState(false);
-  const [activeProviderName, setActiveProviderName] = useState("VidSrc Cloud");
+  const [activeProviderName, setActiveProviderName] = useState("Vidy.st");
   const [error, setError] = useState<string | null>(null);
   const [showNextEpisode, setShowNextEpisode] = useState(false);
   const [posterPath, setPosterPath] = useState(posterParam);
@@ -81,7 +81,8 @@ function PlayerContent() {
       setError(null);
       setShowNextEpisode(false);
 
-      if (activeServer === 'vidsrc') {
+      try {
+        if (activeServer === 'vidsrc') {
         setActiveProviderName("VidSrc Cloud");
         const url = isTv 
           ? `https://vidsrc.pm/embed/tv/${tmdbId}/${season}/${episode}`
@@ -141,53 +142,13 @@ function PlayerContent() {
         return;
       }
 
-      // Watcher Engine API with seamless fallback
-      try {
-        const baseUrl = "https://watcher-api-rho.vercel.app";
-        const encodedTitle = encodeURIComponent(titleStr);
-        const endpoint = `${baseUrl}/api/get_stream?tmdb_id=${tmdbId}&media_type=${typeStr.toLowerCase()}&title=${encodedTitle}&season=${season}&episode=${episode}`;
-        
-        setActiveProviderName("Watcher Engine");
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
-        const response = await fetch(endpoint, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (isMounted && data.status === "success" && data.stream_url) {
-            // Direct HLS stream
-            if (data.is_m3u8) {
-              setStreamData({
-                is_m3u8: true,
-                stream_url: data.stream_url
-              });
-              setActiveProviderName("Direct HLS Stream");
-              setLoading(false);
-              return;
-            }
-            // If it's a web stream and NOT vidlink (which triggers sandbox errors)
-            if (!data.stream_url.includes('vidlink.pro')) {
-              setStreamData({
-                is_m3u8: false,
-                stream_url: data.stream_url
-              });
-              setActiveProviderName("Watcher Web Server");
-              setLoading(false);
-              return;
-            }
-          }
-        }
-        
-        // Auto fallback to VidSrc (stable, zero sandbox issues)
-        if (isMounted) {
-          const fallbackUrl = isTv 
-            ? `https://vidsrc.pm/embed/tv/${tmdbId}/${season}/${episode}`
-            : `https://vidsrc.pm/embed/movie/${tmdbId}`;
-          setStreamData({ is_m3u8: false, stream_url: fallbackUrl });
-          setActiveProviderName("VidSrc Cloud (Auto)");
-        }
+      // Default fallback to Vidy
+      setActiveProviderName("Vidy.st");
+      const defaultVidyUrl = isTv
+        ? `https://www.vidy.st/tv/${tmdbId}/${season}/${episode}?color=E50914&nextEpisode=true&episodeSelector=true&autoplayNextEpisode=true&autoplay=true&autoplay=1&autoPlay=true`
+        : `https://www.vidy.st/movie/${tmdbId}?color=E50914&autoplay=true&autoplay=1&autoPlay=true`;
+      setStreamData({ is_m3u8: false, stream_url: defaultVidyUrl });
+      setLoading(false);
       } catch (err: any) {
         if (isMounted) {
           const fallbackUrl = isTv 
@@ -481,32 +442,24 @@ function PlayerContent() {
             {isServerMenuOpen && (
               <div className="server-dropdown glass-premium">
                 <button 
-                  className={activeServer === 'vidsrc' ? 'active' : ''}
-                  onClick={() => { setActiveServer('vidsrc'); setIsServerMenuOpen(false); }}
-                >
-                  <span className="server-name">VidSrc Cloud</span>
-                  <span className="server-badge">Recommended</span>
-                </button>
-                <button 
                   className={activeServer === 'vidy' ? 'active' : ''}
                   onClick={() => { setActiveServer('vidy'); setIsServerMenuOpen(false); }}
                 >
                   <span className="server-name">Vidy.st</span>
-                  <span className="server-badge">Mobile-Optimized</span>
+                  <span className="server-badge">Fast &amp; Clean</span>
                 </button>
                 <button 
-                  className={activeServer === 'twoembed' ? 'active' : ''}
-                  onClick={() => { setActiveServer('twoembed'); setIsServerMenuOpen(false); }}
+                  className={activeServer === 'vidlink' ? 'active' : ''}
+                  onClick={() => { setActiveServer('vidlink'); setIsServerMenuOpen(false); }}
                 >
-                  <span className="server-name">2Embed Player</span>
-                  <span className="server-badge">Fast</span>
+                  <span className="server-name">VidLink Cloud</span>
+                  <span className="server-badge">Ultra HD</span>
                 </button>
                 <button 
-                  className={activeServer === 'multiembed' ? 'active' : ''}
-                  onClick={() => { setActiveServer('multiembed'); setIsServerMenuOpen(false); }}
+                  className={activeServer === 'vidsrc' ? 'active' : ''}
+                  onClick={() => { setActiveServer('vidsrc'); setIsServerMenuOpen(false); }}
                 >
-                  <span className="server-name">MultiEmbed</span>
-                  <span className="server-badge">Multi-Source</span>
+                  <span className="server-name">VidSrc Cloud</span>
                 </button>
                 <button 
                   className={activeServer === 'autoembed' ? 'active' : ''}
@@ -515,17 +468,16 @@ function PlayerContent() {
                   <span className="server-name">AutoEmbed</span>
                 </button>
                 <button 
-                  className={activeServer === 'engine' ? 'active' : ''}
-                  onClick={() => { setActiveServer('engine'); setIsServerMenuOpen(false); }}
+                  className={activeServer === 'multiembed' ? 'active' : ''}
+                  onClick={() => { setActiveServer('multiembed'); setIsServerMenuOpen(false); }}
                 >
-                  <span className="server-name">Watcher Engine</span>
-                  <span className="server-badge">HLS Direct</span>
+                  <span className="server-name">MultiEmbed</span>
                 </button>
                 <button 
-                  className={activeServer === 'vidlink' ? 'active' : ''}
-                  onClick={() => { setActiveServer('vidlink'); setIsServerMenuOpen(false); }}
+                  className={activeServer === 'twoembed' ? 'active' : ''}
+                  onClick={() => { setActiveServer('twoembed'); setIsServerMenuOpen(false); }}
                 >
-                  <span className="server-name">VidLink (Disable Adblock)</span>
+                  <span className="server-name">2Embed Player</span>
                 </button>
               </div>
             )}

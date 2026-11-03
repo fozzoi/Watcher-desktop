@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Star, Heart, Play, Sparkles, ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import { Search, Star, Heart, Play, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react';
 import { 
   fetchPersonalisedDiscoveryContent,
   getSimilarForHistory,
@@ -23,20 +23,13 @@ import { AsyncStorage } from '@/utils/storage';
 import MediaCarousel from '@/components/MediaCarousel';
 import WatchHistoryCarousel from '@/components/WatchHistoryCarousel';
 import MovieCard from '@/components/MovieCard';
-import HeroSection from '@/components/HeroSection';
-
-const GENRE_DATA = [
-  { id: 0, name: 'All', icon: '🎬' },
-  { id: 28, name: 'Action', icon: '💥' },
-  { id: 12, name: 'Adventure', icon: '🗺️' },
-  { id: 16, name: 'Animation', icon: '🎨' },
-  { id: 35, name: 'Comedy', icon: '😂' },
-  { id: 80, name: 'Crime', icon: '🔪' },
-  { id: 27, name: 'Horror', icon: '👻' },
-  { id: 10749, name: 'Romance', icon: '💕' },
-  { id: 878, name: 'Sci-Fi', icon: '🚀' },
-  { id: 53, name: 'Thriller', icon: '😱' },
-];
+// New explore components ported from the Expo app
+import HeroSection from '@/components/explore/HeroSection';
+import GenreFilter from '@/components/explore/GenreFilter';
+import SpotlightCarousel from '@/components/explore/SpotlightCarousel';
+import RankedTop10Carousel from '@/components/explore/RankedTop10Carousel';
+import WorldCinemaHub from '@/components/explore/WorldCinemaHub';
+import { GENRE_DATA } from '@/components/explore/ExploreConstants';
 
 export default function ExplorePage() {
   const router = useRouter();
@@ -288,144 +281,147 @@ export default function ExplorePage() {
       ) : (
         /* Standard explore mode dashboard */
         <>
-              {/* Dynamic Hero Section */}
-              {heroList.length > 0 && (
-                <HeroSection
-                  heroList={heroList}
-                  savedIds={savedIds}
-                  toggleWatchlist={toggleWatchlist}
-                />
-              )}
+          {/* Dynamic Hero Section (ported from Expo app — liquid indicator, swipe, autoplay) */}
+          {heroList.length > 0 && (
+            <HeroSection
+              items={heroList}
+              toggleWatchlist={toggleWatchlist}
+              isLoading={contentLoading}
+            />
+          )}
 
-              {/* Genre selector (placed below hero carousel) */}
-              <div className="genres-wrapper animate-fade-in-up">
-                <button 
-                  className="genre-nav-btn prev-btn" 
-                  onClick={() => scrollGenres('left')} 
-                  aria-label="Scroll genres left"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-
-                <div className="genres-container" ref={genresScrollRef}>
-                  {GENRE_DATA.map((genre) => (
-                    <button
-                      key={genre.id}
-                      onClick={() => setSelectedGenre(genre.id)}
-                      className={`genre-chip ${selectedGenre === genre.id ? 'active' : ''}`}
-                    >
-                      <span className="genre-icon">{genre.icon}</span>
-                      <span className="genre-name">{genre.name}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <button 
-                  className="genre-nav-btn next-btn" 
-                  onClick={() => scrollGenres('right')} 
-                  aria-label="Scroll genres right"
-                >
-                  <ChevronRight size={18} />
-                </button>
-
-                {contentLoading && rawContent && (
-                  <div className="genre-loading-bar">
-                    <div className="genre-loading-progress" />
-                  </div>
-                )}
+          {/* Genre selector (ported from Expo app — magnetic centering chips) */}
+          <div className="genres-wrapper animate-fade-in-up">
+            <GenreFilter
+              selectedGenre={selectedGenre}
+              onSelectGenre={setSelectedGenre}
+            />
+            {contentLoading && rawContent && (
+              <div className="genre-loading-bar">
+                <div className="genre-loading-progress" />
               </div>
+            )}
+          </div>
 
-              {/* Continue Watching Section */}
-              <WatchHistoryCarousel 
-                history={watchHistory} 
-                onRemove={handleRemoveHistoryItem} 
-              />
+          {/* Spotlight Carousel — Franchise/Collections (ported from Expo app) */}
+          {rawContent?.trendingMovies?.length > 0 && (
+            <SpotlightCarousel
+              title="Franchise Spotlight"
+              eyebrow="COLLECTIONS"
+              data={rawContent.trendingMovies}
+            />
+          )}
 
-              {/* "Because you watched..." dynamic history recommendations */}
-              {becauseYouWatched.length > 0 && becauseYouWatched.map((sec, idx) => (
-                <MediaCarousel 
-                  key={idx}
-                  title={`More Like ${sec.sourceTitle}`}
-                  type={`similar/${sec.items[0]?.media_type || 'movie'}/${sec.items[0]?.id}`}
-                  data={sec.items}
-                  savedIds={savedIds}
-                  toggleWatchlist={toggleWatchlist}
-                />
-              ))}
+          {/* Continue Watching Section */}
+          <WatchHistoryCarousel 
+            history={watchHistory} 
+            onRemove={handleRemoveHistoryItem} 
+          />
 
-              {/* Actor Spotlight Carousels */}
-              {rawContent?.actorData?.length > 0 && rawContent.actorData.map((act: any) => (
-                <MediaCarousel 
-                  key={`actor-${act.actorId}`}
-                  title={`${act.actorName} Spotlight`}
-                  type={`actor-${act.actorId}`}
-                  data={act.items}
-                  savedIds={savedIds}
-                  toggleWatchlist={toggleWatchlist}
-                />
-              ))}
+          {/* "Because you watched..." dynamic history recommendations */}
+          {becauseYouWatched.length > 0 && becauseYouWatched.map((sec, idx) => (
+            <MediaCarousel 
+              key={idx}
+              title={`More Like ${sec.sourceTitle}`}
+              type={`similar/${sec.items[0]?.media_type || 'movie'}/${sec.items[0]?.id}`}
+              data={sec.items}
+              savedIds={savedIds}
+              toggleWatchlist={toggleWatchlist}
+            />
+          ))}
 
-              {/* Tailored Language Carousels */}
-              {rawContent?.langData && Object.entries(rawContent.langData).map(([langCode, data]: [string, any]) => {
-                const langMeta = LANGUAGE_OPTIONS.find(l => l.code === langCode);
-                const baseName = langMeta ? langMeta.label : langCode.toUpperCase();
-                return (
-                  <React.Fragment key={langCode}>
-                    {data.movies?.length > 0 && (
-                      <MediaCarousel 
-                        title={`${baseName} Movies`}
-                        type={`lang-movies-${langCode}`}
-                        data={data.movies}
-                        savedIds={savedIds}
-                        toggleWatchlist={toggleWatchlist}
-                      />
-                    )}
-                    {data.tv?.length > 0 && (
-                      <MediaCarousel 
-                        title={`${baseName} Series`}
-                        type={`lang-tv-${langCode}`}
-                        data={data.tv}
-                        savedIds={savedIds}
-                        toggleWatchlist={toggleWatchlist}
-                      />
-                    )}
-                  </React.Fragment>
-                );
-              })}
+          {/* Actor Spotlight Carousels */}
+          {rawContent?.actorData?.length > 0 && rawContent.actorData.map((act: any) => (
+            <MediaCarousel 
+              key={`actor-${act.actorId}`}
+              title={`${act.actorName} Spotlight`}
+              type={`actor-${act.actorId}`}
+              data={act.items}
+              savedIds={savedIds}
+              toggleWatchlist={toggleWatchlist}
+            />
+          ))}
 
-              {/* Tailored Genre Carousels */}
-              {rawContent?.genreData?.length > 0 && rawContent.genreData.map((gen: any) => {
-                const genreName = GENRE_DATA.find(g => g.id === gen.genreId)?.name;
-                const title = genreName && genreName !== 'All' ? `${genreName} Movies` : 'Curated for You';
-                return (
+          {/* Tailored Language Carousels */}
+          {rawContent?.langData && Object.entries(rawContent.langData).map(([langCode, data]: [string, any]) => {
+            const langMeta = LANGUAGE_OPTIONS.find(l => l.code === langCode);
+            const baseName = langMeta ? langMeta.label : langCode.toUpperCase();
+            return (
+              <React.Fragment key={langCode}>
+                {data.movies?.length > 0 && (
                   <MediaCarousel 
-                    key={`genre-${gen.genreId}`}
-                    title={title}
-                    type={`genre/${gen.genreId}`}
-                    data={gen.items}
+                    title={`${baseName} Movies`}
+                    type={`lang-movies-${langCode}`}
+                    data={data.movies}
                     savedIds={savedIds}
                     toggleWatchlist={toggleWatchlist}
                   />
-                );
-              })}
+                )}
+                {data.tv?.length > 0 && (
+                  <MediaCarousel 
+                    title={`${baseName} Series`}
+                    type={`lang-tv-${langCode}`}
+                    data={data.tv}
+                    savedIds={savedIds}
+                    toggleWatchlist={toggleWatchlist}
+                  />
+                )}
+              </React.Fragment>
+            );
+          })}
 
-              {/* Global Discovery Categories */}
-              {rawContent && (
-                <div className="carousels-container">
-                  <MediaCarousel title="Trending Movies" type="trendingMovies" data={rawContent.trendingMovies} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-                  <MediaCarousel title="Trending Series" type="trendingTV" data={rawContent.trendingTV} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-                  <MediaCarousel title="Top Rated" type="topRated" data={rawContent.topRated} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-                  <MediaCarousel title="Upcoming" type="upcoming" data={rawContent.upcoming} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-                  <MediaCarousel title="Hidden Gems" type="hiddenGems" data={rawContent.hiddenGems} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-                </div>
-              )}
-            </>
+          {/* Tailored Genre Carousels */}
+          {rawContent?.genreData?.length > 0 && rawContent.genreData.map((gen: any) => {
+            const genreName = GENRE_DATA.find(g => g.id === gen.genreId)?.name;
+            const title = genreName && genreName !== 'All' ? `${genreName} Movies` : 'Curated for You';
+            return (
+              <MediaCarousel 
+                key={`genre-${gen.genreId}`}
+                title={title}
+                type={`genre/${gen.genreId}`}
+                data={gen.items}
+                savedIds={savedIds}
+                toggleWatchlist={toggleWatchlist}
+              />
+            );
+          })}
+
+          {/* Ranked Top 10 Today (ported from Expo app — SVG numeral rankings) */}
+          {rawContent?.trendingMovies?.length > 0 && (
+            <RankedTop10Carousel
+              data={rawContent.trendingMovies}
+              savedIds={savedIds}
+              toggleWatchlist={toggleWatchlist}
+            />
           )}
+
+          {/* World Cinema Hub — Language tabs + interleaved movies/TV (ported from Expo app) */}
+          {rawContent?.langData && (
+            <WorldCinemaHub
+              langData={rawContent.langData}
+              savedIds={savedIds}
+              toggleWatchlist={toggleWatchlist}
+            />
+          )}
+
+          {/* Global Discovery Categories */}
+          {rawContent && (
+            <div className="carousels-container">
+              <MediaCarousel title="Trending Movies" type="trendingMovies" data={rawContent.trendingMovies} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+              <MediaCarousel title="Trending Series" type="trendingTV" data={rawContent.trendingTV} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+              <MediaCarousel title="Top Rated" type="topRated" data={rawContent.topRated} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+              <MediaCarousel title="Upcoming" type="upcoming" data={rawContent.upcoming} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+              <MediaCarousel title="Hidden Gems" type="hiddenGems" data={rawContent.hiddenGems} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+            </div>
+          )}
+        </>
+      )}
 
       <style jsx>{`
         .explore-container {
           position: relative;
           z-index: 1;
+          isolation: isolate;
         }
 
         /* Atmospheric Animated Background */
@@ -523,6 +519,8 @@ export default function ExplorePage() {
           outline: none;
           box-sizing: border-box;
           transition: var(--transition-smooth);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .search-input-field:focus {
@@ -614,7 +612,6 @@ export default function ExplorePage() {
           100% { background-position: -200% 0; }
         }
 
-
         .onboarding-welcome-card {
           display: flex;
           justify-content: space-between;
@@ -692,11 +689,16 @@ export default function ExplorePage() {
           transform: translateY(0);
         }
 
-        /* Genre Chip Row */
+        /* Genre Chip Row (ported from Expo app) */
         .genres-wrapper {
           position: relative;
           margin-bottom: 24px;
           width: 100%;
+        }
+
+        .genre-filter-container {
+          margin: 0;
+          padding: 0;
         }
 
         .genres-container {
@@ -734,6 +736,7 @@ export default function ExplorePage() {
           box-shadow: 0 4px 12px var(--shadow-color);
           transition: var(--transition-fast);
           z-index: 5;
+          border: none;
         }
 
         .genre-nav-btn:hover {
@@ -742,6 +745,11 @@ export default function ExplorePage() {
           color: #ffffff;
           opacity: 1;
           transform: translateY(-50%) scale(1.08);
+        }
+
+        .genre-nav-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
         }
 
         .genre-nav-btn.prev-btn { left: 4px; }
@@ -782,36 +790,6 @@ export default function ExplorePage() {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(350%); }
         }
-
-        .genre-chip {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 16px;
-          border-radius: 20px;
-          background: var(--input-bg);
-          border: 1px solid var(--card-border);
-          color: var(--foreground-muted);
-          cursor: pointer;
-          white-space: nowrap;
-          transition: var(--transition-fast);
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .genre-chip:hover {
-          background: var(--sidebar-hover);
-          color: var(--foreground);
-        }
-
-        .genre-chip.active {
-          background: var(--primary-gradient);
-          color: white;
-          border-color: transparent;
-          box-shadow: 0 4px 12px var(--primary-glow);
-        }
-
-
 
         /* Loading shimmer */
         .loading-shimmer-explore {
@@ -886,15 +864,6 @@ export default function ExplorePage() {
             padding: 30px;
             margin-bottom: 28px;
           }
-
-          .hero-title {
-            font-size: 34px;
-          }
-
-          .hero-overview {
-            font-size: 14px;
-            -webkit-line-clamp: 2;
-          }
         }
 
         /* ===== Phone ===== */
@@ -913,55 +882,6 @@ export default function ExplorePage() {
 
           .search-icon-wrapper {
             left: 14px;
-          }
-
-
-          .hero-section {
-            height: 280px;
-            padding: 20px;
-            border-radius: 16px;
-            margin-bottom: 20px;
-          }
-
-          .hero-title {
-            font-size: 24px;
-          }
-
-          .hero-overview {
-            font-size: 12.5px;
-            -webkit-line-clamp: 2;
-          }
-
-          .hero-meta {
-            font-size: 12px;
-            gap: 8px;
-          }
-
-          .hero-actions {
-            gap: 8px;
-            flex-wrap: wrap;
-          }
-
-          .hero-actions .btn-primary,
-          .hero-actions .btn-secondary {
-            padding: 8px 14px;
-            font-size: 12px;
-            border-radius: 10px;
-          }
-
-          .hero-indicators {
-            bottom: 12px;
-            right: 14px;
-            gap: 5px;
-          }
-
-          .indicator-dot {
-            width: 6px;
-            height: 6px;
-          }
-
-          .indicator-dot.active {
-            width: 18px;
           }
 
           .genres-wrapper {
