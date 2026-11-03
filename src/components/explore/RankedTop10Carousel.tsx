@@ -4,6 +4,7 @@
 // Ported from the Watcher Expo app — Top 10 today carousel with SVG numeral rankings, adapted for Next.js/web.
 
 import React, { memo, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Star, Heart, Play } from 'lucide-react';
 import { getImageUrl } from '@/utils/tmdb';
 
@@ -126,6 +127,8 @@ const RankedCard = memo(
 
 const RankedTop10Carousel = memo(
   ({ data, savedIds, toggleWatchlist }: RankedTop10CarouselProps) => {
+    const router = useRouter();
+
     const top10Data = useMemo(() => {
       if (!Array.isArray(data)) return [];
       return data.slice(0, 10);
@@ -134,9 +137,9 @@ const RankedTop10Carousel = memo(
     const handlePress = useCallback(
       (item: any) => {
         const mediaType = item.media_type || (item.first_air_date ? 'tv' : 'movie');
-        window.location.href = `/detail?id=${item.id}&type=${mediaType}`;
+        router.push(`/detail?id=${item.id}&type=${mediaType}`);
       },
-      []
+      [router]
     );
 
     const renderItem = useCallback(

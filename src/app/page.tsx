@@ -9,7 +9,9 @@ import {
   getSimilarForHistory,
   searchTMDB, 
   getImageUrl, 
-  TMDBResult 
+  TMDBResult,
+  getFranchiseCollections,
+  POPULAR_FRANCHISE_COLLECTIONS
 } from '@/utils/tmdb';
 import { 
   getUserPreferences, 
@@ -42,6 +44,7 @@ export default function ExplorePage() {
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [watchHistory, setWatchHistory] = useState<WatchProgress[]>([]);
   const [rawContent, setRawContent] = useState<any>(null);
+  const [franchiseCollections, setFranchiseCollections] = useState<any[]>(() => POPULAR_FRANCHISE_COLLECTIONS);
   const [becauseYouWatched, setBecauseYouWatched] = useState<{ sourceTitle: string; items: any[] }[]>([]);
   const [onboardingDone, setOnboardingDone] = useState(true);
   
@@ -73,6 +76,16 @@ export default function ExplorePage() {
       setSavedIds(new Set([...m.map((i: any) => i.id), ...a.map((i: any) => i.id)]));
       setWatchHistory(history);
       setOnboardingDone(onbDone);
+
+      // Prioritize collections the user has started or watched
+      try {
+        const franchises = await getFranchiseCollections(history);
+        if (franchises && franchises.length > 0) {
+          setFranchiseCollections(franchises);
+        }
+      } catch (err) {
+        console.warn('Franchise collections load fallback:', err);
+      }
 
       // Fetch dynamic "Because you watched..." feeds
       if (history.length > 0) {
@@ -107,6 +120,9 @@ export default function ExplorePage() {
       );
       if (content) {
         setRawContent(content);
+        if (content.franchiseCollections?.length > 0) {
+          setFranchiseCollections(content.franchiseCollections);
+        }
       }
     } catch (err) {
       console.error("Failed to load explore content:", err);
@@ -281,7 +297,7 @@ export default function ExplorePage() {
       ) : (
         /* Standard explore mode dashboard */
         <>
-          {/* Dynamic Hero Section (ported from Expo app — liquid indicator, swipe, autoplay) */}
+          {/* 1. Dynamic Hero Section (liquid indicator, swipe, autoplay) */}
           {heroList.length > 0 && (
             <HeroSection
               items={heroList}
@@ -290,7 +306,7 @@ export default function ExplorePage() {
             />
           )}
 
-          {/* Genre selector (ported from Expo app — magnetic centering chips) */}
+          {/* 2. Genre selector (magnetic centering chips) */}
           <div className="genres-wrapper animate-fade-in-up">
             <GenreFilter
               selectedGenre={selectedGenre}
@@ -303,25 +319,71 @@ export default function ExplorePage() {
             )}
           </div>
 
-          {/* Spotlight Carousel — Franchise/Collections (ported from Expo app) */}
+          {/* 3. Ranked Top 10 Today (mirrors Android hierarchy: Hero -> Genre -> Top 10) */}
           {rawContent?.trendingMovies?.length > 0 && (
-            <SpotlightCarousel
-              title="Franchise Spotlight"
-              eyebrow="COLLECTIONS"
+            <RankedTop10Carousel
               data={rawContent.trendingMovies}
+              savedIds={savedIds}
+              toggleWatchlist={toggleWatchlist}
             />
           )}
 
-          {/* Continue Watching Section */}
+          {/* 4. Franchise Spotlight — Sagas & Collections ONLY */}
+          {franchiseCollections.length > 0 && (
+            <SpotlightCarousel
+              title="Franchise Spotlight"
+              eyebrow="COLLECTION SPOTLIGHT"
+              data={franchiseCollections}
+            />
+          )}
+
+          {/* 5. Continue Watching Section (only when user has history) */}
           <WatchHistoryCarousel 
             history={watchHistory} 
             onRemove={handleRemoveHistoryItem} 
           />
 
-          {/* "Because you watched..." dynamic history recommendations */}
+          {/* 6. Trending Series (matching Android midSections) */}
+          {rawContent?.trendingTV?.length > 0 && (
+            <MediaCarousel 
+              title={selectedGenre !== 0 ? `Top ${GENRE_DATA.find(g => g.id === selectedGenre)?.name || ''} Series` : 'Trending Series'}
+              type="trendingTV"
+              data={rawContent.trendingTV}
+              savedIds={savedIds}
+              toggleWatchlist={toggleWatchlist}
+            />
+          )}
+
+          {/* 7. World Cinema Hub (Collapses all international rails into one hub, exactly like Android) */}
+          {rawContent?.langData && Object.keys(rawContent.langData).length > 0 && (
+            <WorldCinemaHub
+              langData={rawContent.langData}
+              savedIds={savedIds}
+              toggleWatchlist={toggleWatchlist}
+            />
+          )}
+
+          {/* 8. Single Featured Actor Spotlight (matching Android midSections) */}
+          {selectedGenre === 0 && rawContent?.actorData?.length > 0 && (
+            (() => {
+              const act = rawContent.actorData.find((a: any) => a.items && a.items.length > 0) || rawContent.actorData[0];
+              return (
+                <MediaCarousel 
+                  key={`actor-${act.actorId}`}
+                  title={`Spotlight: ${act.actorName}`}
+                  type={`actor-${act.actorId}`}
+                  data={act.items}
+                  savedIds={savedIds}
+                  toggleWatchlist={toggleWatchlist}
+                />
+              );
+            })()
+          )}
+
+          {/* 9. Personalized "Because You Watched..." dynamic history recommendations */}
           {becauseYouWatched.length > 0 && becauseYouWatched.map((sec, idx) => (
             <MediaCarousel 
-              key={idx}
+              key={`byw-${idx}`}
               title={`More Like ${sec.sourceTitle}`}
               type={`similar/${sec.items[0]?.media_type || 'movie'}/${sec.items[0]?.id}`}
               data={sec.items}
@@ -330,47 +392,7 @@ export default function ExplorePage() {
             />
           ))}
 
-          {/* Actor Spotlight Carousels */}
-          {rawContent?.actorData?.length > 0 && rawContent.actorData.map((act: any) => (
-            <MediaCarousel 
-              key={`actor-${act.actorId}`}
-              title={`${act.actorName} Spotlight`}
-              type={`actor-${act.actorId}`}
-              data={act.items}
-              savedIds={savedIds}
-              toggleWatchlist={toggleWatchlist}
-            />
-          ))}
-
-          {/* Tailored Language Carousels */}
-          {rawContent?.langData && Object.entries(rawContent.langData).map(([langCode, data]: [string, any]) => {
-            const langMeta = LANGUAGE_OPTIONS.find(l => l.code === langCode);
-            const baseName = langMeta ? langMeta.label : langCode.toUpperCase();
-            return (
-              <React.Fragment key={langCode}>
-                {data.movies?.length > 0 && (
-                  <MediaCarousel 
-                    title={`${baseName} Movies`}
-                    type={`lang-movies-${langCode}`}
-                    data={data.movies}
-                    savedIds={savedIds}
-                    toggleWatchlist={toggleWatchlist}
-                  />
-                )}
-                {data.tv?.length > 0 && (
-                  <MediaCarousel 
-                    title={`${baseName} Series`}
-                    type={`lang-tv-${langCode}`}
-                    data={data.tv}
-                    savedIds={savedIds}
-                    toggleWatchlist={toggleWatchlist}
-                  />
-                )}
-              </React.Fragment>
-            );
-          })}
-
-          {/* Tailored Genre Carousels */}
+          {/* 10. Tailored Genre Carousels */}
           {rawContent?.genreData?.length > 0 && rawContent.genreData.map((gen: any) => {
             const genreName = GENRE_DATA.find(g => g.id === gen.genreId)?.name;
             const title = genreName && genreName !== 'All' ? `${genreName} Movies` : 'Curated for You';
@@ -386,32 +408,19 @@ export default function ExplorePage() {
             );
           })}
 
-          {/* Ranked Top 10 Today (ported from Expo app — SVG numeral rankings) */}
-          {rawContent?.trendingMovies?.length > 0 && (
-            <RankedTop10Carousel
-              data={rawContent.trendingMovies}
-              savedIds={savedIds}
-              toggleWatchlist={toggleWatchlist}
-            />
-          )}
-
-          {/* World Cinema Hub — Language tabs + interleaved movies/TV (ported from Expo app) */}
-          {rawContent?.langData && (
-            <WorldCinemaHub
-              langData={rawContent.langData}
-              savedIds={savedIds}
-              toggleWatchlist={toggleWatchlist}
-            />
-          )}
-
-          {/* Global Discovery Categories */}
+          {/* 11. Global Discovery Categories */}
           {rawContent && (
             <div className="carousels-container">
               <MediaCarousel title="Trending Movies" type="trendingMovies" data={rawContent.trendingMovies} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-              <MediaCarousel title="Trending Series" type="trendingTV" data={rawContent.trendingTV} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-              <MediaCarousel title="Top Rated" type="topRated" data={rawContent.topRated} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-              <MediaCarousel title="Upcoming" type="upcoming" data={rawContent.upcoming} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
-              <MediaCarousel title="Hidden Gems" type="hiddenGems" data={rawContent.hiddenGems} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+              {rawContent.topRated?.length > 0 && (
+                <MediaCarousel title="All-Time Masterpieces" type="topRated" data={rawContent.topRated} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+              )}
+              {rawContent.upcoming?.length > 0 && (
+                <MediaCarousel title="Coming Soon to Theaters" type="upcoming" data={rawContent.upcoming} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+              )}
+              {rawContent.hiddenGems?.length > 0 && (
+                <MediaCarousel title="Hidden Gems" type="hiddenGems" data={rawContent.hiddenGems} savedIds={savedIds} toggleWatchlist={toggleWatchlist} />
+              )}
             </div>
           )}
         </>
