@@ -8,6 +8,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from '
 import { useRouter } from 'next/navigation';
 import { Play, Heart, Info, Star, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { getImageUrl, TMDBResult } from '@/utils/tmdb';
+import SpecularButton from '@/components/SpecularButton';
 
 export interface HeroSectionProps {
   items: TMDBResult[];
@@ -173,14 +174,25 @@ export default memo(function HeroSection({
 
           {/* Action CTAs */}
           <div className="hero-actions">
-            <button
-              type="button"
-              className="btn-hero-play"
+            <SpecularButton
+              size="md"
+              radius={12}
+              tint="#e50914"
+              tintOpacity={0.18}
+              textColor="#ffffff"
+              lineColor="#ff4d4d"
+              baseColor="#991111"
+              intensity={1.3}
+              idleIntensity={0.45}
+              shineSize={14}
+              shineFade={30}
+              thickness={1.4}
+              glow={1.3}
               onClick={(e) => handlePlay(currentItem, e)}
             >
               <Play size={18} fill="currentColor" strokeWidth={0} />
               <span>Watch Now</span>
-            </button>
+            </SpecularButton>
 
             <button
               type="button"

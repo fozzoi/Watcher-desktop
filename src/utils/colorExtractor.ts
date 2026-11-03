@@ -95,6 +95,7 @@ function hslToHex(h: number, s: number, l: number): string {
  */
 export function extractPaletteFromUrl(imageUrl: string): Promise<ExtractedPalette | null> {
   if (!imageUrl) return Promise.resolve(null);
+  console.log('[COLOR_EXTRACTOR] Starting extraction for:', imageUrl);
 
   const cached = paletteCache.get(imageUrl);
   if (cached) return Promise.resolve(cached);
@@ -107,11 +108,12 @@ export function extractPaletteFromUrl(imageUrl: string): Promise<ExtractedPalett
       return resolve(null);
     }
 
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.decoding = 'async';
+    // Use smaller thumbnail (w92) for instant download (<5KB) and append ?cors=1
+    // to bypass any non-CORS cached entry created by the DOM's <img> tags.
+    const extractUrl = imageUrl.replace(/\/w(500|780|1280|original)\//, '/w92/') +
+      (imageUrl.includes('?') ? '&cors=1' : '?cors=1');
 
-    img.onload = () => {
+    const processDrawable = (drawable: CanvasImageSource) => {
       try {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -122,7 +124,7 @@ export function extractPaletteFromUrl(imageUrl: string): Promise<ExtractedPalett
         const h = 32;
         canvas.width = w;
         canvas.height = h;
-        ctx.drawImage(img, 0, 0, w, h);
+        ctx.drawImage(drawable, 0, 0, w, h);
 
         const imgData = ctx.getImageData(0, 0, w, h);
         const pixels = imgData.data;
@@ -223,17 +225,30 @@ export function extractPaletteFromUrl(imageUrl: string): Promise<ExtractedPalett
         };
 
         paletteCache.set(imageUrl, palette);
+        console.log('[COLOR_EXTRACTOR] Extracted palette:', palette.pastelDark, palette.dominant, 'for', imageUrl);
         resolve(palette);
       } catch (e) {
+        console.error('[COLOR_EXTRACTOR_ERROR]', e);
         resolve(null);
       }
     };
 
-    img.onerror = () => {
-      resolve(null);
-    };
-
-    img.src = imageUrl;
+    // Load with fetch -> blob -> createImageBitmap (zero CORS/cache issues)
+    fetch(extractUrl)
+      .then((res) => res.blob())
+      .then((blob) => createImageBitmap(blob))
+      .then((bitmap) => processDrawable(bitmap))
+      .catch(() => {
+        // Fallback to Image element
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => processDrawable(img);
+        img.onerror = (err) => {
+          console.error('[COLOR_EXTRACTOR_IMG_ERROR]', err, 'for url:', extractUrl);
+          resolve(null);
+        };
+        img.src = extractUrl;
+      });
   }).finally(() => {
     inFlight.delete(imageUrl);
   });

@@ -201,7 +201,7 @@ function CastDetailContent() {
 
   return (
     <div 
-      className="cast-detail-page animate-fade-in-up"
+      className={`cast-detail-page animate-fade-in-up ${ambientBg ? 'is-ambient' : ''}`}
       style={{
         ['--cast-ambient-bg' as any]: ambientBg || 'var(--bg-color)',
         ['--cast-ambient-accent' as any]: dominantAccent || 'var(--primary)',
@@ -486,6 +486,52 @@ function CastDetailContent() {
           display: flex;
           flex-direction: column;
           gap: 30px;
+        }
+
+        .cast-detail-page.is-ambient {
+          color: #ffffff;
+        }
+
+        .cast-detail-page.is-ambient :global(.cast-hero-panel) {
+          background: rgba(255, 255, 255, 0.05) !important;
+          border-color: rgba(255, 255, 255, 0.12) !important;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4) !important;
+          backdrop-filter: blur(28px) saturate(190%) !important;
+          -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+        }
+
+        .cast-detail-page.is-ambient :global(.cast-title),
+        .cast-detail-page.is-ambient :global(.section-title),
+        .cast-detail-page.is-ambient :global(h1),
+        .cast-detail-page.is-ambient :global(h2),
+        .cast-detail-page.is-ambient :global(h3) {
+          color: #ffffff !important;
+        }
+
+        .cast-detail-page.is-ambient :global(.cast-bio-text),
+        .cast-detail-page.is-ambient :global(p) {
+          color: rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .cast-detail-page.is-ambient :global(.badge) {
+          background: rgba(255, 255, 255, 0.08) !important;
+          color: rgba(255, 255, 255, 0.9) !important;
+          border-color: rgba(255, 255, 255, 0.15) !important;
+        }
+
+        .cast-detail-page.is-ambient :global(.back-btn),
+        .cast-detail-page.is-ambient :global(.btn-secondary) {
+          background: rgba(255, 255, 255, 0.08) !important;
+          color: #ffffff !important;
+          border: 1px solid rgba(255, 255, 255, 0.16) !important;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+
+        .cast-detail-page.is-ambient :global(.back-btn:hover),
+        .cast-detail-page.is-ambient :global(.btn-secondary:hover) {
+          background: rgba(255, 255, 255, 0.16) !important;
+          border-color: rgba(255, 255, 255, 0.28) !important;
         }
         .cast-nav-bar {
           display: flex;

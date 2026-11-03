@@ -724,7 +724,7 @@ function DetailContent() {
 
   return (
     <div 
-      className="detail-container"
+      className={`detail-container ${ambientBg ? 'is-ambient' : ''}`}
       style={{
         ['--detail-ambient-bg' as any]: ambientBg || 'var(--bg-color)',
         ['--detail-ambient-accent' as any]: dominantAccent,
@@ -1715,14 +1715,54 @@ function DetailContent() {
           pointer-events: none;
         }
 
-        :global([data-theme="light"]) .backdrop-overlay {
+        :global([data-theme="light"]) .detail-container:not(.is-ambient) .backdrop-overlay {
           background: linear-gradient(
             180deg, 
             rgba(255, 255, 255, 0.02) 0%, 
             rgba(245, 245, 247, 0.2) 45%, 
             rgba(245, 245, 247, 0.75) 80%, 
-            var(--detail-ambient-bg, var(--bg-color)) 100%
+            var(--bg-color) 100%
           );
+        }
+
+        .detail-container.is-ambient {
+          color: #ffffff;
+        }
+
+        .detail-container.is-ambient :global(.movie-title),
+        .detail-container.is-ambient :global(.section-title),
+        .detail-container.is-ambient :global(h1),
+        .detail-container.is-ambient :global(h2),
+        .detail-container.is-ambient :global(h3) {
+          color: #ffffff !important;
+        }
+
+        .detail-container.is-ambient :global(.tagline),
+        .detail-container.is-ambient :global(.synopsis-text),
+        .detail-container.is-ambient :global(.meta-details p) {
+          color: rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .detail-container.is-ambient :global(.badge) {
+          background: rgba(255, 255, 255, 0.08) !important;
+          color: rgba(255, 255, 255, 0.9) !important;
+          border-color: rgba(255, 255, 255, 0.15) !important;
+        }
+
+        .detail-container.is-ambient :global(.action-btn.glass),
+        .detail-container.is-ambient :global(.action-btn-secondary),
+        .detail-container.is-ambient :global(.btn-secondary) {
+          background: rgba(255, 255, 255, 0.08) !important;
+          color: #ffffff !important;
+          border: 1px solid rgba(255, 255, 255, 0.16) !important;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+
+        .detail-container.is-ambient :global(.action-btn.glass:hover),
+        .detail-container.is-ambient :global(.btn-secondary:hover) {
+          background: rgba(255, 255, 255, 0.16) !important;
+          border-color: rgba(255, 255, 255, 0.28) !important;
         }
 
         .back-btn {

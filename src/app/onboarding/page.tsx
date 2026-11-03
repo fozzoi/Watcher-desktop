@@ -14,6 +14,8 @@ import {
   FavoriteActor 
 } from '@/utils/userPreferences';
 import { searchPeople, getImageUrl, TMDBPerson } from '@/utils/tmdb';
+import MicroSlats from '@/components/MicroSlats';
+import SpecularButton from '@/components/SpecularButton';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -105,6 +107,30 @@ export default function OnboardingPage() {
 
   return (
     <div className="onboarding-container animate-fade-in-up">
+      {/* Ambient MicroSlats Background */}
+      <div className="onboarding-slats-bg">
+        <MicroSlats
+          preset="tide"
+          color="#e50914"
+          glintColor="#ff6b6b"
+          backgroundColor="transparent"
+          slatWidth={8}
+          slatHeight={20}
+          gap={3}
+          roundness={0.8}
+          interactive
+          cursorStrength={0.6}
+          cursorSize={50}
+          swirl={0.3}
+          trail={1.8}
+          perspective={0.4}
+          fog={0.6}
+          speed={0.35}
+          intro
+          introDuration={2}
+        />
+      </div>
+
       {/* Header with Progress Steps */}
       <div className="onboarding-header">
         <div className="steps-indicator">
@@ -253,23 +279,66 @@ export default function OnboardingPage() {
       {/* Navigation Footer */}
       <div className="onboarding-footer">
         {step > 1 && (
-          <button className="btn-secondary" onClick={() => setStep(step - 1)}>
+          <SpecularButton
+            size="md"
+            radius={12}
+            tint="#ffffff"
+            tintOpacity={0.06}
+            textColor="#f5f5f5"
+            lineColor="#888888"
+            baseColor="#444444"
+            intensity={0.8}
+            idleIntensity={0.25}
+            thickness={1}
+            glow={0.6}
+            onClick={() => setStep(step - 1)}
+          >
             <ArrowLeft size={16} />
             <span>Back</span>
-          </button>
+          </SpecularButton>
         )}
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
           {step < 3 ? (
-            <button className="btn-primary" onClick={() => setStep(step + 1)}>
+            <SpecularButton
+              size="md"
+              radius={12}
+              tint="#e50914"
+              tintOpacity={0.12}
+              textColor="#ffffff"
+              lineColor="#ff4d4d"
+              baseColor="#991111"
+              intensity={1.2}
+              idleIntensity={0.4}
+              shineSize={14}
+              shineFade={30}
+              thickness={1.4}
+              glow={1.2}
+              onClick={() => setStep(step + 1)}
+            >
               <span>Next</span>
               <ArrowRight size={16} />
-            </button>
+            </SpecularButton>
           ) : (
-            <button className="btn-primary" onClick={handleFinish}>
+            <SpecularButton
+              size="lg"
+              radius={14}
+              tint="#e50914"
+              tintOpacity={0.15}
+              textColor="#ffffff"
+              lineColor="#ff4d4d"
+              baseColor="#991111"
+              intensity={1.4}
+              idleIntensity={0.5}
+              shineSize={16}
+              shineFade={28}
+              thickness={1.6}
+              glow={1.5}
+              onClick={handleFinish}
+            >
               <Sparkles size={16} />
               <span>Enter Watcher</span>
-            </button>
+            </SpecularButton>
           )}
         </div>
       </div>
@@ -281,6 +350,18 @@ export default function OnboardingPage() {
           display: flex;
           flex-direction: column;
           gap: 36px;
+          position: relative;
+          z-index: 1;
+        }
+        .onboarding-slats-bg {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: -1;
+          opacity: 0.18;
+          pointer-events: none;
         }
         .onboarding-header {
           display: flex;
