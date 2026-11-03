@@ -19,6 +19,7 @@ import {
   TMDBImage 
 } from '@/utils/tmdb';
 import { AsyncStorage } from '@/utils/storage';
+import { useImagePalette } from '@/utils/colorExtractor';
 import MovieCard from '@/components/MovieCard';
 
 function CastDetailContent() {
@@ -38,6 +39,23 @@ function CastDetailContent() {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const galleryScrollRef = useRef<HTMLDivElement>(null);
+
+  // Ambient Color Extraction (Matches Watcher Android Cast Detail)
+  const heroImagePath = person?.profile_path || (personImages.length > 0 ? personImages[0].file_path : null);
+  const heroThumbUrl = heroImagePath ? getImageUrl(heroImagePath, 'w500') : null;
+  const { palette } = useImagePalette(heroThumbUrl);
+  const ambientBg = palette?.pastelDark || null;
+  const dominantAccent = palette?.dominant || null;
+
+  // Ambient body background sync (matches Android CastDetail immersion)
+  useEffect(() => {
+    if (!ambientBg) return;
+    const prevBg = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = ambientBg;
+    return () => {
+      document.body.style.backgroundColor = prevBg;
+    };
+  }, [ambientBg]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -182,9 +200,35 @@ function CastDetailContent() {
   }
 
   return (
-    <div className="cast-detail-page animate-fade-in-up">
+    <div 
+      className="cast-detail-page animate-fade-in-up"
+      style={{
+        ['--cast-ambient-bg' as any]: ambientBg || 'var(--bg-color)',
+        ['--cast-ambient-accent' as any]: dominantAccent || 'var(--primary)',
+        position: 'relative',
+        transition: 'background-color 0.6s ease',
+      }}
+    >
+      {/* Ambient Top Glow */}
+      {ambientBg && dominantAccent && (
+        <div 
+          className="cast-ambient-glow"
+          style={{
+            position: 'absolute',
+            top: -20,
+            left: '5%',
+            right: '5%',
+            height: '460px',
+            background: `radial-gradient(ellipse at top, ${dominantAccent}28 0%, ${ambientBg} 70%, transparent 100%)`,
+            filter: 'blur(75px)',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        />
+      )}
+
       {/* Header bar */}
-      <div className="cast-nav-bar">
+      <div className="cast-nav-bar" style={{ position: 'relative', zIndex: 2 }}>
         <button className="back-btn glass" onClick={() => router.back()}>
           <ArrowLeft size={20} />
           <span>Back</span>
@@ -200,8 +244,21 @@ function CastDetailContent() {
       </div>
 
       {/* Profile Overview */}
-      <div className="cast-hero-panel glass-premium">
-        <div className="cast-avatar-large">
+      <div 
+        className="cast-hero-panel glass-premium"
+        style={{
+          position: 'relative',
+          zIndex: 2,
+          background: ambientBg ? 'rgba(255, 255, 255, 0.04)' : undefined,
+          borderColor: dominantAccent ? `${dominantAccent}33` : undefined,
+        }}
+      >
+        <div 
+          className="cast-avatar-large"
+          style={dominantAccent ? {
+            boxShadow: `0 16px 36px rgba(0, 0, 0, 0.5), 0 0 35px ${dominantAccent}33`,
+          } : undefined}
+        >
           <img 
             src={getImageUrl(person.profile_path, 'w500')} 
             alt={person.name} 

@@ -31,6 +31,7 @@ import { isAdultContent } from '@/utils/contentSafety';
 import { GENRE_OPTIONS } from '@/utils/userPreferences';
 import { useAuth } from '@/context/AuthContext';
 import axios from 'axios';
+import RubberSegment from '@/components/RubberSegment';
 
 type TabType = 'watchlist' | 'history' | 'artists' | 'collections';
 type MediaTypeFilter = 'all' | 'movie' | 'tv' | 'collection';
@@ -82,6 +83,49 @@ export default function WatchListPage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const { user, token, isSyncing, syncNow } = useAuth();
+
+  const mainTabItems = useMemo(() => [
+    {
+      value: 'watchlist',
+      icon: <Bookmark size={15} />,
+      label: (
+        <span className="tab-label-wrap">
+          <span>Watchlist</span>
+          <span className="count-badge">{watchlist.length}</span>
+        </span>
+      ),
+    },
+    {
+      value: 'history',
+      icon: <History size={15} />,
+      label: (
+        <span className="tab-label-wrap">
+          <span>History</span>
+          <span className="count-badge">{history.length}</span>
+        </span>
+      ),
+    },
+    {
+      value: 'artists',
+      icon: <Heart size={15} />,
+      label: (
+        <span className="tab-label-wrap">
+          <span>Artists</span>
+          <span className="count-badge">{artists.length}</span>
+        </span>
+      ),
+    },
+    {
+      value: 'collections',
+      icon: <Layers size={15} />,
+      label: (
+        <span className="tab-label-wrap">
+          <span>Franchises</span>
+          <span className="count-badge">{collections.length}</span>
+        </span>
+      ),
+    },
+  ], [watchlist.length, history.length, artists.length, collections.length]);
 
   const loadData = async () => {
     try {
@@ -619,43 +663,27 @@ export default function WatchListPage() {
         onChange={handleImageChange} 
       />
 
-      {/* Main Tabs Navigation */}
+      {/* Main Tabs Navigation via React Bits RubberSegment */}
       <div className="tabs-row animate-fade-in-up">
-        <button 
-          className={`tab-btn ${activeTab === 'watchlist' ? 'active' : ''}`}
-          onClick={() => setActiveTab('watchlist')}
-        >
-          <Bookmark size={16} />
-          <span>Watchlist</span>
-          <span className="count-badge">{watchlist.length}</span>
-        </button>
-
-        <button 
-          className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          <History size={16} />
-          <span>History</span>
-          <span className="count-badge">{history.length}</span>
-        </button>
-
-        <button 
-          className={`tab-btn ${activeTab === 'artists' ? 'active' : ''}`}
-          onClick={() => setActiveTab('artists')}
-        >
-          <Heart size={16} />
-          <span>Artists</span>
-          <span className="count-badge">{artists.length}</span>
-        </button>
-
-        <button 
-          className={`tab-btn ${activeTab === 'collections' ? 'active' : ''}`}
-          onClick={() => setActiveTab('collections')}
-        >
-          <Layers size={16} />
-          <span>Franchises</span>
-          <span className="count-badge">{collections.length}</span>
-        </button>
+        <RubberSegment
+          items={mainTabItems}
+          value={activeTab}
+          onChange={(val) => setActiveTab(val as TabType)}
+          trackColor="var(--card-bg, #18181b)"
+          thumbColor="#e50914"
+          textColor="var(--foreground-muted, #a1a1aa)"
+          activeTextColor="#ffffff"
+          size="md"
+          radius={12}
+          inset={3}
+          equalSlots={false}
+          stretch={100}
+          squash={3}
+          speed={1}
+          glide={75}
+          draggable
+          className="watchlist-rubber-segment"
+        />
       </div>
 
       {/* Media Type and Genre Filter Pills (Watchlist & History) */}
@@ -1164,44 +1192,22 @@ export default function WatchListPage() {
         /* Tabs bar */
         .tabs-row {
           display: flex;
-          background: rgba(255, 255, 255, 0.02);
+          align-items: center;
+          margin-bottom: 24px;
+          max-width: 680px;
+        }
+
+        :global(.watchlist-rubber-segment) {
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
-          border: 1px solid var(--card-border);
-          padding: 5px;
-          border-radius: 16px;
-          margin-bottom: 20px;
-          max-width: 620px;
-          gap: 4px;
         }
 
-        .tab-btn {
-          flex: 1;
-          background: transparent;
-          border: none;
-          height: 42px;
-          border-radius: 12px;
-          color: var(--foreground-muted);
-          font-size: 13.5px;
-          font-weight: 600;
-          display: flex;
+        .tab-label-wrap {
+          display: inline-flex;
           align-items: center;
-          justify-content: center;
-          gap: 8px;
-          cursor: pointer;
-          transition: var(--transition-smooth);
-          position: relative;
-        }
-
-        .tab-btn:hover {
-          color: var(--foreground);
-        }
-
-        .tab-btn.active {
-          background: var(--card-bg);
-          color: var(--foreground);
-          box-shadow: 0 2px 8px var(--shadow-color);
-          border: 1px solid var(--card-border);
+          gap: 6px;
         }
 
         .count-badge {
@@ -1209,15 +1215,15 @@ export default function WatchListPage() {
           font-weight: 700;
           padding: 2px 7px;
           border-radius: 10px;
-          background: rgba(255, 255, 255, 0.08);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          color: var(--foreground-muted);
+          background: rgba(255, 255, 255, 0.12);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          color: inherit;
         }
 
-        .tab-btn.active .count-badge {
-          background: var(--primary);
-          color: #fff;
+        :global(.rubber-segment__thumb .count-badge) {
+          background: rgba(255, 255, 255, 0.25) !important;
+          color: #ffffff !important;
         }
 
         /* Filter Row */

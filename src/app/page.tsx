@@ -10,6 +10,7 @@ import {
   searchTMDB, 
   getImageUrl, 
   TMDBResult,
+  getTrendingToday,
   getFranchiseCollections,
   POPULAR_FRANCHISE_COLLECTIONS
 } from '@/utils/tmdb';
@@ -44,6 +45,7 @@ export default function ExplorePage() {
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [watchHistory, setWatchHistory] = useState<WatchProgress[]>([]);
   const [rawContent, setRawContent] = useState<any>(null);
+  const [trendingToday, setTrendingToday] = useState<TMDBResult[]>([]);
   const [franchiseCollections, setFranchiseCollections] = useState<any[]>(() => POPULAR_FRANCHISE_COLLECTIONS);
   const [becauseYouWatched, setBecauseYouWatched] = useState<{ sourceTitle: string; items: any[] }[]>([]);
   const [onboardingDone, setOnboardingDone] = useState(true);
@@ -135,6 +137,20 @@ export default function ExplorePage() {
   useEffect(() => {
     loadUserData();
     fetchContent(selectedGenre);
+
+    // Fast direct fetch for Trending Now hero endpoint
+    let isMounted = true;
+    getTrendingToday('all', 1)
+      .then((items) => {
+        if (isMounted && items && items.length > 0) {
+          setTrendingToday(items);
+        }
+      })
+      .catch((err) => console.warn('Trending today fetch warning:', err));
+
+    return () => {
+      isMounted = false;
+    };
   }, [selectedGenre, loadUserData, fetchContent]);
 
   // Search handler
@@ -193,7 +209,9 @@ export default function ExplorePage() {
     setWatchHistory((prev) => prev.filter((item) => item.tmdbId !== tmdbId));
   }, []);
 
-  const heroList = rawContent?.heroMovies || rawContent?.trendingMovies || [];
+  const heroList = (selectedGenre === 0 && trendingToday.length > 0
+    ? trendingToday
+    : (rawContent?.heroMovies || rawContent?.trendingMovies || [])).slice(0, 10);
 
   return (
     <div className="explore-container">
@@ -301,8 +319,9 @@ export default function ExplorePage() {
           {heroList.length > 0 && (
             <HeroSection
               items={heroList}
+              savedIds={savedIds}
               toggleWatchlist={toggleWatchlist}
-              isLoading={contentLoading}
+              isLoading={contentLoading && heroList.length === 0}
             />
           )}
 

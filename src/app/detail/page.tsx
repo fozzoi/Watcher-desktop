@@ -54,6 +54,7 @@ import {
 import { searchTorrents, TorrentResult } from '@/utils/Scraper';
 import { getProgress, isEpisodeCompleted, WatchProgress } from '@/utils/progress';
 import { AsyncStorage } from '@/utils/storage';
+import { useImagePalette, warmPaletteForMedia, AMBIENT_PENDING_BG } from '@/utils/colorExtractor';
 import MovieCard from '@/components/MovieCard';
 import axios from 'axios';
 
@@ -93,6 +94,16 @@ function DetailContent() {
   const [lensError, setLensError] = useState<string | null>(null);
   const [aiVibeError, setAiVibeError] = useState<string | null>(null);
 
+  // Ambient Color Extraction (Matches Watcher Android App)
+  const heroThumbUrl = movie?.poster_path
+    ? getImageUrl(movie.poster_path, 'w500')
+    : movie?.backdrop_path
+    ? getImageUrl(movie.backdrop_path, 'w780')
+    : null;
+  const { palette } = useImagePalette(heroThumbUrl);
+  const ambientBg = palette?.pastelDark || null;
+  const dominantAccent = palette?.dominant || '#e50914';
+
   // Horizontal Carousel scroll refs
   const castScrollRef = useRef<HTMLDivElement>(null);
   const episodesScrollRef = useRef<HTMLDivElement>(null);
@@ -108,6 +119,16 @@ function DetailContent() {
   };
 
   useEffect(() => setIsGalleryMounted(true), []);
+
+  // Ambient body background sync (matches Android immersion)
+  useEffect(() => {
+    if (!ambientBg) return;
+    const prevBg = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = ambientBg;
+    return () => {
+      document.body.style.backgroundColor = prevBg;
+    };
+  }, [ambientBg]);
 
   useEffect(() => {
     if (selectedGalleryIndex === null) return;
@@ -702,7 +723,24 @@ function DetailContent() {
   };
 
   return (
-    <div className="detail-container">
+    <div 
+      className="detail-container"
+      style={{
+        ['--detail-ambient-bg' as any]: ambientBg || 'var(--bg-color)',
+        ['--detail-ambient-accent' as any]: dominantAccent,
+        backgroundColor: ambientBg || 'var(--bg-color)',
+        minHeight: '100vh',
+        transition: 'background-color 0.6s ease',
+      }}
+    >
+      {ambientBg && (
+        <div 
+          className="ambient-radial-glow"
+          style={{
+            background: `radial-gradient(circle 800px at 50% 0px, ${dominantAccent}2b 0%, ${ambientBg} 70%, transparent 100%)`,
+          }}
+        />
+      )}
       {/* Backdrop cover and banner */}
       <div className="backdrop-header">
         <img 
@@ -720,7 +758,12 @@ function DetailContent() {
       {/* Media Details Summary Panel */}
       <div className="detail-content-wrapper animate-fade-in-up">
         <div className="main-meta-box">
-          <div className="poster-box">
+          <div 
+            className="poster-box"
+            style={dominantAccent ? {
+              boxShadow: `0 16px 40px rgba(0, 0, 0, 0.6), 0 0 35px ${dominantAccent}33`,
+            } : undefined}
+          >
             <img src={getImageUrl(movie.poster_path, 'w500')} alt={titleText} className="poster-img" />
           </div>
           
@@ -1574,6 +1617,21 @@ function DetailContent() {
           width: calc(100% + 72px);
           max-width: calc(100% + 72px);
           box-sizing: border-box;
+          background-color: var(--detail-ambient-bg, var(--bg-color));
+          transition: background-color 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .ambient-radial-glow {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 700px;
+          pointer-events: none;
+          z-index: 1;
+          opacity: 0.85;
+          mix-blend-mode: screen;
+          transition: opacity 0.6s ease;
         }
 
         @media (max-width: 1024px) {
@@ -1620,7 +1678,8 @@ function DetailContent() {
           min-height: 420px;
           max-height: 55vh;
           overflow: hidden;
-          background: var(--bg-color);
+          background: var(--detail-ambient-bg, var(--bg-color));
+          transition: background-color 0.6s ease;
         }
 
         @media (max-width: 900px) {
@@ -1649,9 +1708,9 @@ function DetailContent() {
           background: linear-gradient(
             180deg, 
             rgba(12, 12, 14, 0.08) 0%, 
-            rgba(12, 12, 14, 0.25) 45%, 
+            rgba(12, 12, 14, 0.3) 45%, 
             rgba(12, 12, 14, 0.75) 80%, 
-            var(--bg-color) 100%
+            var(--detail-ambient-bg, var(--bg-color)) 100%
           );
           pointer-events: none;
         }
@@ -1662,7 +1721,7 @@ function DetailContent() {
             rgba(255, 255, 255, 0.02) 0%, 
             rgba(245, 245, 247, 0.2) 45%, 
             rgba(245, 245, 247, 0.75) 80%, 
-            var(--bg-color) 100%
+            var(--detail-ambient-bg, var(--bg-color)) 100%
           );
         }
 

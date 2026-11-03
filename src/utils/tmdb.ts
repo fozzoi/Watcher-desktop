@@ -337,6 +337,21 @@ export const getDiscoverMedia = async (
     }
 };
 
+export const getTrendingToday = async (mediaType: "all" | "movie" | "tv" = "all", page: number = 1): Promise<TMDBResult[]> => {
+  const endpoint = `/trending/${mediaType}/day`;
+  const params: any = { page };
+  try {
+    const data = await fetchWithCache(endpoint, params);
+    const results = data.results || [];
+    return results.map((item: any) => ({
+      ...formatBasicItemData(item),
+      media_type: item.media_type || (item.first_air_date ? "tv" : "movie"),
+    }));
+  } catch (error) {
+    return await getTrendingMovies(page);
+  }
+};
+
 export const getTrendingMovies = async (page: number = 1, genreId?: number): Promise<TMDBResult[]> => {
     const endpoint = genreId ? "/discover/movie" : "/trending/movie/week";
     const params: any = {};
@@ -1186,10 +1201,14 @@ const fetchFreshPersonalisedContent = async (
       }
     }
 
-    const franchiseCollections = await getFranchiseCollections();
+    const [trendingToday, franchiseCollections] = await Promise.all([
+      getTrendingToday('all', 1),
+      getFranchiseCollections(),
+    ]);
 
     const result = {
-      heroMovies,
+      heroMovies: trendingToday && trendingToday.length > 0 ? trendingToday.slice(0, 10) : heroMovies,
+      trendingToday: trendingToday ? trendingToday.slice(0, 10) : [],
       trendingMovies: personalizedTrending,
       trendingTV: base[1],
       upcoming: base[2],
