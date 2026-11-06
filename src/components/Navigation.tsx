@@ -782,9 +782,14 @@ export default function Navigation() {
 
         /* ===== Ambient Themed Overrides (Detail & Cast Pages) ===== */
         :root[style*="--page-ambient-bg"] .desktop-sidebar,
-        :root[style*="--page-ambient-bg"] [data-theme="light"] .desktop-sidebar,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .desktop-sidebar,
         html.is-ambient-page .desktop-sidebar,
-        body.is-ambient-page .desktop-sidebar {
+        html[data-theme="light"].is-ambient-page .desktop-sidebar,
+        body.is-ambient-page .desktop-sidebar,
+        :global(html.is-ambient-page) .desktop-sidebar,
+        :global(html[data-theme="light"].is-ambient-page) .desktop-sidebar,
+        :global(:root[style*="--page-ambient-bg"]) .desktop-sidebar,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .desktop-sidebar {
           background: color-mix(in srgb, var(--page-ambient-bg) 88%, rgba(12, 12, 16, 0.94)) !important;
           border-color: color-mix(in srgb, var(--page-ambient-accent, #ffffff) 25%, rgba(255, 255, 255, 0.12)) !important;
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
@@ -792,9 +797,14 @@ export default function Navigation() {
         }
 
         :root[style*="--page-ambient-bg"] .mobile-bottom-dock,
-        :root[style*="--page-ambient-bg"] [data-theme="light"] .mobile-bottom-dock,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .mobile-bottom-dock,
         html.is-ambient-page .mobile-bottom-dock,
-        body.is-ambient-page .mobile-bottom-dock {
+        html[data-theme="light"].is-ambient-page .mobile-bottom-dock,
+        body.is-ambient-page .mobile-bottom-dock,
+        :global(html.is-ambient-page) .mobile-bottom-dock,
+        :global(html[data-theme="light"].is-ambient-page) .mobile-bottom-dock,
+        :global(:root[style*="--page-ambient-bg"]) .mobile-bottom-dock,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .mobile-bottom-dock {
           background: color-mix(in srgb, var(--page-ambient-bg) 90%, rgba(12, 12, 16, 0.96)) !important;
           border-top: 1px solid color-mix(in srgb, var(--page-ambient-accent, #ffffff) 25%, rgba(255, 255, 255, 0.14)) !important;
           box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4) !important;
@@ -802,93 +812,159 @@ export default function Navigation() {
         }
 
         :root[style*="--page-ambient-bg"] .dock-tab-btn,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .dock-tab-btn,
         html.is-ambient-page .dock-tab-btn,
-        body.is-ambient-page .dock-tab-btn {
+        html[data-theme="light"].is-ambient-page .dock-tab-btn,
+        body.is-ambient-page .dock-tab-btn,
+        :global(html.is-ambient-page) .dock-tab-btn,
+        :global(html[data-theme="light"].is-ambient-page) .dock-tab-btn {
           color: rgba(255, 255, 255, 0.65) !important;
         }
 
         :root[style*="--page-ambient-bg"] .dock-tab-btn.active,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .dock-tab-btn.active,
         html.is-ambient-page .dock-tab-btn.active,
-        body.is-ambient-page .dock-tab-btn.active {
+        html[data-theme="light"].is-ambient-page .dock-tab-btn.active,
+        body.is-ambient-page .dock-tab-btn.active,
+        :global(html.is-ambient-page) .dock-tab-btn.active,
+        :global(html[data-theme="light"].is-ambient-page) .dock-tab-btn.active {
           color: var(--page-ambient-accent, var(--primary)) !important;
         }
 
         :root[style*="--page-ambient-bg"] .dock-tab-btn.active .dock-icon,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .dock-tab-btn.active .dock-icon,
         html.is-ambient-page .dock-tab-btn.active .dock-icon,
-        body.is-ambient-page .dock-tab-btn.active .dock-icon {
+        html[data-theme="light"].is-ambient-page .dock-tab-btn.active .dock-icon,
+        body.is-ambient-page .dock-tab-btn.active .dock-icon,
+        :global(html.is-ambient-page) .dock-tab-btn.active .dock-icon,
+        :global(html[data-theme="light"].is-ambient-page) .dock-tab-btn.active .dock-icon {
           color: var(--page-ambient-accent, var(--primary)) !important;
           filter: drop-shadow(0 0 10px var(--page-ambient-accent, var(--primary-glow))) !important;
         }
 
         :root[style*="--page-ambient-bg"] .dock-tab-btn.active .dock-label,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .dock-tab-btn.active .dock-label,
         html.is-ambient-page .dock-tab-btn.active .dock-label,
-        body.is-ambient-page .dock-tab-btn.active .dock-label {
+        html[data-theme="light"].is-ambient-page .dock-tab-btn.active .dock-label,
+        body.is-ambient-page .dock-tab-btn.active .dock-label,
+        :global(html.is-ambient-page) .dock-tab-btn.active .dock-label,
+        :global(html[data-theme="light"].is-ambient-page) .dock-tab-btn.active .dock-label {
           color: #ffffff !important;
           font-weight: 700 !important;
         }
 
         :root[style*="--page-ambient-bg"] .brand-name,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .brand-name,
         html.is-ambient-page .brand-name,
-        body.is-ambient-page .brand-name {
-          background: linear-gradient(135deg, #ffffff 0%, rgba(255, 255, 255, 0.8) 100%) !important;
+        html[data-theme="light"].is-ambient-page .brand-name,
+        body.is-ambient-page .brand-name,
+        :global(html.is-ambient-page) .brand-name,
+        :global(html[data-theme="light"].is-ambient-page) .brand-name,
+        :global(:root[style*="--page-ambient-bg"]) .brand-name,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .brand-name {
+          background: linear-gradient(135deg, #ffffff 0%, rgba(255, 255, 255, 0.85) 100%) !important;
           -webkit-background-clip: text !important;
           -webkit-text-fill-color: transparent !important;
+          color: #ffffff !important;
         }
 
         :root[style*="--page-ambient-bg"] .brand-tag,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .brand-tag,
         html.is-ambient-page .brand-tag,
-        body.is-ambient-page .brand-tag {
+        html[data-theme="light"].is-ambient-page .brand-tag,
+        body.is-ambient-page .brand-tag,
+        :global(html.is-ambient-page) .brand-tag,
+        :global(html[data-theme="light"].is-ambient-page) .brand-tag {
           color: var(--page-ambient-accent, var(--primary)) !important;
         }
 
         :root[style*="--page-ambient-bg"] .sidebar-brand-wrapper,
         :root[style*="--page-ambient-bg"] .sidebar-footer,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .sidebar-brand-wrapper,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .sidebar-footer,
         html.is-ambient-page .sidebar-brand-wrapper,
         html.is-ambient-page .sidebar-footer,
+        html[data-theme="light"].is-ambient-page .sidebar-brand-wrapper,
+        html[data-theme="light"].is-ambient-page .sidebar-footer,
         body.is-ambient-page .sidebar-brand-wrapper,
-        body.is-ambient-page .sidebar-footer {
+        body.is-ambient-page .sidebar-footer,
+        :global(html.is-ambient-page) .sidebar-brand-wrapper,
+        :global(html.is-ambient-page) .sidebar-footer {
           border-color: rgba(255, 255, 255, 0.1) !important;
         }
 
         :root[style*="--page-ambient-bg"] .nav-group-title,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .nav-group-title,
         html.is-ambient-page .nav-group-title,
-        body.is-ambient-page .nav-group-title {
+        html[data-theme="light"].is-ambient-page .nav-group-title,
+        body.is-ambient-page .nav-group-title,
+        :global(html.is-ambient-page) .nav-group-title,
+        :global(html[data-theme="light"].is-ambient-page) .nav-group-title,
+        :global(:root[style*="--page-ambient-bg"]) .nav-group-title,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .nav-group-title {
           color: rgba(255, 255, 255, 0.55) !important;
         }
 
         :root[style*="--page-ambient-bg"] .nav-item-btn,
-        :root[style*="--page-ambient-bg"] [data-theme="light"] .nav-item-btn,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .nav-item-btn,
         html.is-ambient-page .nav-item-btn,
-        body.is-ambient-page .nav-item-btn {
+        html[data-theme="light"].is-ambient-page .nav-item-btn,
+        body.is-ambient-page .nav-item-btn,
+        :global(html.is-ambient-page) .nav-item-btn,
+        :global(html[data-theme="light"].is-ambient-page) .nav-item-btn,
+        :global(:root[style*="--page-ambient-bg"]) .nav-item-btn,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .nav-item-btn {
           color: rgba(255, 255, 255, 0.82) !important;
           background: transparent !important;
           border-color: transparent !important;
         }
 
         :root[style*="--page-ambient-bg"] .nav-item-btn:hover,
-        :root[style*="--page-ambient-bg"] [data-theme="light"] .nav-item-btn:hover,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .nav-item-btn:hover,
         html.is-ambient-page .nav-item-btn:hover,
-        body.is-ambient-page .nav-item-btn:hover {
+        html[data-theme="light"].is-ambient-page .nav-item-btn:hover,
+        body.is-ambient-page .nav-item-btn:hover,
+        :global(html.is-ambient-page) .nav-item-btn:hover,
+        :global(html[data-theme="light"].is-ambient-page) .nav-item-btn:hover,
+        :global(:root[style*="--page-ambient-bg"]) .nav-item-btn:hover,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .nav-item-btn:hover {
           color: #ffffff !important;
           background: rgba(255, 255, 255, 0.1) !important;
         }
 
         :root[style*="--page-ambient-bg"] .nav-item-btn .nav-item-icon,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .nav-item-btn .nav-item-icon,
         html.is-ambient-page .nav-item-btn .nav-item-icon,
-        body.is-ambient-page .nav-item-btn .nav-item-icon {
+        html[data-theme="light"].is-ambient-page .nav-item-btn .nav-item-icon,
+        body.is-ambient-page .nav-item-btn .nav-item-icon,
+        :global(html.is-ambient-page) .nav-item-btn .nav-item-icon,
+        :global(html[data-theme="light"].is-ambient-page) .nav-item-btn .nav-item-icon,
+        :global(:root[style*="--page-ambient-bg"]) .nav-item-btn .nav-item-icon,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .nav-item-btn .nav-item-icon {
           color: rgba(255, 255, 255, 0.75) !important;
         }
 
         :root[style*="--page-ambient-bg"] .nav-item-btn:hover .nav-item-icon,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .nav-item-btn:hover .nav-item-icon,
         html.is-ambient-page .nav-item-btn:hover .nav-item-icon,
-        body.is-ambient-page .nav-item-btn:hover .nav-item-icon {
+        html[data-theme="light"].is-ambient-page .nav-item-btn:hover .nav-item-icon,
+        body.is-ambient-page .nav-item-btn:hover .nav-item-icon,
+        :global(html.is-ambient-page) .nav-item-btn:hover .nav-item-icon,
+        :global(html[data-theme="light"].is-ambient-page) .nav-item-btn:hover .nav-item-icon,
+        :global(:root[style*="--page-ambient-bg"]) .nav-item-btn:hover .nav-item-icon,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .nav-item-btn:hover .nav-item-icon {
           color: #ffffff !important;
         }
 
         :root[style*="--page-ambient-bg"] .nav-item-btn.active,
-        :root[style*="--page-ambient-bg"] [data-theme="light"] .nav-item-btn.active,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .nav-item-btn.active,
         html.is-ambient-page .nav-item-btn.active,
-        body.is-ambient-page .nav-item-btn.active {
+        html[data-theme="light"].is-ambient-page .nav-item-btn.active,
+        body.is-ambient-page .nav-item-btn.active,
+        :global(html.is-ambient-page) .nav-item-btn.active,
+        :global(html[data-theme="light"].is-ambient-page) .nav-item-btn.active,
+        :global(:root[style*="--page-ambient-bg"]) .nav-item-btn.active,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .nav-item-btn.active {
           background: color-mix(in srgb, var(--page-ambient-accent, var(--primary)) 24%, rgba(255, 255, 255, 0.08)) !important;
           border-color: color-mix(in srgb, var(--page-ambient-accent, var(--primary)) 45%, rgba(255, 255, 255, 0.2)) !important;
           color: #ffffff !important;
@@ -896,33 +972,52 @@ export default function Navigation() {
         }
 
         :root[style*="--page-ambient-bg"] .nav-item-btn.active .nav-item-icon,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .nav-item-btn.active .nav-item-icon,
         html.is-ambient-page .nav-item-btn.active .nav-item-icon,
-        body.is-ambient-page .nav-item-btn.active .nav-item-icon {
+        html[data-theme="light"].is-ambient-page .nav-item-btn.active .nav-item-icon,
+        body.is-ambient-page .nav-item-btn.active .nav-item-icon,
+        :global(html.is-ambient-page) .nav-item-btn.active .nav-item-icon,
+        :global(html[data-theme="light"].is-ambient-page) .nav-item-btn.active .nav-item-icon,
+        :global(:root[style*="--page-ambient-bg"]) .nav-item-btn.active .nav-item-icon,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .nav-item-btn.active .nav-item-icon {
           color: var(--page-ambient-accent, var(--primary)) !important;
         }
 
         :root[style*="--page-ambient-bg"] .nav-badge-pill,
-        :root[style*="--page-ambient-bg"] [data-theme="light"] .nav-badge-pill,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .nav-badge-pill,
         html.is-ambient-page .nav-badge-pill,
-        body.is-ambient-page .nav-badge-pill {
+        html[data-theme="light"].is-ambient-page .nav-badge-pill,
+        body.is-ambient-page .nav-badge-pill,
+        :global(html.is-ambient-page) .nav-badge-pill,
+        :global(html[data-theme="light"].is-ambient-page) .nav-badge-pill {
           background: rgba(168, 85, 247, 0.25) !important;
           border-color: rgba(168, 85, 247, 0.45) !important;
           color: #d8b4fe !important;
         }
 
         :root[style*="--page-ambient-bg"] .action-icon-btn,
-        :root[style*="--page-ambient-bg"] [data-theme="light"] .action-icon-btn,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .action-icon-btn,
         html.is-ambient-page .action-icon-btn,
-        body.is-ambient-page .action-icon-btn {
+        html[data-theme="light"].is-ambient-page .action-icon-btn,
+        body.is-ambient-page .action-icon-btn,
+        :global(html.is-ambient-page) .action-icon-btn,
+        :global(html[data-theme="light"].is-ambient-page) .action-icon-btn,
+        :global(:root[style*="--page-ambient-bg"]) .action-icon-btn,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .action-icon-btn {
           background: rgba(255, 255, 255, 0.08) !important;
           border: 1px solid rgba(255, 255, 255, 0.15) !important;
           color: rgba(255, 255, 255, 0.9) !important;
         }
 
         :root[style*="--page-ambient-bg"] .action-icon-btn:hover,
-        :root[style*="--page-ambient-bg"] [data-theme="light"] .action-icon-btn:hover,
+        :root[data-theme="light"][style*="--page-ambient-bg"] .action-icon-btn:hover,
         html.is-ambient-page .action-icon-btn:hover,
-        body.is-ambient-page .action-icon-btn:hover {
+        html[data-theme="light"].is-ambient-page .action-icon-btn:hover,
+        body.is-ambient-page .action-icon-btn:hover,
+        :global(html.is-ambient-page) .action-icon-btn:hover,
+        :global(html[data-theme="light"].is-ambient-page) .action-icon-btn:hover,
+        :global(:root[style*="--page-ambient-bg"]) .action-icon-btn:hover,
+        :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .action-icon-btn:hover {
           background: rgba(255, 255, 255, 0.16) !important;
           border-color: rgba(255, 255, 255, 0.28) !important;
           color: #ffffff !important;

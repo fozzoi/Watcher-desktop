@@ -56,6 +56,11 @@ function CastDetailContent() {
     }
     const prevBg = document.body.style.backgroundColor;
     const prevBgImage = document.body.style.backgroundImage;
+    const prevHtmlBg = document.documentElement.style.backgroundColor;
+    const prevHtmlBgImage = document.documentElement.style.backgroundImage;
+
+    document.documentElement.style.backgroundColor = ambientBg;
+    document.documentElement.style.backgroundImage = 'none';
     document.body.style.backgroundColor = ambientBg;
     document.body.style.backgroundImage = 'none';
     document.documentElement.classList.add('is-ambient-page');
@@ -64,6 +69,8 @@ function CastDetailContent() {
     return () => {
       document.documentElement.style.removeProperty('--page-ambient-bg');
       document.documentElement.style.removeProperty('--page-ambient-accent');
+      document.documentElement.style.backgroundColor = prevHtmlBg;
+      document.documentElement.style.backgroundImage = prevHtmlBgImage;
       document.body.style.backgroundColor = prevBg;
       document.body.style.backgroundImage = prevBgImage;
       document.documentElement.classList.remove('is-ambient-page');

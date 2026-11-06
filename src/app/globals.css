@@ -260,12 +260,22 @@ body:has(.ai-chat-layout) {
 
 /* Ambient themed pages (Detail & Cast) */
 html.is-ambient-page,
-html.is-ambient-page body,
-body.is-ambient-page,
-:root[style*="--page-ambient-bg"] body {
+html[style*="--page-ambient-bg"],
+:root[style*="--page-ambient-bg"] {
   background-color: var(--page-ambient-bg) !important;
   background-image: none !important;
   background: var(--page-ambient-bg) !important;
+}
+
+html.is-ambient-page body,
+body.is-ambient-page,
+:root[style*="--page-ambient-bg"] body,
+html[style*="--page-ambient-bg"] body {
+  background-color: var(--page-ambient-bg) !important;
+  background-image: none !important;
+  background: var(--page-ambient-bg) !important;
+  background-attachment: scroll !important;
+  min-height: 100vh !important;
 }
 
 .layout-container:has(.detail-container),
@@ -277,16 +287,43 @@ body.is-ambient-page .layout-container,
   background-color: var(--page-ambient-bg) !important;
   background-image: none !important;
   background: var(--page-ambient-bg) !important;
+  min-height: 100vh !important;
 }
 
 .layout-container:has(.detail-container) .main-content,
 .layout-container:has(.is-ambient) .main-content,
 html.is-ambient-page .main-content,
-body.is-ambient-page .main-content {
+body.is-ambient-page .main-content,
+:root[style*="--page-ambient-bg"] .main-content {
   padding: 0 !important;
   background-color: var(--page-ambient-bg) !important;
   background-image: none !important;
   background: var(--page-ambient-bg) !important;
+  min-height: 100vh !important;
+}
+
+/* AI & Director containers in ambient pages */
+html.is-ambient-page .ai-panel,
+html[data-theme="light"].is-ambient-page .ai-panel,
+:root[style*="--page-ambient-bg"] .ai-panel,
+.detail-container.is-ambient .ai-panel {
+  background: rgba(0, 0, 0, 0.42) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45) !important;
+  color: #ffffff !important;
+}
+
+html.is-ambient-page .director-section,
+html[data-theme="light"].is-ambient-page .director-section,
+:root[style*="--page-ambient-bg"] .director-section,
+.detail-container.is-ambient .director-section {
+  background: rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4) !important;
 }
 
 :root[style*="--page-ambient-bg"] .nav-arrow-btn,

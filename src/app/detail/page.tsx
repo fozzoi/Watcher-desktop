@@ -82,7 +82,6 @@ function DetailContent() {
   const castScrollRef = useRef<HTMLDivElement>(null);
   const episodesScrollRef = useRef<HTMLDivElement>(null);
   const similarScrollRef = useRef<HTMLDivElement>(null);
-  const vibeScrollRef = useRef<HTMLDivElement>(null);
   const galleryScrollRef = useRef<HTMLDivElement>(null);
 
   const scrollCarousel = (ref: React.RefObject<HTMLDivElement | null>, direction: 'left' | 'right') => {
@@ -103,6 +102,11 @@ function DetailContent() {
     }
     const prevBg = document.body.style.backgroundColor;
     const prevBgImage = document.body.style.backgroundImage;
+    const prevHtmlBg = document.documentElement.style.backgroundColor;
+    const prevHtmlBgImage = document.documentElement.style.backgroundImage;
+
+    document.documentElement.style.backgroundColor = ambientBg;
+    document.documentElement.style.backgroundImage = 'none';
     document.body.style.backgroundColor = ambientBg;
     document.body.style.backgroundImage = 'none';
     document.documentElement.classList.add('is-ambient-page');
@@ -111,6 +115,8 @@ function DetailContent() {
     return () => {
       document.documentElement.style.removeProperty('--page-ambient-bg');
       document.documentElement.style.removeProperty('--page-ambient-accent');
+      document.documentElement.style.backgroundColor = prevHtmlBg;
+      document.documentElement.style.backgroundImage = prevHtmlBgImage;
       document.body.style.backgroundColor = prevBg;
       document.body.style.backgroundImage = prevBgImage;
       document.documentElement.classList.remove('is-ambient-page');
@@ -1463,9 +1469,16 @@ function DetailContent() {
                 {aiTab === 'vibe' && (
                   <div className="ai-tab-pane animate-fade-in">
                     {loadingAi ? (
-                      <div className="vibe-loading-row">
-                        {[1, 2, 3, 4].map((n) => (
-                          <div key={n} className="vibe-skeleton-card" />
+                      <div className="vibe-loading-vertical">
+                        {[1, 2, 3].map((n) => (
+                          <div key={n} className="vibe-vertical-skeleton">
+                            <div className="vibe-skel-poster" />
+                            <div className="vibe-skel-info">
+                              <div className="vibe-skel-line title" />
+                              <div className="vibe-skel-line meta" />
+                              <div className="vibe-skel-line desc" />
+                            </div>
+                          </div>
                         ))}
                       </div>
                     ) : aiVibeError ? (
@@ -1477,44 +1490,81 @@ function DetailContent() {
                         </button>
                       </div>
                     ) : aiRecommendations.length > 0 ? (
-                      <div className="vibe-results-carousel">
-                        <div className="section-header-row" style={{ marginBottom: 12 }}>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground-muted)' }}>Vibe Matches</span>
-                          <div className="carousel-nav-arrows">
-                            <button className="nav-arrow-btn" onClick={() => scrollCarousel(vibeScrollRef, 'left')} aria-label="Scroll vibe left">
-                              <ChevronLeft size={18} />
-                            </button>
-                            <button className="nav-arrow-btn" onClick={() => scrollCarousel(vibeScrollRef, 'right')} aria-label="Scroll vibe right">
-                              <ChevronRight size={18} />
-                            </button>
-                          </div>
-                        </div>
+                      <div className="vibe-results-vertical animate-fade-in">
+                        <div className="vibe-vertical-list">
+                          {aiRecommendations.map((item) => {
+                            const itemTitle = item.title || item.name || 'Untitled';
+                            const itemYear = (item.release_date || item.first_air_date)?.substring(0, 4);
+                            const isTv = item.media_type === 'tv' || Boolean(item.first_air_date && !item.release_date);
+                            const mediaTypeParam = item.media_type || (isTv ? 'tv' : 'movie');
+                            const isAdded = watchlistIds.has(item.id);
+                            const rating = item.vote_average ? item.vote_average.toFixed(1) : null;
 
-                        <div className="vibe-carousel-wrapper">
-                          <div className="vibe-scroll-container" ref={vibeScrollRef}>
-                            {aiRecommendations.map((item) => (
-                              <div key={item.id} className="vibe-card-item">
-                                <MovieCard
-                                  item={item}
-                                  isAdded={watchlistIds.has(item.id)}
-                                  toggleWatchlist={async (it, e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    const stored = await AsyncStorage.getItem('watchlist');
-                                    let list = stored ? JSON.parse(stored) : [];
-                                    if (list.find((i: any) => i.id === it.id)) {
-                                      list = list.filter((i: any) => i.id !== it.id);
-                                    } else {
-                                      list.push(it);
-                                    }
-                                    await AsyncStorage.setItem('watchlist', JSON.stringify(list));
-                                    setWatchlistIds(new Set(list.map((i: any) => i.id)));
-                                  }}
-                                  showTitle={true}
-                                />
-                              </div>
-                            ))}
-                          </div>
+                            return (
+                              <Link
+                                key={item.id}
+                                href={`/detail?id=${item.id}&type=${mediaTypeParam}`}
+                                className="vibe-vertical-card"
+                              >
+                                <div className="vibe-card-poster">
+                                  {item.poster_path ? (
+                                    <img
+                                      src={getImageUrl(item.poster_path, 'w185')}
+                                      alt={itemTitle}
+                                      className="vibe-poster-img"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="vibe-poster-placeholder">
+                                      <Film size={20} />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="vibe-card-content">
+                                  <div className="vibe-card-header">
+                                    <h4 className="vibe-card-title" title={itemTitle}>{itemTitle}</h4>
+                                    <button
+                                      type="button"
+                                      className={`vibe-bookmark-btn ${isAdded ? 'saved' : ''}`}
+                                      title={isAdded ? 'Remove from Watchlist' : 'Add to Watchlist'}
+                                      onClick={async (e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const stored = await AsyncStorage.getItem('watchlist');
+                                        let list = stored ? JSON.parse(stored) : [];
+                                        if (list.find((i: any) => i.id === item.id)) {
+                                          list = list.filter((i: any) => i.id !== item.id);
+                                        } else {
+                                          list.push(item);
+                                        }
+                                        await AsyncStorage.setItem('watchlist', JSON.stringify(list));
+                                        setWatchlistIds(new Set(list.map((i: any) => i.id)));
+                                      }}
+                                    >
+                                      <Heart
+                                        size={14}
+                                        fill={isAdded ? 'var(--primary)' : 'none'}
+                                        color={isAdded ? 'var(--primary)' : 'rgba(255, 255, 255, 0.7)'}
+                                      />
+                                    </button>
+                                  </div>
+                                  <div className="vibe-card-meta">
+                                    {rating && (
+                                      <span className="vibe-meta-badge rating">
+                                        <Star size={11} fill="#fbbf24" color="#fbbf24" />
+                                        <span>{rating}</span>
+                                      </span>
+                                    )}
+                                    {itemYear && <span className="vibe-meta-badge year">{itemYear}</span>}
+                                    <span className="vibe-meta-badge type">{isTv ? 'TV' : 'Movie'}</span>
+                                  </div>
+                                  {item.overview && (
+                                    <p className="vibe-card-overview">{item.overview}</p>
+                                  )}
+                                </div>
+                              </Link>
+                            );
+                          })}
                         </div>
 
                         <div className="vibe-actions-row">
@@ -1836,7 +1886,8 @@ function DetailContent() {
           min-width: 0;
           padding: 8px 14px 24px 14px;
           margin: -8px -14px -24px -14px;
-          overflow: visible;
+          overflow: visible !important;
+          max-height: none !important;
         }
 
         @media (min-width: 1200px) {
@@ -1849,17 +1900,10 @@ function DetailContent() {
           .detail-side-col {
             position: sticky;
             top: 24px;
-            overflow: visible;
+            overflow: visible !important;
+            max-height: none !important;
             padding: 8px 16px 24px 16px;
             margin: -8px -16px -24px -16px;
-          }
-          @media (max-height: 600px) {
-            .detail-side-col {
-              max-height: calc(100vh - 48px);
-              overflow-y: auto;
-              scrollbar-width: none;
-            }
-            .detail-side-col::-webkit-scrollbar { display: none; }
           }
 
           .main-meta-box { gap: 40px; align-items: flex-end; }
@@ -1981,7 +2025,7 @@ function DetailContent() {
           box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;
         }
 
-        .cast-carousel-wrapper, .episodes-carousel-wrapper, .similar-carousel-wrapper, .vibe-carousel-wrapper {
+        .cast-carousel-wrapper, .episodes-carousel-wrapper, .similar-carousel-wrapper {
           position: relative; margin: 0; width: 100%;
         }
 
@@ -2368,15 +2412,194 @@ function DetailContent() {
         .chat-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--tint); }
         .send-btn { padding: 0 16px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
 
-        /* Vibe tab */
-        .vibe-results-carousel { display: flex; flex-direction: column; gap: 12px; }
-        .vibe-loading-row { display: flex; gap: 14px; overflow: hidden; padding: 10px 0; }
-        .vibe-skeleton-card {
-          width: 160px; height: 240px; border-radius: 14px; flex-shrink: 0;
-          background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, var(--tint-strong) 50%, rgba(255,255,255,0.03) 75%);
-          background-size: 200% 100%;
-          animation: skeletonShimmer 1.8s infinite;
+        /* Vibe tab - Vertical Cards */
+        .vibe-results-vertical {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-top: 6px;
         }
+        .vibe-vertical-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          max-height: 480px;
+          overflow-y: auto;
+          padding-right: 4px;
+          scrollbar-width: thin;
+        }
+        .vibe-vertical-list::-webkit-scrollbar {
+          width: 5px;
+        }
+        .vibe-vertical-list::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.04);
+          border-radius: 4px;
+        }
+        .vibe-vertical-list::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+        }
+        .vibe-vertical-card {
+          display: flex;
+          gap: 12px;
+          padding: 10px;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          text-decoration: none;
+          color: inherit;
+          transition: var(--transition-fast);
+          align-items: flex-start;
+        }
+        .vibe-vertical-card:hover {
+          background: rgba(255, 255, 255, 0.1);
+          border-color: rgba(255, 255, 255, 0.22);
+          transform: translateY(-1px);
+        }
+        .vibe-card-poster {
+          width: 62px;
+          height: 92px;
+          border-radius: 8px;
+          overflow: hidden;
+          flex-shrink: 0;
+          background: rgba(0, 0, 0, 0.4);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .vibe-poster-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .vibe-poster-placeholder {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: rgba(255, 255, 255, 0.4);
+        }
+        .vibe-card-content {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          flex: 1;
+          min-width: 0;
+        }
+        .vibe-card-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .vibe-card-title {
+          font-size: 13.5px;
+          font-weight: 700;
+          color: #ffffff !important;
+          margin: 0;
+          line-height: 1.3;
+          display: -webkit-box;
+          -webkit-line-clamp: 1;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .vibe-bookmark-btn {
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          padding: 2px 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+          transition: var(--transition-fast);
+          flex-shrink: 0;
+        }
+        .vibe-bookmark-btn:hover {
+          background: rgba(255, 255, 255, 0.12);
+        }
+        .vibe-bookmark-btn.saved {
+          color: var(--primary);
+        }
+        .vibe-card-meta {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .vibe-meta-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 600;
+          background: rgba(255, 255, 255, 0.08);
+          color: rgba(255, 255, 255, 0.85);
+          line-height: 1.2;
+        }
+        .vibe-meta-badge.rating {
+          background: rgba(251, 191, 36, 0.15);
+          color: #fbbf24;
+        }
+        .vibe-meta-badge.type {
+          text-transform: uppercase;
+          font-size: 10px;
+          letter-spacing: 0.5px;
+        }
+        .vibe-card-overview {
+          font-size: 11.5px;
+          line-height: 1.42;
+          color: rgba(255, 255, 255, 0.65);
+          margin: 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        /* Vibe vertical skeletons */
+        .vibe-loading-vertical {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-top: 6px;
+        }
+        .vibe-vertical-skeleton {
+          display: flex;
+          gap: 12px;
+          padding: 10px;
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .vibe-skel-poster {
+          width: 62px;
+          height: 92px;
+          border-radius: 8px;
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.04) 75%);
+          background-size: 200% 100%;
+          animation: skeletonShimmer 1.5s infinite;
+          flex-shrink: 0;
+        }
+        .vibe-skel-info {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          flex: 1;
+          justify-content: center;
+        }
+        .vibe-skel-line {
+          height: 12px;
+          border-radius: 4px;
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.04) 75%);
+          background-size: 200% 100%;
+          animation: skeletonShimmer 1.5s infinite;
+        }
+        .vibe-skel-line.title { width: 70%; height: 14px; }
+        .vibe-skel-line.meta { width: 40%; }
+        .vibe-skel-line.desc { width: 90%; height: 22px; }
 
         /* ═════════ Cast ═════════ */
         .cast-scroll-container {
@@ -2418,7 +2641,7 @@ function DetailContent() {
         .cast-load-more-sub { font-size: 11px; color: rgba(255, 255, 255, 0.6); }
 
         @media (max-width: 768px) {
-          .cast-scroll-container, .episodes-scroll-container, .similar-scroll-container, .vibe-scroll-container {
+          .cast-scroll-container, .episodes-scroll-container, .similar-scroll-container {
             padding: 4px 0 14px 0; gap: 12px;
           }
           .episode-card-item { flex: 0 0 230px; width: 230px; min-width: 230px; max-width: 230px; }
@@ -2567,16 +2790,16 @@ function DetailContent() {
           overflow: hidden; margin: 2px 0 0; min-height: 34px;
         }
 
-        /* ═════════ Vibe + Similar carousels ═════════ */
-        .vibe-scroll-container, .similar-scroll-container {
+        /* ═════════ Similar carousel ═════════ */
+        .similar-scroll-container {
           display: flex; align-items: flex-start; gap: 16px;
-          overflow-x: auto; scroll-behavior: smooth; scroll-snap-type: x mandatory;
+          overflow-x: auto; scroll-behavior: smooth;
           padding: 16px 16px 24px 16px; scrollbar-width: none;
         }
-        .vibe-scroll-container::-webkit-scrollbar, .similar-scroll-container::-webkit-scrollbar { display: none; }
-        .vibe-card-item, .similar-card-item { flex: 0 0 170px; width: 170px; min-width: 170px; max-width: 170px; scroll-snap-align: start; }
+        .similar-scroll-container::-webkit-scrollbar { display: none; }
+        .similar-card-item { flex: 0 0 170px; width: 170px; min-width: 170px; max-width: 170px; }
         @media (min-width: 1024px) {
-          .vibe-card-item, .similar-card-item { flex: 0 0 175px; width: 175px; min-width: 175px; max-width: 175px; }
+          .similar-card-item { flex: 0 0 175px; width: 175px; min-width: 175px; max-width: 175px; }
         }
 
         /* ═════════ Modals ═════════ */
