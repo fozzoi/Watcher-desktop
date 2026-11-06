@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Download, Smartphone, Monitor, Terminal, Globe, ShieldCheck, Info, ExternalLink } from 'lucide-react';
+import MicroSlats from '@/components/MicroSlats';
+import SpecularButton from '@/components/SpecularButton';
 
 interface ReleaseAsset {
   name: string;
@@ -138,14 +140,49 @@ export default function DownloadPage() {
   return (
     <div className="download-page">
       <div className="download-hero">
+        <div className="download-hero-slats">
+          <MicroSlats
+            preset="storm"
+            color="#e50914"
+            glintColor="#ff6b6b"
+            backgroundColor="transparent"
+            slatWidth={6}
+            slatHeight={18}
+            gap={2}
+            roundness={0.7}
+            interactive
+            cursorStrength={0.8}
+            cursorSize={45}
+            swirl={0.5}
+            trail={1.6}
+            perspective={0.3}
+            fog={0.5}
+            speed={0.8}
+            intro
+            introDuration={1.5}
+          />
+        </div>
         <div className="hero-content">
           <h1>Download Watcher</h1>
           <p>Watch movies and TV shows on your device. Get the latest release for Android, Windows, or Linux.</p>
           <div className="hero-actions">
-            <Link href="/" className="btn-secondary">
+            <SpecularButton
+              size="md"
+              radius={10}
+              tint="#ffffff"
+              tintOpacity={0.06}
+              textColor="#f5f5f5"
+              lineColor="#888888"
+              baseColor="#444444"
+              intensity={0.9}
+              idleIntensity={0.3}
+              thickness={1}
+              glow={0.7}
+              onClick={() => window.location.href = '/'}
+            >
               <Globe size={16} />
               <span>Back to Home</span>
-            </Link>
+            </SpecularButton>
           </div>
         </div>
       </div>
@@ -260,6 +297,21 @@ export default function DownloadPage() {
           margin-bottom: 40px;
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .download-hero-slats {
+          position: absolute;
+          inset: 0;
+          opacity: 0.15;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .download-hero .hero-content {
+          position: relative;
+          z-index: 1;
         }
 
         .hero-content h1 {
