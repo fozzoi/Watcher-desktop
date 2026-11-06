@@ -123,7 +123,8 @@ const SpotlightCarousel = memo(
             gap: '12px',
             overflowX: 'auto',
             scrollSnapType: 'x mandatory',
-            padding: '6px 16px 16px 16px',
+            padding: '12px 16px 22px 16px',
+            margin: '-12px 0 -22px 0',
             scrollbarWidth: 'none',
           }}
         >

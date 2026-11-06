@@ -154,11 +154,11 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
           overflow-x: auto;
           scroll-snap-type: x mandatory;
           scroll-behavior: smooth;
-          padding: 6px 0 16px 0;
+          padding: 14px 8px 24px 8px;
+          margin: -14px -8px -24px -8px;
           scrollbar-width: none; /* Firefox */
           -webkit-overflow-scrolling: touch;
           overscroll-behavior-x: contain;
-          contain: layout;
         }
 
         .scroll-container::-webkit-scrollbar {
@@ -171,7 +171,6 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
           min-width: 160px;
           max-width: 160px;
           scroll-snap-align: start;
-          contain: layout paint;
         }
 
         @media (min-width: 768px) {

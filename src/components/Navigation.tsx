@@ -282,7 +282,7 @@ export default function Navigation() {
           background: rgba(14, 14, 18, 0.85);
           backdrop-filter: blur(28px) saturate(180%);
           -webkit-backdrop-filter: blur(28px) saturate(180%);
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+          box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.55), 0 4px 14px rgba(0, 0, 0, 0.35);
           transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
                       padding 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
           overflow: hidden;
@@ -292,7 +292,7 @@ export default function Navigation() {
         :global([data-theme="light"]) .desktop-sidebar {
           background: rgba(255, 255, 255, 0.92);
           border: 1px solid rgba(0, 0, 0, 0.08);
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+          box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.05);
         }
 
         .desktop-sidebar.collapsed {
@@ -792,7 +792,7 @@ export default function Navigation() {
         :global(:root[data-theme="light"][style*="--page-ambient-bg"]) .desktop-sidebar {
           background: color-mix(in srgb, var(--page-ambient-bg) 88%, rgba(12, 12, 16, 0.94)) !important;
           border-color: color-mix(in srgb, var(--page-ambient-accent, #ffffff) 25%, rgba(255, 255, 255, 0.12)) !important;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+          box-shadow: 0 12px 40px -4px rgba(0, 0, 0, 0.55), 0 4px 14px rgba(0, 0, 0, 0.35) !important;
           color-scheme: dark !important;
         }
 

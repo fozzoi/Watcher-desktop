@@ -221,11 +221,11 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
           overflow-x: auto;
           scroll-snap-type: x mandatory;
           scroll-behavior: smooth;
-          padding: 6px 0 16px 0;
+          padding: 12px 8px 24px 8px;
+          margin: -12px -8px -24px -8px;
           scrollbar-width: none;
           -webkit-overflow-scrolling: touch;
           overscroll-behavior-x: contain;
-          contain: layout;
         }
 
         .scroll-container::-webkit-scrollbar {
@@ -233,28 +233,29 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
         }
 
         .history-card {
-          flex: 0 0 200px;
+          flex: 0 0 220px;
           background: var(--card-bg);
-          border-radius: var(--border-radius-md);
+          border-radius: 14px;
           border: 1px solid var(--card-border);
           overflow: hidden;
           scroll-snap-align: start;
-          transition: var(--transition-smooth);
-          box-shadow: 0 2px 10px var(--shadow-color);
-          contain: layout paint;
+          transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+                      box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+                      border-color 0.25s ease;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
         }
 
         .history-card:hover {
           border-color: var(--card-hover-border);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 16px var(--shadow-color);
+          transform: translateY(-4px);
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
         }
 
         .poster-container {
           position: relative;
           width: 100%;
-          height: 125px;
-          background: var(--card-bg);
+          height: 130px;
+          background: rgba(0, 0, 0, 0.4);
           overflow: hidden;
         }
 
@@ -262,11 +263,11 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: var(--transition-smooth);
+          transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
         .history-card:hover .poster-img {
-          scale: 1.05;
+          transform: scale(1.06);
         }
 
         .type-badge {
@@ -371,15 +372,16 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
           bottom: 0;
           left: 0;
           right: 0;
-          height: 3px;
-          background: rgba(255, 255, 255, 0.15);
+          height: 4px;
+          background: rgba(0, 0, 0, 0.45);
           z-index: 6;
         }
 
         .progress-bar-fill {
           height: 100%;
-          background: var(--primary);
-          box-shadow: 0 0 4px var(--primary);
+          background: var(--primary-gradient);
+          box-shadow: 0 0 8px var(--primary-glow);
+          border-radius: 0 2px 2px 0;
         }
 
         .card-info {
