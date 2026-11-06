@@ -1501,28 +1501,40 @@ function DetailContent() {
                             const rating = item.vote_average ? item.vote_average.toFixed(1) : null;
 
                             return (
-                              <Link
+                              <div
                                 key={item.id}
-                                href={`/detail?id=${item.id}&type=${mediaTypeParam}`}
                                 className="vibe-vertical-card"
                               >
-                                <div className="vibe-card-poster">
-                                  {item.poster_path ? (
-                                    <img
-                                      src={getImageUrl(item.poster_path, 'w185')}
-                                      alt={itemTitle}
-                                      className="vibe-poster-img"
-                                      loading="lazy"
-                                    />
-                                  ) : (
-                                    <div className="vibe-poster-placeholder">
-                                      <Film size={20} />
-                                    </div>
-                                  )}
-                                </div>
+                                <Link
+                                  href={`/detail?id=${item.id}&type=${mediaTypeParam}`}
+                                  className="vibe-card-poster-link"
+                                  title={`View details for ${itemTitle}`}
+                                >
+                                  <div className="vibe-card-poster">
+                                    {item.poster_path ? (
+                                      <img
+                                        src={getImageUrl(item.poster_path, 'w342')}
+                                        alt={itemTitle}
+                                        className="vibe-poster-img"
+                                        loading="lazy"
+                                      />
+                                    ) : (
+                                      <div className="vibe-poster-placeholder">
+                                        <Film size={24} />
+                                      </div>
+                                    )}
+                                  </div>
+                                </Link>
+
                                 <div className="vibe-card-content">
                                   <div className="vibe-card-header">
-                                    <h4 className="vibe-card-title" title={itemTitle}>{itemTitle}</h4>
+                                    <Link
+                                      href={`/detail?id=${item.id}&type=${mediaTypeParam}`}
+                                      className="vibe-title-link"
+                                      title={itemTitle}
+                                    >
+                                      <h4 className="vibe-card-title">{itemTitle}</h4>
+                                    </Link>
                                     <button
                                       type="button"
                                       className={`vibe-bookmark-btn ${isAdded ? 'saved' : ''}`}
@@ -1542,12 +1554,13 @@ function DetailContent() {
                                       }}
                                     >
                                       <Heart
-                                        size={14}
+                                        size={16}
                                         fill={isAdded ? 'var(--primary)' : 'none'}
                                         color={isAdded ? 'var(--primary)' : 'rgba(255, 255, 255, 0.7)'}
                                       />
                                     </button>
                                   </div>
+
                                   <div className="vibe-card-meta">
                                     {rating && (
                                       <span className="vibe-meta-badge rating">
@@ -1558,11 +1571,14 @@ function DetailContent() {
                                     {itemYear && <span className="vibe-meta-badge year">{itemYear}</span>}
                                     <span className="vibe-meta-badge type">{isTv ? 'TV' : 'Movie'}</span>
                                   </div>
+
                                   {item.overview && (
-                                    <p className="vibe-card-overview">{item.overview}</p>
+                                    <p className="vibe-card-overview" title="Hover to view full description">
+                                      {item.overview}
+                                    </p>
                                   )}
                                 </div>
-                              </Link>
+                              </div>
                             );
                           })}
                         </div>
@@ -2440,36 +2456,50 @@ function DetailContent() {
           border-radius: 4px;
         }
         .vibe-vertical-card {
-          display: flex;
-          gap: 12px;
-          padding: 10px;
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: flex-start !important;
+          gap: 14px !important;
+          padding: 12px !important;
+          border-radius: 14px !important;
+          background: rgba(255, 255, 255, 0.05) !important;
+          border: 1px solid rgba(255, 255, 255, 0.1) !important;
           text-decoration: none;
           color: inherit;
-          transition: var(--transition-fast);
-          align-items: flex-start;
+          transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+          position: relative;
         }
         .vibe-vertical-card:hover {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(255, 255, 255, 0.22);
-          transform: translateY(-1px);
+          background: rgba(255, 255, 255, 0.09) !important;
+          border-color: rgba(255, 255, 255, 0.22) !important;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+          transform: translateY(-2px);
+        }
+        .vibe-card-poster-link {
+          flex-shrink: 0;
+          display: block;
+          text-decoration: none;
         }
         .vibe-card-poster {
-          width: 62px;
-          height: 92px;
-          border-radius: 8px;
-          overflow: hidden;
-          flex-shrink: 0;
-          background: rgba(0, 0, 0, 0.4);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          width: 90px !important;
+          min-width: 90px !important;
+          height: 135px !important;
+          border-radius: 10px !important;
+          overflow: hidden !important;
+          flex-shrink: 0 !important;
+          background: rgba(0, 0, 0, 0.45) !important;
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35) !important;
+          position: relative;
+          transition: transform 0.25s ease;
+        }
+        .vibe-vertical-card:hover .vibe-card-poster {
+          transform: scale(1.03);
         }
         .vibe-poster-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
+          display: block !important;
         }
         .vibe-poster-placeholder {
           width: 100%;
@@ -2480,104 +2510,123 @@ function DetailContent() {
           color: rgba(255, 255, 255, 0.4);
         }
         .vibe-card-content {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-          flex: 1;
-          min-width: 0;
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 6px !important;
+          flex: 1 !important;
+          min-width: 0 !important;
         }
         .vibe-card-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 8px;
+          display: flex !important;
+          align-items: flex-start !important;
+          justify-content: space-between !important;
+          gap: 8px !important;
+        }
+        .vibe-title-link {
+          flex: 1;
+          min-width: 0;
+          text-decoration: none;
         }
         .vibe-card-title {
-          font-size: 13.5px;
-          font-weight: 700;
+          font-size: 14.5px !important;
+          font-weight: 700 !important;
           color: #ffffff !important;
-          margin: 0;
-          line-height: 1.3;
-          display: -webkit-box;
-          -webkit-line-clamp: 1;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
+          margin: 0 !important;
+          line-height: 1.3 !important;
+          display: -webkit-box !important;
+          -webkit-line-clamp: 2 !important;
+          -webkit-box-orient: vertical !important;
+          overflow: hidden !important;
+          transition: color 0.2s ease;
+        }
+        .vibe-title-link:hover .vibe-card-title {
+          color: var(--page-ambient-accent, var(--primary)) !important;
         }
         .vibe-bookmark-btn {
-          background: transparent;
-          border: none;
-          cursor: pointer;
-          padding: 2px 4px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 4px;
-          transition: var(--transition-fast);
-          flex-shrink: 0;
+          background: transparent !important;
+          border: none !important;
+          cursor: pointer !important;
+          padding: 4px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          border-radius: 6px !important;
+          transition: all 0.2s ease !important;
+          flex-shrink: 0 !important;
         }
         .vibe-bookmark-btn:hover {
-          background: rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.14) !important;
+          transform: scale(1.1);
         }
         .vibe-bookmark-btn.saved {
-          color: var(--primary);
+          color: var(--primary) !important;
         }
         .vibe-card-meta {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          flex-wrap: wrap;
+          display: flex !important;
+          align-items: center !important;
+          gap: 6px !important;
+          flex-wrap: wrap !important;
         }
         .vibe-meta-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 3px;
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-size: 11px;
-          font-weight: 600;
-          background: rgba(255, 255, 255, 0.08);
-          color: rgba(255, 255, 255, 0.85);
-          line-height: 1.2;
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 3px !important;
+          padding: 2px 7px !important;
+          border-radius: 4px !important;
+          font-size: 11px !important;
+          font-weight: 600 !important;
+          background: rgba(255, 255, 255, 0.08) !important;
+          color: rgba(255, 255, 255, 0.88) !important;
+          line-height: 1.2 !important;
         }
         .vibe-meta-badge.rating {
-          background: rgba(251, 191, 36, 0.15);
-          color: #fbbf24;
+          background: rgba(251, 191, 36, 0.16) !important;
+          color: #fbbf24 !important;
         }
         .vibe-meta-badge.type {
-          text-transform: uppercase;
-          font-size: 10px;
-          letter-spacing: 0.5px;
+          text-transform: uppercase !important;
+          font-size: 10px !important;
+          letter-spacing: 0.5px !important;
         }
         .vibe-card-overview {
-          font-size: 11.5px;
-          line-height: 1.42;
-          color: rgba(255, 255, 255, 0.65);
-          margin: 0;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
+          font-size: 12px !important;
+          line-height: 1.48 !important;
+          color: rgba(255, 255, 255, 0.68) !important;
+          margin: 2px 0 0 0 !important;
+          display: -webkit-box !important;
+          -webkit-line-clamp: 2 !important;
+          -webkit-box-orient: vertical !important;
+          overflow: hidden !important;
+          transition: all 0.3s ease !important;
+        }
+        .vibe-vertical-card:hover .vibe-card-overview {
+          display: block !important;
+          -webkit-line-clamp: unset !important;
+          overflow: visible !important;
+          color: rgba(255, 255, 255, 0.94) !important;
         }
 
         /* Vibe vertical skeletons */
         .vibe-loading-vertical {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 12px;
           margin-top: 6px;
         }
         .vibe-vertical-skeleton {
           display: flex;
-          gap: 12px;
-          padding: 10px;
-          border-radius: 12px;
+          gap: 14px;
+          padding: 12px;
+          border-radius: 14px;
           background: rgba(255, 255, 255, 0.04);
           border: 1px solid rgba(255, 255, 255, 0.08);
+          align-items: flex-start;
         }
         .vibe-skel-poster {
-          width: 62px;
-          height: 92px;
-          border-radius: 8px;
+          width: 90px !important;
+          min-width: 90px !important;
+          height: 135px !important;
+          border-radius: 10px !important;
           background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.04) 75%);
           background-size: 200% 100%;
           animation: skeletonShimmer 1.5s infinite;
@@ -2586,20 +2635,20 @@ function DetailContent() {
         .vibe-skel-info {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
           flex: 1;
           justify-content: center;
+          padding-top: 4px;
         }
         .vibe-skel-line {
-          height: 12px;
           border-radius: 4px;
           background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.04) 75%);
           background-size: 200% 100%;
           animation: skeletonShimmer 1.5s infinite;
         }
-        .vibe-skel-line.title { width: 70%; height: 14px; }
-        .vibe-skel-line.meta { width: 40%; }
-        .vibe-skel-line.desc { width: 90%; height: 22px; }
+        .vibe-skel-line.title { width: 75%; height: 16px; }
+        .vibe-skel-line.meta { width: 45%; height: 14px; }
+        .vibe-skel-line.desc { width: 95%; height: 36px; }
 
         /* ═════════ Cast ═════════ */
         .cast-scroll-container {

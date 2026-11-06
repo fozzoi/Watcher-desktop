@@ -326,6 +326,164 @@ html[data-theme="light"].is-ambient-page .director-section,
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4) !important;
 }
 
+/* AI Vibe Vertical Cards Layout */
+.vibe-results-vertical {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  margin-top: 8px !important;
+}
+.vibe-vertical-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  max-height: 520px !important;
+  overflow-y: auto !important;
+  padding-right: 4px !important;
+  scrollbar-width: thin !important;
+}
+.vibe-vertical-card {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 14px !important;
+  padding: 12px !important;
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+}
+.vibe-vertical-card:hover {
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+  transform: translateY(-2px) !important;
+}
+.vibe-card-poster-link {
+  flex-shrink: 0 !important;
+  display: block !important;
+  text-decoration: none !important;
+}
+.vibe-card-poster {
+  width: 90px !important;
+  min-width: 90px !important;
+  height: 135px !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35) !important;
+  position: relative !important;
+  transition: transform 0.25s ease !important;
+}
+.vibe-vertical-card:hover .vibe-card-poster {
+  transform: scale(1.03) !important;
+}
+.vibe-poster-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+.vibe-card-content {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+.vibe-card-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+.vibe-title-link {
+  flex: 1 !important;
+  min-width: 0 !important;
+  text-decoration: none !important;
+}
+.vibe-card-title {
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  line-height: 1.3 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  transition: color 0.2s ease !important;
+}
+.vibe-title-link:hover .vibe-card-title {
+  color: var(--page-ambient-accent, var(--primary)) !important;
+}
+.vibe-bookmark-btn {
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+  flex-shrink: 0 !important;
+}
+.vibe-bookmark-btn:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  transform: scale(1.1) !important;
+}
+.vibe-bookmark-btn.saved {
+  color: var(--primary) !important;
+}
+.vibe-card-meta {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
+.vibe-meta-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  padding: 2px 7px !important;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.88) !important;
+  line-height: 1.2 !important;
+}
+.vibe-meta-badge.rating {
+  background: rgba(251, 191, 36, 0.16) !important;
+  color: #fbbf24 !important;
+}
+.vibe-meta-badge.type {
+  text-transform: uppercase !important;
+  font-size: 10px !important;
+  letter-spacing: 0.5px !important;
+}
+.vibe-card-overview {
+  font-size: 12px !important;
+  line-height: 1.48 !important;
+  color: rgba(255, 255, 255, 0.68) !important;
+  margin: 2px 0 0 0 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  transition: all 0.3s ease !important;
+}
+.vibe-vertical-card:hover .vibe-card-overview {
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+  overflow: visible !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+}
+
 :root[style*="--page-ambient-bg"] .nav-arrow-btn,
 :root[style*="--page-ambient-bg"] .carousel-nav-arrows .nav-arrow-btn,
 html.is-ambient-page .nav-arrow-btn,
