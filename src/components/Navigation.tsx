@@ -779,6 +779,49 @@ export default function Navigation() {
             font-weight: 700;
           }
         }
+
+        /* ===== Ambient Themed Overrides (Detail & Cast Pages) ===== */
+        :root[style*="--page-ambient-bg"] .desktop-sidebar,
+        :root[style*="--page-ambient-bg"] [data-theme="light"] .desktop-sidebar {
+          background: color-mix(in srgb, var(--page-ambient-bg) 88%, rgba(12, 12, 16, 0.94)) !important;
+          border-color: color-mix(in srgb, var(--page-ambient-accent, #ffffff) 25%, rgba(255, 255, 255, 0.12)) !important;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .mobile-bottom-dock,
+        :root[style*="--page-ambient-bg"] [data-theme="light"] .mobile-bottom-dock {
+          background: color-mix(in srgb, var(--page-ambient-bg) 90%, rgba(12, 12, 16, 0.96)) !important;
+          border-top: 1px solid color-mix(in srgb, var(--page-ambient-accent, #ffffff) 25%, rgba(255, 255, 255, 0.14)) !important;
+          box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .dock-tab-btn {
+          color: rgba(255, 255, 255, 0.65) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .dock-tab-btn.active {
+          color: var(--page-ambient-accent, var(--primary)) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .dock-tab-btn.active .dock-icon {
+          color: var(--page-ambient-accent, var(--primary)) !important;
+          filter: drop-shadow(0 0 10px var(--page-ambient-accent, var(--primary-glow))) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .dock-tab-btn.active .dock-label {
+          color: #ffffff !important;
+          font-weight: 700 !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .nav-item-btn.active {
+          background: color-mix(in srgb, var(--page-ambient-accent, var(--primary)) 22%, transparent) !important;
+          border-color: color-mix(in srgb, var(--page-ambient-accent, var(--primary)) 40%, transparent) !important;
+          color: #ffffff !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .nav-item-btn.active .nav-icon {
+          color: var(--page-ambient-accent, var(--primary)) !important;
+        }
       `}</style>
     </>
   );

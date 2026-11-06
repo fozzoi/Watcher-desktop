@@ -106,6 +106,14 @@ body {
                     radial-gradient(circle at 0% 100%, rgba(200, 200, 230, 0.15) 0%, transparent 40%);
 }
 
+/* Ambient solid background override for detail and cast pages */
+:root[style*="--page-ambient-bg"] body,
+:root[style*="--page-ambient-bg"] [data-theme="dark"] body,
+:root[style*="--page-ambient-bg"] [data-theme="light"] body {
+  background-color: var(--page-ambient-bg) !important;
+  background-image: none !important;
+}
+
 /* Hide Scrollbar Everywhere while preserving full smooth scrolling */
 html,
 body,

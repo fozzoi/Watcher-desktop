@@ -47,15 +47,21 @@ function CastDetailContent() {
   const ambientBg = palette?.pastelDark || null;
   const dominantAccent = palette?.dominant || null;
 
-  // Ambient body background sync (matches Android CastDetail immersion)
+  // Ambient body background and root CSS sync (for navigation tab bar / sidebar)
   useEffect(() => {
     if (!ambientBg) return;
+    document.documentElement.style.setProperty('--page-ambient-bg', ambientBg);
+    if (dominantAccent) {
+      document.documentElement.style.setProperty('--page-ambient-accent', dominantAccent);
+    }
     const prevBg = document.body.style.backgroundColor;
     document.body.style.backgroundColor = ambientBg;
     return () => {
+      document.documentElement.style.removeProperty('--page-ambient-bg');
+      document.documentElement.style.removeProperty('--page-ambient-accent');
       document.body.style.backgroundColor = prevBg;
     };
-  }, [ambientBg]);
+  }, [ambientBg, dominantAccent]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -206,27 +212,9 @@ function CastDetailContent() {
         ['--cast-ambient-bg' as any]: ambientBg || 'var(--bg-color)',
         ['--cast-ambient-accent' as any]: dominantAccent || 'var(--primary)',
         position: 'relative',
-        transition: 'background-color 0.6s ease',
+        transition: 'background-color 0.4s ease',
       }}
     >
-      {/* Ambient Top Glow */}
-      {ambientBg && dominantAccent && (
-        <div 
-          className="cast-ambient-glow"
-          style={{
-            position: 'absolute',
-            top: -20,
-            left: '5%',
-            right: '5%',
-            height: '460px',
-            background: `radial-gradient(ellipse at top, ${dominantAccent}28 0%, ${ambientBg} 70%, transparent 100%)`,
-            filter: 'blur(75px)',
-            pointerEvents: 'none',
-            zIndex: 0,
-          }}
-        />
-      )}
-
       {/* Header bar */}
       <div className="cast-nav-bar" style={{ position: 'relative', zIndex: 2 }}>
         <button className="back-btn glass" onClick={() => router.back()}>
@@ -489,7 +477,32 @@ function CastDetailContent() {
         }
 
         .cast-detail-page.is-ambient {
-          color: #ffffff;
+          color-scheme: dark !important;
+          --foreground: #ffffff !important;
+          --foreground-muted: rgba(255, 255, 255, 0.72) !important;
+          --card-bg: rgba(255, 255, 255, 0.08) !important;
+          --card-border: rgba(255, 255, 255, 0.14) !important;
+          --input-bg: rgba(255, 255, 255, 0.1) !important;
+          --input-border: rgba(255, 255, 255, 0.18) !important;
+          color: #ffffff !important;
+        }
+
+        .cast-detail-page.is-ambient :global(.card-title),
+        .cast-detail-page.is-ambient :global(.card-title-link) {
+          color: rgba(255, 255, 255, 0.9) !important;
+        }
+        .cast-detail-page.is-ambient :global(.movie-card-container:hover .card-title) {
+          color: #ffffff !important;
+        }
+
+        .cast-detail-page.is-ambient :global(.tab-btn) {
+          background: rgba(255, 255, 255, 0.08) !important;
+          color: rgba(255, 255, 255, 0.75) !important;
+          border: 1px solid rgba(255, 255, 255, 0.14) !important;
+        }
+        .cast-detail-page.is-ambient :global(.tab-btn.active) {
+          background: var(--primary) !important;
+          color: #ffffff !important;
         }
 
         .cast-detail-page.is-ambient :global(.cast-hero-panel) {
