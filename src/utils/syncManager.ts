@@ -100,6 +100,7 @@ async function persistCloudSnapshot(library: Partial<CloudLibrary>) {
       history: Array.isArray(library.history) ? library.history : [],
       favoriteArtists: Array.isArray(library.favoriteArtists) ? library.favoriteArtists : [],
       savedCollections: Array.isArray(library.savedCollections) ? library.savedCollections : [],
+      watchProgress: library.watchProgress && typeof library.watchProgress === 'object' ? library.watchProgress : {},
       preferences: library.preferences && typeof library.preferences === 'object'
         ? library.preferences
         : {},

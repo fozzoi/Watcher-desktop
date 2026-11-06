@@ -221,7 +221,9 @@ function DetailContent() {
       setTrailers(trailerList);
 
       if (typeStr === 'tv' && details.seasons && details.seasons.length > 0) {
-        const savedSeason = progress?.lastSeason;
+        const storedSeasonStr = await AsyncStorage.getItem(`@selected_season:${tmdbId}`);
+        const storedSeason = storedSeasonStr ? parseInt(storedSeasonStr, 10) : null;
+        const savedSeason = progress?.lastSeason || storedSeason;
         const validSavedSeason = savedSeason && details.seasons.some((s: any) => s.season_number === savedSeason)
           ? savedSeason
           : null;
@@ -269,12 +271,14 @@ function DetailContent() {
           }
         }).catch(() => {});
 
-        void getProgress(tmdbId).then((prog) => {
-          if (prog) {
-            setHistoryProgress(prog);
-            if (typeStr === 'tv' && prog.lastSeason) {
-              setSelectedSeason(prog.lastSeason);
-            }
+        void Promise.all([
+          getProgress(tmdbId),
+          AsyncStorage.getItem(`@selected_season:${tmdbId}`)
+        ]).then(([prog, savedSeasonStr]) => {
+          if (prog) setHistoryProgress(prog);
+          const seasonToSelect = prog?.lastSeason || (savedSeasonStr ? parseInt(savedSeasonStr, 10) : null);
+          if (typeStr === 'tv' && seasonToSelect) {
+            setSelectedSeason(seasonToSelect);
           }
         });
         if (typeStr === 'tv') {
@@ -798,192 +802,722 @@ function DetailContent() {
         </button>
       </div>
 
-      {/* Media Details Summary Panel */}
+      {/* Desktop Two-Column / Mobile Single-Column layout */}
       <div className="detail-content-wrapper animate-fade-in-up">
-        <div className="main-meta-box">
-          <div 
-            className="poster-box"
-            style={dominantAccent ? {
-              boxShadow: `0 16px 40px rgba(0, 0, 0, 0.6), 0 0 35px ${dominantAccent}33`,
-            } : undefined}
-          >
-            <img src={getImageUrl(movie.poster_path, 'w500')} alt={titleText} className="poster-img" />
-          </div>
-          
-          <div className="meta-details">
-            <h1 className="movie-title">{titleText}</h1>
-            {movie.tagline && <p className="tagline">"{movie.tagline}"</p>}
-            
-            <div className="details-badges">
-              <div className="rating-badge">
-                <Star size={14} fill="#f59e0b" stroke="#f59e0b" />
-                <span>{ratingText}</span>
-              </div>
-              <span className="badge year" title="Release Date">{movie.release_date || movie.first_air_date || 'Unknown Date'}</span>
-              {movie.original_language && (
-                <span className="badge lang" style={{ textTransform: 'uppercase' }} title="Original Language">
-                  {movie.original_language}
-                </span>
-              )}
-              {typeStr === 'tv' && movie.number_of_seasons && (
-                <span className="badge seasons-count">{movie.number_of_seasons} Seasons</span>
-              )}
-              {movie.runtime ? (
-                <span className="badge runtime">
-                  <Clock size={12} />
-                  <span>{movie.runtime} min</span>
-                </span>
-              ) : null}
-              {movie.certification && <span className="badge rating">{movie.certification}</span>}
-              {movie.genres && movie.genres.length > 0 && (
-                <span className="badge genre-badge">
-                  {movie.genres.map(g => g.name).slice(0, 3).join(' • ')}
-                </span>
-              )}
-            </div>
+        <div className="desktop-layout-grid">
 
-            {/* Core Action buttons */}
-            <div className="detail-actions">
-              {typeStr === 'movie' ? (
-                <Link 
-                  href={`/player?id=${movie.id}&type=movie&title=${encodeURIComponent(titleText || '')}&poster=${encodeURIComponent(movie.poster_path || '')}${isCompleted ? '&restart=true' : ''}`}
-                  className="btn-primary"
-                >
-                  <Play size={18} fill="white" />
-                  <span>{movieButtonLabel}</span>
-                </Link>
-              ) : (
-                <button 
-                  className="btn-primary"
-                  onClick={() => {
-                    const finalS = (isCompleted && !playIsNext) ? 1 : playTargetSeason;
-                    const finalE = (isCompleted && !playIsNext) ? 1 : playTargetEpisode;
-                    router.push(`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${finalS}&episode=${finalE}&poster=${encodeURIComponent(movie.poster_path || '')}`);
-                  }}
-                >
-                  <Play size={18} fill="white" />
-                  <span>{tvButtonLabel}</span>
-                </button>
-              )}
-
-              {trailers.length > 0 && (
-                <button className="btn-secondary" onClick={handleOpenTrailer}>
-                  <Video size={18} />
-                  <span>Trailer</span>
-                </button>
-              )}
-
-              <button 
-                className={`btn-secondary ${isInWatchlist ? 'watchlist-added' : ''}`}
-                onClick={toggleWatchlist}
+          {/* ── LEFT STICKY COLUMN (desktop) / full-width (mobile) ── */}
+          <aside className="detail-left-col">
+            <div className="main-meta-box">
+              <div 
+                className="poster-box"
+                style={dominantAccent ? {
+                  boxShadow: `0 16px 40px rgba(0, 0, 0, 0.6), 0 0 35px ${dominantAccent}33`,
+                } : undefined}
               >
-                <Heart size={18} fill={isInWatchlist ? "var(--primary)" : "none"} color={isInWatchlist ? "var(--primary)" : "currentColor"} />
-                <span>{isInWatchlist ? 'In Watchlist' : 'Watchlist'}</span>
-              </button>
-
-              <button 
-                className={`btn-secondary ${isWatched ? 'watched-active' : ''}`}
-                onClick={toggleWatched}
-                title={isWatched ? "Mark as unwatched" : "Mark as watched"}
-              >
-                <CheckCircle2 
-                  size={18} 
-                  color={isWatched ? "#30D158" : "currentColor"} 
-                  fill={isWatched ? "rgba(48, 209, 88, 0.2)" : "none"} 
-                />
-                <span>{isWatched ? 'Watched' : 'Mark Watched'}</span>
-              </button>
-
-              <button className="btn-secondary" onClick={handleOpenTorrents}>
-                <Download size={18} />
-                <span>Torrents</span>
-              </button>
-
-              <button className="btn-secondary" onClick={handleCopyShareLink} title="Copy Link">
-                {isCopiedLink ? <Check size={18} color="#30D158" /> : <Copy size={18} />}
-                <span>{isCopiedLink ? 'Copied!' : 'Share'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Playback Resume State */}
-        {historyProgress && (
-          <div className="resume-play-box glass animate-fade-in-up">
-            <div className="resume-info">
-              <Film size={20} className="resume-icon" />
-              <div>
-                <h4>{isCompleted ? (playIsNext ? 'Up Next' : 'Completed') : 'Resume Playback'}</h4>
-                <p>
-                  {typeStr === 'tv' 
-                    ? `Season ${playTargetSeason}, Episode ${playTargetEpisode}`
-                    : isCompleted ? 'Completed' : 'Movie'}
-                </p>
+                <img src={getImageUrl(movie.poster_path, 'w500')} alt={titleText} className="poster-img" />
               </div>
-            </div>
-            <Link 
-              href={`/player?id=${movie.id}&type=${typeStr}&title=${encodeURIComponent(titleText || '')}&season=${(isCompleted && !playIsNext) ? 1 : playTargetSeason}&episode=${(isCompleted && !playIsNext) ? 1 : playTargetEpisode}`}
-              className="btn-primary"
-              style={{ padding: '8px 16px', fontSize: '13px' }}
-            >
-              {isCompleted ? (playIsNext ? 'Play Next' : 'Watch Again') : 'Resume Play'}
-            </Link>
-          </div>
-        )}
+              
+              <div className="meta-details">
+                <h1 className="movie-title">{titleText}</h1>
+                {movie.tagline && <p className="tagline">"{movie.tagline}"</p>}
+                
+                <div className="details-badges">
+                  <div className="rating-badge">
+                    <Star size={14} fill="#f59e0b" stroke="#f59e0b" />
+                    <span>{ratingText}</span>
+                  </div>
+                  <span className="badge year" title="Release Date">{movie.release_date || movie.first_air_date || 'Unknown Date'}</span>
+                  {movie.original_language && (
+                    <span className="badge lang" style={{ textTransform: 'uppercase' }} title="Original Language">
+                      {movie.original_language}
+                    </span>
+                  )}
+                  {typeStr === 'tv' && movie.number_of_seasons && (
+                    <span className="badge seasons-count">{movie.number_of_seasons} Seasons</span>
+                  )}
+                  {movie.runtime ? (
+                    <span className="badge runtime">
+                      <Clock size={12} />
+                      <span>{movie.runtime} min</span>
+                    </span>
+                  ) : null}
+                  {movie.certification && <span className="badge rating">{movie.certification}</span>}
+                  {movie.genres && movie.genres.length > 0 && (
+                    <span className="badge genre-badge">
+                      {movie.genres.map(g => g.name).slice(0, 3).join(' • ')}
+                    </span>
+                  )}
+                </div>
 
-        {/* Synopsis Grid details */}
-        <div className="synopsis-box">
-          <h2>Synopsis</h2>
-          <p className="overview-text">{movie.overview}</p>
-        </div>
+                {/* Core Action buttons */}
+                <div className="detail-actions">
+                  {typeStr === 'movie' ? (
+                    <Link 
+                      href={`/player?id=${movie.id}&type=movie&title=${encodeURIComponent(titleText || '')}&poster=${encodeURIComponent(movie.poster_path || '')}${isCompleted ? '&restart=true' : ''}`}
+                      className="btn-primary"
+                    >
+                      <Play size={18} fill="white" />
+                      <span>{movieButtonLabel}</span>
+                    </Link>
+                  ) : (
+                    <button 
+                      className="btn-primary"
+                      onClick={() => {
+                        const finalS = (isCompleted && !playIsNext) ? 1 : playTargetSeason;
+                        const finalE = (isCompleted && !playIsNext) ? 1 : playTargetEpisode;
+                        router.push(`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${finalS}&episode=${finalE}&poster=${encodeURIComponent(movie.poster_path || '')}`);
+                      }}
+                    >
+                      <Play size={18} fill="white" />
+                      <span>{tvButtonLabel}</span>
+                    </button>
+                  )}
 
-        {galleryImages.length > 0 && (
-          <section className="gallery-section animate-fade-in-up" aria-label="Scenes and posters">
-            <div className="gallery-heading">
-              <h2>Scenes &amp; Posters</h2>
-              <span>{galleryImages.length}</span>
-              <div className="gallery-controls">
-                <button type="button" className="gallery-scroll-btn" onClick={() => scrollCarousel(galleryScrollRef, 'left')} aria-label="Scroll gallery left">
-                  <ChevronLeft size={18} />
-                </button>
-                <button type="button" className="gallery-scroll-btn" onClick={() => scrollCarousel(galleryScrollRef, 'right')} aria-label="Scroll gallery right">
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            </div>
-            <div className="gallery-track" ref={galleryScrollRef}>
-              {galleryImages.map((image, index) => {
-                const isPoster = image.aspect_ratio > 0 && image.aspect_ratio < 1;
-                return (
-                  <button
-                    type="button"
-                    className={`gallery-item ${isPoster ? 'poster' : 'backdrop'}`}
-                    key={`${image.file_path}-${index}`}
-                    onClick={() => setSelectedGalleryIndex(index)}
-                    aria-label={`View ${titleText} ${isPoster ? 'poster' : 'scene'} ${index + 1}`}
-                    title="View full size"
+                  {trailers.length > 0 && (
+                    <button className="btn-secondary" onClick={handleOpenTrailer}>
+                      <Video size={18} />
+                      <span>Trailer</span>
+                    </button>
+                  )}
+
+                  <button 
+                    className={`btn-secondary ${isInWatchlist ? 'watchlist-added' : ''}`}
+                    onClick={toggleWatchlist}
                   >
+                    <Heart size={18} fill={isInWatchlist ? "var(--primary)" : "none"} color={isInWatchlist ? "var(--primary)" : "currentColor"} />
+                    <span>{isInWatchlist ? 'In Watchlist' : 'Watchlist'}</span>
+                  </button>
+
+                  <button 
+                    className={`btn-secondary ${isWatched ? 'watched-active' : ''}`}
+                    onClick={toggleWatched}
+                    title={isWatched ? "Mark as unwatched" : "Mark as watched"}
+                  >
+                    <CheckCircle2 
+                      size={18} 
+                      color={isWatched ? "#30D158" : "currentColor"} 
+                      fill={isWatched ? "rgba(48, 209, 88, 0.2)" : "none"} 
+                    />
+                    <span>{isWatched ? 'Watched' : 'Mark Watched'}</span>
+                  </button>
+
+                  <button className="btn-secondary" onClick={handleOpenTorrents}>
+                    <Download size={18} />
+                    <span>Torrents</span>
+                  </button>
+
+                  <button className="btn-secondary" onClick={handleCopyShareLink} title="Copy Link">
+                    {isCopiedLink ? <Check size={18} color="#30D158" /> : <Copy size={18} />}
+                    <span>{isCopiedLink ? 'Copied!' : 'Share'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Playback Resume State */}
+            {historyProgress && (
+              <div className="resume-play-box glass animate-fade-in-up">
+                <div className="resume-info">
+                  <Film size={20} className="resume-icon" />
+                  <div>
+                    <h4>{isCompleted ? (playIsNext ? 'Up Next' : 'Completed') : 'Resume Playback'}</h4>
+                    <p>
+                      {typeStr === 'tv' 
+                        ? `Season ${playTargetSeason}, Episode ${playTargetEpisode}`
+                        : isCompleted ? 'Completed' : 'Movie'}
+                    </p>
+                  </div>
+                </div>
+                <Link 
+                  href={`/player?id=${movie.id}&type=${typeStr}&title=${encodeURIComponent(titleText || '')}&season=${(isCompleted && !playIsNext) ? 1 : playTargetSeason}&episode=${(isCompleted && !playIsNext) ? 1 : playTargetEpisode}`}
+                  className="btn-primary"
+                  style={{ padding: '8px 16px', fontSize: '13px' }}
+                >
+                  {isCompleted ? (playIsNext ? 'Play Next' : 'Watch Again') : 'Resume Play'}
+                </Link>
+              </div>
+            )}
+
+            {/* Synopsis */}
+            <div className="synopsis-box">
+              <h2>Synopsis</h2>
+              <p className="overview-text">{movie.overview}</p>
+            </div>
+
+            {/* Director / Creator — in left col on desktop */}
+            {movie.director && (
+              <div className="director-section animate-fade-in-up" style={{ marginBottom: 0 }}>
+                <h2 className="director-heading">
+                  {movie.director.job === 'Creator' ? 'Creator' : 'Director'}
+                </h2>
+                <Link href={`/cast?id=${movie.director.id}`} className="director-card">
+                  <div className="director-avatar">
                     <img
-                      src={getImageUrl(image.file_path, isPoster ? 'w500' : 'w780')}
-                      alt={`${titleText} ${isPoster ? 'poster' : 'scene'} ${index + 1}`}
+                      src={getImageUrl(movie.director.profile_path, 'w185')}
+                      alt={movie.director.name}
+                      className="director-img"
                       loading="lazy"
                     />
-                    <span className="gallery-zoom-icon" aria-hidden="true"><ZoomIn size={20} /></span>
+                  </div>
+                  <div className="director-meta">
+                    <span className="director-name">{movie.director.name}</span>
+                    <span className="director-role">{movie.director.job}</span>
+                  </div>
+                </Link>
+              </div>
+            )}
+
+            {/* AI Panel — in left col on desktop */}
+            <div className="ai-panel glass-premium animate-fade-in-up left-col-ai">
+              <div className="ai-header">
+                <div className="ai-header-left">
+                  <Sparkles size={18} className="ai-sparkle-icon" />
+                  <div>
+                    <h3 className="ai-header-title">AI Insights</h3>
+                    <p className="ai-header-subtitle">Powered by Gemini AI</p>
+                  </div>
+                </div>
+                
+                <div className="ai-tabs">
+                  <button 
+                    className={`ai-tab-btn ${aiTab === 'lens' ? 'active' : ''}`}
+                    onClick={() => setAiTab('lens')}
+                  >
+                    <span>Lens</span>
                   </button>
-                );
-              })}
+                  <button 
+                    className={`ai-tab-btn ${aiTab === 'chat' ? 'active' : ''}`}
+                    onClick={() => setAiTab('chat')}
+                  >
+                    <span>Chat</span>
+                  </button>
+                  <button 
+                    className={`ai-tab-btn ${aiTab === 'vibe' ? 'active' : ''}`}
+                    onClick={() => setAiTab('vibe')}
+                  >
+                    <span>Vibe</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* ai-tab-body closes the left-col AI panel started in the new structure above */}
+              <div className="ai-tab-body">
+              {/* LENS TAB */}
+              {aiTab === 'lens' && (
+                <div className="ai-tab-pane animate-fade-in">
+                  {lensLoading ? (
+                    <div className="ai-loading-box">
+                      <div className="shimmer-bar full" />
+                      <div className="shimmer-bar half" />
+                      <div className="shimmer-bar three-quarters" />
+                      <p className="loading-note">Consulting Gemini Lens...</p>
+                    </div>
+                  ) : lensError ? (
+                    <div className="ai-error-box">
+                      <p className="error-msg">{lensError}</p>
+                      <button className="btn-secondary retry-btn" onClick={handleFetchLensInsight}>
+                        <RotateCcw size={14} />
+                        <span>Try again</span>
+                      </button>
+                    </div>
+                  ) : lensInsight ? (
+                    <div className="lens-insight-body animate-fade-in">
+                      {typeof lensInsight === 'object' && !Array.isArray(lensInsight) ? (
+                        <>
+                          {lensInsight.worthIt && (
+                            <div className="verdict-row">
+                              <span className="verdict-pill">{lensInsight.worthIt}</span>
+                            </div>
+                          )}
+                          {lensInsight.friendVerdict && (
+                            <blockquote className="friend-verdict">
+                              "{lensInsight.friendVerdict}"
+                            </blockquote>
+                          )}
+                          <div className="lens-fields-grid">
+                            {lensInsight.vibe && (
+                              <div className="lens-field-card glass">
+                                <span className="field-label">Vibe &amp; Tone</span>
+                                <p className="field-val">{lensInsight.vibe}</p>
+                              </div>
+                            )}
+                            {lensInsight.whatItsActuallyAbout && (
+                              <div className="lens-field-card glass">
+                                <span className="field-label">Story &amp; Premise</span>
+                                <p className="field-val">{lensInsight.whatItsActuallyAbout}</p>
+                              </div>
+                            )}
+                          </div>
+                          {(lensInsight.certificationWarning || lensInsight.whatYoullSee) && (
+                            <div className="lens-advisory glass">
+                              <span className="advisory-title">⚠️ Content Advisory &amp; Certification</span>
+                              <p className="advisory-text">{lensInsight.certificationWarning || lensInsight.whatYoullSee}</p>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="lens-markdown-output">
+                          {String(lensInsight).split('\n').map((line: string, idx: number) => {
+                            if (line.startsWith('###')) return <h4 key={idx}>{line.replace('###', '').trim()}</h4>;
+                            if (line.startsWith('##')) return <h3 key={idx}>{line.replace('##', '').trim()}</h3>;
+                            return <p key={idx}>{line}</p>;
+                          })}
+                        </div>
+                      )}
+                      <button className="re-generate-btn" onClick={handleFetchLensInsight} title="Refresh Lens insight">
+                        <RotateCcw size={14} />
+                        <span>Refresh Insight</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="ai-unloaded-state">
+                      <p>Get a quick, friend-style verdict, tone breakdown, and advisory for this title.</p>
+                      <button className="btn-primary ai-action-btn" onClick={handleFetchLensInsight}>
+                        <Sparkles size={16} />
+                        <span>Generate Lens insight</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* CHAT TAB */}
+              {aiTab === 'chat' && (
+                <div className="ai-tab-pane animate-fade-in">
+                  <div className="chat-tab-header">
+                    <MessageSquare size={18} className="chat-icon" />
+                    <p>Ask anything about "{titleText}" (plot analysis, ending theories, symbolism, trivia)</p>
+                  </div>
+
+                  {movieChatMessages.length > 0 && (
+                    <div className="chat-messages-container">
+                      {movieChatMessages.map((msg, i) => (
+                        <div key={i} className={`chat-bubble-row ${msg.role}`}>
+                          <div className="bubble-content">
+                            <span className="bubble-sender">{msg.role === 'user' ? 'You' : 'Cinema AI'}</span>
+                            <p>{msg.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {movieChatLoading && (
+                        <div className="chat-bubble-row bot">
+                          <div className="bubble-content loading">
+                            <span className="typing-dot" />
+                            <span className="typing-dot" />
+                            <span className="typing-dot" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="chat-input-row">
+                    <input 
+                      type="text" 
+                      placeholder={`Ask about ${titleText}...`}
+                      value={movieChatInput}
+                      onChange={(e) => setMovieChatInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendMovieChat()}
+                      className="chat-input"
+                    />
+                    <button 
+                      className="send-btn btn-primary" 
+                      onClick={handleSendMovieChat}
+                      disabled={movieChatLoading || !movieChatInput.trim()}
+                    >
+                      <Send size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* VIBE TAB */}
+              {aiTab === 'vibe' && (
+                <div className="ai-tab-pane animate-fade-in">
+                  {loadingAi ? (
+                    <div className="vibe-loading-row">
+                      {[1, 2, 3, 4].map(n => (
+                        <div key={n} className="vibe-skeleton-card glass" />
+                      ))}
+                    </div>
+                  ) : aiVibeError ? (
+                    <div className="ai-error-box">
+                      <p className="error-msg">{aiVibeError}</p>
+                      <button className="btn-secondary retry-btn" onClick={handleFetchAiVibes}>
+                        <RotateCcw size={14} />
+                        <span>Try again</span>
+                      </button>
+                    </div>
+                  ) : aiRecommendations.length > 0 ? (
+                    <div className="vibe-results-carousel">
+                      <div className="section-header-row" style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground-muted)' }}>Vibe Matches</span>
+                        <div className="carousel-nav-arrows">
+                          <button className="nav-arrow-btn" onClick={() => scrollCarousel(vibeScrollRef, 'left')} aria-label="Scroll vibe left">
+                            <ChevronLeft size={18} />
+                          </button>
+                          <button className="nav-arrow-btn" onClick={() => scrollCarousel(vibeScrollRef, 'right')} aria-label="Scroll vibe right">
+                            <ChevronRight size={18} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="vibe-carousel-wrapper">
+                        <div className="vibe-scroll-container" ref={vibeScrollRef}>
+                          {aiRecommendations.map((item) => (
+                            <div key={item.id} className="vibe-card-item">
+                              <MovieCard
+                                item={item}
+                                isAdded={watchlistIds.has(item.id)}
+                                toggleWatchlist={async (it, e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  const stored = await AsyncStorage.getItem('watchlist');
+                                  let list = stored ? JSON.parse(stored) : [];
+                                  if (list.find((i: any) => i.id === it.id)) {
+                                    list = list.filter((i: any) => i.id !== it.id);
+                                  } else {
+                                    list.push(it);
+                                  }
+                                  await AsyncStorage.setItem('watchlist', JSON.stringify(list));
+                                  setWatchlistIds(new Set(list.map((i: any) => i.id)));
+                                }}
+                                showTitle={true}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="vibe-actions-row">
+                        <button className="re-generate-btn" onClick={handleFetchAiVibes}>
+                          <RotateCcw size={14} />
+                          <span>Find more vibes</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="ai-unloaded-state">
+                      <p>Discover hand-picked movies and series sharing similar atmosphere, themes, and pacing.</p>
+                      <button className="btn-primary ai-action-btn" onClick={handleFetchAiVibes}>
+                        <Sparkles size={16} />
+                        <span>Find similar vibes</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </section>
-        )}
+          </div>{/* end ai-panel */}
+          </aside>{/* end detail-left-col */}
 
+          {/* ── RIGHT CONTENT COLUMN (desktop) / full-width (mobile) ── */}
+          <main className="detail-right-col">
 
-        {/* Franchise / Collection Universe Banner */}
-        {movie.belongs_to_collection && (
-          <div className="franchise-banner-section animate-fade-in-up">
-            <Link 
-              href={`/collection?id=${movie.belongs_to_collection.id}&name=${encodeURIComponent(movie.belongs_to_collection.name)}`}
-              className="franchise-card"
-            >
+            {/* Gallery — right col on desktop */}
+            {galleryImages.length > 0 && (
+              <section className="gallery-section animate-fade-in-up" aria-label="Scenes and posters">
+                <div className="gallery-heading">
+                  <h2>Scenes &amp; Posters</h2>
+                  <span>{galleryImages.length}</span>
+                  <div className="gallery-controls">
+                    <button type="button" className="gallery-scroll-btn" onClick={() => scrollCarousel(galleryScrollRef, 'left')} aria-label="Scroll gallery left">
+                      <ChevronLeft size={18} />
+                    </button>
+                    <button type="button" className="gallery-scroll-btn" onClick={() => scrollCarousel(galleryScrollRef, 'right')} aria-label="Scroll gallery right">
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                </div>
+                <div className="gallery-track" ref={galleryScrollRef}>
+                  {galleryImages.map((image, index) => {
+                    const isPoster = image.aspect_ratio > 0 && image.aspect_ratio < 1;
+                    return (
+                      <button
+                        type="button"
+                        className={`gallery-item ${isPoster ? 'poster' : 'backdrop'}`}
+                        key={`${image.file_path}-${index}`}
+                        onClick={() => setSelectedGalleryIndex(index)}
+                        aria-label={`View ${titleText} ${isPoster ? 'poster' : 'scene'} ${index + 1}`}
+                        title="View full size"
+                      >
+                        <img
+                          src={getImageUrl(image.file_path, isPoster ? 'w500' : 'w780')}
+                          alt={`${titleText} ${isPoster ? 'poster' : 'scene'} ${index + 1}`}
+                          loading="lazy"
+                        />
+                        <span className="gallery-zoom-icon" aria-hidden="true"><ZoomIn size={20} /></span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* Episodes — right col on desktop */}
+            {typeStr === 'tv' && movie.seasons && movie.seasons.length > 0 && (
+              <div className="episodes-section" id="episodes-section">
+                <div className="section-header-tv">
+                  <h2>Episodes</h2>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="carousel-nav-arrows">
+                      <button className="nav-arrow-btn" onClick={() => scrollCarousel(episodesScrollRef, 'left')} aria-label="Scroll episodes left">
+                        <ChevronLeft size={18} />
+                      </button>
+                      <button className="nav-arrow-btn" onClick={() => scrollCarousel(episodesScrollRef, 'right')} aria-label="Scroll episodes right">
+                        <ChevronRight size={18} />
+                      </button>
+                    </div>
+
+                    {/* Themed Season Selector Dropdown */}
+                    <div className="season-selector-wrapper" ref={seasonDropdownRef}>
+                      <button 
+                        type="button"
+                        className={`season-trigger-btn ${isSeasonDropdownOpen ? 'open' : ''}`}
+                        onClick={() => setIsSeasonDropdownOpen(prev => !prev)}
+                        aria-expanded={isSeasonDropdownOpen}
+                        aria-haspopup="listbox"
+                      >
+                        <span className="season-trigger-label">
+                          {(() => {
+                            const current = movie.seasons.find(s => s.season_number === (selectedSeason || 1));
+                            return current ? `${current.name} (${current.episode_count} Episodes)` : `Season ${selectedSeason || 1}`;
+                          })()}
+                        </span>
+                        <ChevronDown size={15} className={`season-chevron ${isSeasonDropdownOpen ? 'rotated' : ''}`} />
+                      </button>
+
+                      {isSeasonDropdownOpen && (
+                        <div className="season-dropdown-menu glass-premium animate-fade-in" role="listbox">
+                          {movie.seasons
+                            .filter(s => s.season_number > 0)
+                            .map(s => {
+                              const isCurrent = s.season_number === (selectedSeason || 1);
+                              return (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  className={`season-option-item ${isCurrent ? 'selected' : ''}`}
+                                  onClick={() => {
+                                    setSelectedSeason(s.season_number);
+                                    setIsSeasonDropdownOpen(false);
+                                    void AsyncStorage.setItem(`@selected_season:${tmdbId}`, String(s.season_number));
+                                  }}
+                                  role="option"
+                                  aria-selected={isCurrent}
+                                >
+                                  <div className="season-opt-info">
+                                    <span className="season-opt-name">{s.name}</span>
+                                    <span className="season-opt-count">{s.episode_count} Episodes</span>
+                                  </div>
+                                  {isCurrent && <Check size={15} className="season-opt-check" />}
+                                </button>
+                              );
+                            })
+                          }
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {loadingEpisodes ? (
+                  <div className="loading-spinner-container" style={{ padding: '30px' }}>
+                    <div className="spinner" />
+                  </div>
+                ) : episodes.length > 0 ? (
+                  <div className="episodes-carousel-wrapper">
+                    <div className="episodes-scroll-container" ref={episodesScrollRef}>
+                      {episodes.map((ep) => {
+                        const epKey = `tv:${movie.id}:${ep.season_number}:${ep.episode_number}`;
+                        const epProg = episodeProgressMap[epKey];
+                        const isEpDone = epProg ? isEpisodeCompleted(epProg) : false;
+                        const hasEpProg = Boolean(epProg && (epProg.position > 0 || (typeof epProg.percentage === 'number' && epProg.percentage > 0)));
+                        const epPercentage = (epProg && typeof epProg.percentage === 'number')
+                          ? epProg.percentage
+                          : (epProg && epProg.duration > 0 ? Math.round((epProg.position / epProg.duration) * 100) : 0);
+
+                        const lastS = historyProgress?.lastSeason || 1;
+                        const lastE = historyProgress?.lastEpisode || 1;
+                        const isPriorEpisode = Boolean(
+                          historyProgress &&
+                          (ep.season_number < lastS || (ep.season_number === lastS && ep.episode_number < lastE))
+                        );
+                        const isResumeTarget = Boolean(
+                          historyProgress && 
+                          historyProgress.lastSeason === ep.season_number && 
+                          historyProgress.lastEpisode === ep.episode_number
+                        );
+                        const isResumeDone = isResumeTarget && isEpisodeCompleted(historyProgress);
+                        const isPlayed = isEpDone || isResumeDone || (isPriorEpisode && !hasEpProg);
+
+                        return (
+                          <div key={ep.id} className="episode-card-item">
+                            <Link
+                              href={`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`}
+                              className={`episode-item-card glass ${isResumeTarget ? 'episode-active' : ''} ${isPlayed ? 'episode-watched' : ''}`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                router.push(`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`);
+                              }}
+                            >
+                              <div className="ep-still-box">
+                                <img 
+                                  src={getImageUrl(ep.still_path || movie.backdrop_path || movie.poster_path, 'w500')} 
+                                  alt={ep.name} 
+                                  className="ep-still-img" 
+                                  loading="lazy"
+                                />
+                                
+                                <div className="ep-badge-pill">
+                                  <span>EP {ep.episode_number}</span>
+                                </div>
+
+                                {isPlayed ? (
+                                  <div className="ep-played-pill">
+                                    <Check size={11} strokeWidth={3} />
+                                    <span>Played</span>
+                                  </div>
+                                ) : null}
+
+                                {ep.runtime && ep.runtime > 0 ? (
+                                  <div className="ep-runtime-pill">
+                                    <span>{ep.runtime}m</span>
+                                  </div>
+                                ) : null}
+
+                                {hasEpProg && !isPlayed ? (
+                                  <div className="ep-progress-bar-container">
+                                    <div className="ep-progress-bar-fill" style={{ width: `${Math.min(100, Math.max(5, epPercentage))}%` }} />
+                                  </div>
+                                ) : null}
+
+                                <div className="ep-play-overlay">
+                                  <div className="ep-play-circle">
+                                    <Play size={18} fill="white" style={{ marginLeft: 2 }} />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="ep-details">
+                                <h3 className="ep-title" title={`Episode ${ep.episode_number}: ${ep.name}`}>
+                                  {ep.episode_number}. {ep.name || `Episode ${ep.episode_number}`}
+                                </h3>
+
+                                <div className="ep-meta-row">
+                                  {ep.air_date ? (
+                                    <span className="ep-meta-item">
+                                      <Calendar size={11} />
+                                      <span>{formatAirDate(ep.air_date)}</span>
+                                    </span>
+                                  ) : null}
+                                  {ep.vote_average && ep.vote_average > 0 ? (
+                                    <span className="ep-meta-item ep-rating-item">
+                                      <Star size={11} fill="#FFB800" color="#FFB800" />
+                                      <span>{ep.vote_average.toFixed(1)}</span>
+                                    </span>
+                                  ) : null}
+                                  {isResumeTarget ? (
+                                    <span className="ep-resume-badge">{isEpDone ? 'Next' : 'Resume'}</span>
+                                  ) : null}
+                                  {isPlayed ? (
+                                    <span className="ep-played-badge">
+                                      <Check size={11} strokeWidth={2.5} />
+                                      <span>Played</span>
+                                    </span>
+                                  ) : null}
+                                </div>
+
+                                <p className="ep-overview">{ep.overview || "No episode description available."}</p>
+                              </div>
+                            </Link>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="empty-text">No episodes found for this season.</p>
+                )}
+              </div>
+            )}
+
+            {/* Cast — right col on desktop */}
+            {movie.cast && movie.cast.length > 0 && (
+              <div className="cast-section">
+                <div className="section-header-row">
+                  <h2>
+                    Cast
+                    <span className="section-count-badge">({movie.cast.length})</span>
+                  </h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {movie.cast.length > 15 && (
+                      <button
+                        type="button"
+                        className="section-action-btn"
+                        onClick={() => setCastLimit((prev) => (prev >= movie.cast!.length ? 15 : movie.cast!.length))}
+                      >
+                        {castLimit >= movie.cast.length ? 'Show Less' : `Show All (${movie.cast.length})`}
+                      </button>
+                    )}
+                    <div className="carousel-nav-arrows">
+                      <button className="nav-arrow-btn" onClick={() => scrollCarousel(castScrollRef, 'left')} aria-label="Scroll cast left">
+                        <ChevronLeft size={18} />
+                      </button>
+                      <button className="nav-arrow-btn" onClick={() => scrollCarousel(castScrollRef, 'right')} aria-label="Scroll cast right">
+                        <ChevronRight size={18} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="cast-carousel-wrapper">
+                  <div className="cast-scroll-container" ref={castScrollRef}>
+                    {movie.cast.slice(0, castLimit).map((member) => (
+                      <Link key={member.id} href={`/cast?id=${member.id}`} className="cast-card">
+                        <div className="cast-avatar">
+                          <img 
+                            src={getImageUrl(member.profile_path, 'w185')} 
+                            alt={member.name} 
+                            className="cast-img" 
+                            loading="lazy"
+                          />
+                        </div>
+                        <span className="cast-name" title={member.name}>{member.name}</span>
+                        <span className="cast-character" title={member.character}>{member.character}</span>
+                      </Link>
+                    ))}
+
+                    {movie.cast.length > castLimit && (
+                      <button
+                        type="button"
+                        className="cast-card cast-load-more-card glass"
+                        onClick={() => setCastLimit((prev) => Math.min(prev + 15, movie.cast!.length))}
+                        title={`Load more cast (${movie.cast.length - castLimit} remaining)`}
+                      >
+                        <div className="cast-load-more-inner">
+                          <div className="cast-load-more-bubble">
+                            <ChevronRight size={22} />
+                          </div>
+                          <span className="cast-load-more-count">+{Math.min(15, movie.cast.length - castLimit)} More</span>
+                          <span className="cast-load-more-sub">Page {Math.floor(castLimit / 15) + 1}</span>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Franchise / Collection Universe Banner — right col */}
+            {movie.belongs_to_collection && (
+              <div className="franchise-banner-section animate-fade-in-up">
+                <Link 
+                  href={`/collection?id=${movie.belongs_to_collection.id}&name=${encodeURIComponent(movie.belongs_to_collection.name)}`}
+                  className="franchise-card"
+                >
               <img 
                 src={getImageUrl(
                   (movie.belongs_to_collection.backdrop_path || 
@@ -1027,581 +1561,62 @@ function DetailContent() {
           </div>
         )}
 
-        {/* Unified AI Insights Panel (Lens | Chat | Vibe) */}
-        <div className="ai-panel glass-premium animate-fade-in-up">
-          <div className="ai-header">
-            <div className="ai-header-left">
-              <Sparkles size={18} className="ai-sparkle-icon" />
-              <div>
-                <h3 className="ai-header-title">AI Insights</h3>
-                <p className="ai-header-subtitle">Powered by Gemini AI</p>
-              </div>
-            </div>
-            
-            <div className="ai-tabs">
-              <button 
-                className={`ai-tab-btn ${aiTab === 'lens' ? 'active' : ''}`}
-                onClick={() => setAiTab('lens')}
-              >
-                <span>Lens</span>
-              </button>
-              <button 
-                className={`ai-tab-btn ${aiTab === 'chat' ? 'active' : ''}`}
-                onClick={() => setAiTab('chat')}
-              >
-                <span>Chat</span>
-              </button>
-              <button 
-                className={`ai-tab-btn ${aiTab === 'vibe' ? 'active' : ''}`}
-                onClick={() => setAiTab('vibe')}
-              >
-                <span>Vibe</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="ai-tab-body">
-            {/* LENS TAB */}
-            {aiTab === 'lens' && (
-              <div className="ai-tab-pane animate-fade-in">
-                {lensLoading ? (
-                  <div className="ai-loading-box">
-                    <div className="shimmer-bar full" />
-                    <div className="shimmer-bar half" />
-                    <div className="shimmer-bar three-quarters" />
-                    <p className="loading-note">Consulting Gemini Lens...</p>
+        {/* Similar Media — right col on desktop */}
+            {similarMedia.length > 0 && (
+              <div className="similar-media-section">
+                <div className="section-header-row">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <h2>Similar Recommendations</h2>
+                    <Link 
+                      href={`/similarmovies?id=${movie.id}&type=${typeStr}&name=${encodeURIComponent(titleText || '')}`}
+                      className="btn-secondary"
+                      style={{ fontSize: 12, padding: '5px 12px' }}
+                    >
+                      View All Similar &rarr;
+                    </Link>
                   </div>
-                ) : lensError ? (
-                  <div className="ai-error-box">
-                    <p className="error-msg">{lensError}</p>
-                    <button className="btn-secondary retry-btn" onClick={handleFetchLensInsight}>
-                      <RotateCcw size={14} />
-                      <span>Try again</span>
+
+                  <div className="carousel-nav-arrows">
+                    <button className="nav-arrow-btn" onClick={() => scrollCarousel(similarScrollRef, 'left')} aria-label="Scroll similar left">
+                      <ChevronLeft size={18} />
+                    </button>
+                    <button className="nav-arrow-btn" onClick={() => scrollCarousel(similarScrollRef, 'right')} aria-label="Scroll similar right">
+                      <ChevronRight size={18} />
                     </button>
                   </div>
-                ) : lensInsight ? (
-                  <div className="lens-insight-body animate-fade-in">
-                    {typeof lensInsight === 'object' && !Array.isArray(lensInsight) ? (
-                      <>
-                        {lensInsight.worthIt && (
-                          <div className="verdict-row">
-                            <span className="verdict-pill">{lensInsight.worthIt}</span>
-                          </div>
-                        )}
-                        {lensInsight.friendVerdict && (
-                          <blockquote className="friend-verdict">
-                            "{lensInsight.friendVerdict}"
-                          </blockquote>
-                        )}
-                        <div className="lens-fields-grid">
-                          {lensInsight.vibe && (
-                            <div className="lens-field-card glass">
-                              <span className="field-label">Vibe & Tone</span>
-                              <p className="field-val">{lensInsight.vibe}</p>
-                            </div>
-                          )}
-                          {lensInsight.whatItsActuallyAbout && (
-                            <div className="lens-field-card glass">
-                              <span className="field-label">Story & Premise</span>
-                              <p className="field-val">{lensInsight.whatItsActuallyAbout}</p>
-                            </div>
-                          )}
-                        </div>
-                        {(lensInsight.certificationWarning || lensInsight.whatYoullSee) && (
-                          <div className="lens-advisory glass">
-                            <span className="advisory-title">⚠️ Content Advisory & Certification</span>
-                            <p className="advisory-text">{lensInsight.certificationWarning || lensInsight.whatYoullSee}</p>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="lens-markdown-output">
-                        {String(lensInsight).split('\n').map((line: string, idx: number) => {
-                          if (line.startsWith('###')) return <h4 key={idx}>{line.replace('###', '').trim()}</h4>;
-                          if (line.startsWith('##')) return <h3 key={idx}>{line.replace('##', '').trim()}</h3>;
-                          return <p key={idx}>{line}</p>;
-                        })}
-                      </div>
-                    )}
-                    
-                    <button className="re-generate-btn" onClick={handleFetchLensInsight} title="Refresh Lens insight">
-                      <RotateCcw size={14} />
-                      <span>Refresh Insight</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="ai-unloaded-state">
-                    <p>Get a quick, friend-style verdict, tone breakdown, and advisory for this title.</p>
-                    <button className="btn-primary ai-action-btn" onClick={handleFetchLensInsight}>
-                      <Sparkles size={16} />
-                      <span>Generate Lens insight</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* CHAT TAB */}
-            {aiTab === 'chat' && (
-              <div className="ai-tab-pane animate-fade-in">
-                <div className="chat-tab-header">
-                  <MessageSquare size={18} className="chat-icon" />
-                  <p>Ask anything about "{titleText}" (plot analysis, ending theories, symbolism, trivia)</p>
                 </div>
 
-                {movieChatMessages.length > 0 && (
-                  <div className="chat-messages-container">
-                    {movieChatMessages.map((msg, i) => (
-                      <div key={i} className={`chat-bubble-row ${msg.role}`}>
-                        <div className="bubble-content">
-                          <span className="bubble-sender">{msg.role === 'user' ? 'You' : 'Cinema AI'}</span>
-                          <p>{msg.text}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {movieChatLoading && (
-                      <div className="chat-bubble-row bot">
-                        <div className="bubble-content loading">
-                          <span className="typing-dot" />
-                          <span className="typing-dot" />
-                          <span className="typing-dot" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="chat-input-row">
-                  <input 
-                    type="text" 
-                    placeholder={`Ask about ${titleText}...`}
-                    value={movieChatInput}
-                    onChange={(e) => setMovieChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMovieChat()}
-                    className="chat-input"
-                  />
-                  <button 
-                    className="send-btn btn-primary" 
-                    onClick={handleSendMovieChat}
-                    disabled={movieChatLoading || !movieChatInput.trim()}
-                  >
-                    <Send size={16} />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* VIBE TAB */}
-            {aiTab === 'vibe' && (
-              <div className="ai-tab-pane animate-fade-in">
-                {loadingAi ? (
-                  <div className="vibe-loading-row">
-                    {[1, 2, 3, 4].map(n => (
-                      <div key={n} className="vibe-skeleton-card glass" />
-                    ))}
-                  </div>
-                ) : aiVibeError ? (
-                  <div className="ai-error-box">
-                    <p className="error-msg">{aiVibeError}</p>
-                    <button className="btn-secondary retry-btn" onClick={handleFetchAiVibes}>
-                      <RotateCcw size={14} />
-                      <span>Try again</span>
-                    </button>
-                  </div>
-                ) : aiRecommendations.length > 0 ? (
-                  <div className="vibe-results-carousel">
-                    <div className="section-header-row" style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground-muted)' }}>Vibe Matches</span>
-                      <div className="carousel-nav-arrows">
-                        <button className="nav-arrow-btn" onClick={() => scrollCarousel(vibeScrollRef, 'left')} aria-label="Scroll vibe left">
-                          <ChevronLeft size={18} />
-                        </button>
-                        <button className="nav-arrow-btn" onClick={() => scrollCarousel(vibeScrollRef, 'right')} aria-label="Scroll vibe right">
-                          <ChevronRight size={18} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="vibe-carousel-wrapper">
-                      <div className="vibe-scroll-container" ref={vibeScrollRef}>
-                        {aiRecommendations.map((item) => (
-                          <div key={item.id} className="vibe-card-item">
-                            <MovieCard
-                              item={item}
-                              isAdded={watchlistIds.has(item.id)}
-                              toggleWatchlist={async (it, e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const stored = await AsyncStorage.getItem('watchlist');
-                                let list = stored ? JSON.parse(stored) : [];
-                                if (list.find((i: any) => i.id === it.id)) {
-                                  list = list.filter((i: any) => i.id !== it.id);
-                                } else {
-                                  list.push(it);
-                                }
-                                await AsyncStorage.setItem('watchlist', JSON.stringify(list));
-                                setWatchlistIds(new Set(list.map((i: any) => i.id)));
-                              }}
-                              showTitle={true}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="vibe-actions-row">
-                      <button className="re-generate-btn" onClick={handleFetchAiVibes}>
-                        <RotateCcw size={14} />
-                        <span>Find more vibes</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="ai-unloaded-state">
-                    <p>Discover hand-picked movies and series sharing similar atmosphere, themes, and pacing.</p>
-                    <button className="btn-primary ai-action-btn" onClick={handleFetchAiVibes}>
-                      <Sparkles size={16} />
-                      <span>Find similar vibes</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Director / Creator */}
-        {movie.director && (
-          <div className="director-section animate-fade-in-up" style={{ marginBottom: 32 }}>
-            <h2 className="director-heading">
-              {movie.director.job === 'Creator' ? 'Creator' : 'Director'}
-            </h2>
-            <Link href={`/cast?id=${movie.director.id}`} className="director-card">
-              <div className="director-avatar">
-                <img
-                  src={getImageUrl(movie.director.profile_path, 'w185')}
-                  alt={movie.director.name}
-                  className="director-img"
-                  loading="lazy"
-                />
-              </div>
-              <div className="director-meta">
-                <span className="director-name">{movie.director.name}</span>
-                <span className="director-role">{movie.director.job}</span>
-              </div>
-            </Link>
-          </div>
-        )}
-
-        {/* Cast list linking to /cast */}
-        {movie.cast && movie.cast.length > 0 && (
-          <div className="cast-section">
-            <div className="section-header-row">
-              <h2>
-                Cast
-                <span className="section-count-badge">({movie.cast.length})</span>
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {movie.cast.length > 15 && (
-                  <button
-                    type="button"
-                    className="section-action-btn"
-                    onClick={() => setCastLimit((prev) => (prev >= movie.cast!.length ? 15 : movie.cast!.length))}
-                  >
-                    {castLimit >= movie.cast.length ? 'Show Less' : `Show All (${movie.cast.length})`}
-                  </button>
-                )}
-                <div className="carousel-nav-arrows">
-                  <button className="nav-arrow-btn" onClick={() => scrollCarousel(castScrollRef, 'left')} aria-label="Scroll cast left">
-                    <ChevronLeft size={18} />
-                  </button>
-                  <button className="nav-arrow-btn" onClick={() => scrollCarousel(castScrollRef, 'right')} aria-label="Scroll cast right">
-                    <ChevronRight size={18} />
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <div className="cast-carousel-wrapper">
-              <div className="cast-scroll-container" ref={castScrollRef}>
-                {movie.cast.slice(0, castLimit).map((member) => (
-                  <Link key={member.id} href={`/cast?id=${member.id}`} className="cast-card">
-                    <div className="cast-avatar">
-                      <img 
-                        src={getImageUrl(member.profile_path, 'w185')} 
-                        alt={member.name} 
-                        className="cast-img" 
-                        loading="lazy"
-                      />
-                    </div>
-                    <span className="cast-name" title={member.name}>{member.name}</span>
-                    <span className="cast-character" title={member.character}>{member.character}</span>
-                  </Link>
-                ))}
-
-                {movie.cast.length > castLimit && (
-                  <button
-                    type="button"
-                    className="cast-card cast-load-more-card glass"
-                    onClick={() => setCastLimit((prev) => Math.min(prev + 15, movie.cast!.length))}
-                    title={`Load more cast (${movie.cast.length - castLimit} remaining)`}
-                  >
-                    <div className="cast-load-more-inner">
-                      <div className="cast-load-more-bubble">
-                        <ChevronRight size={22} />
-                      </div>
-                      <span className="cast-load-more-count">+{Math.min(15, movie.cast.length - castLimit)} More</span>
-                      <span className="cast-load-more-sub">Page {Math.floor(castLimit / 15) + 1}</span>
-                    </div>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Episodes listing for TV Show */}
-        {typeStr === 'tv' && movie.seasons && movie.seasons.length > 0 && (
-          <div className="episodes-section" id="episodes-section">
-            <div className="section-header-tv">
-              <h2>Episodes</h2>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div className="carousel-nav-arrows">
-                  <button className="nav-arrow-btn" onClick={() => scrollCarousel(episodesScrollRef, 'left')} aria-label="Scroll episodes left">
-                    <ChevronLeft size={18} />
-                  </button>
-                  <button className="nav-arrow-btn" onClick={() => scrollCarousel(episodesScrollRef, 'right')} aria-label="Scroll episodes right">
-                    <ChevronRight size={18} />
-                  </button>
-                </div>
-
-                {/* Themed Season Selector Dropdown */}
-                <div className="season-selector-wrapper" ref={seasonDropdownRef}>
-                  <button 
-                    type="button"
-                    className={`season-trigger-btn ${isSeasonDropdownOpen ? 'open' : ''}`}
-                    onClick={() => setIsSeasonDropdownOpen(prev => !prev)}
-                    aria-expanded={isSeasonDropdownOpen}
-                    aria-haspopup="listbox"
-                  >
-                    <span className="season-trigger-label">
-                      {(() => {
-                        const current = movie.seasons.find(s => s.season_number === (selectedSeason || 1));
-                        return current ? `${current.name} (${current.episode_count} Episodes)` : `Season ${selectedSeason || 1}`;
-                      })()}
-                    </span>
-                    <ChevronDown size={15} className={`season-chevron ${isSeasonDropdownOpen ? 'rotated' : ''}`} />
-                  </button>
-
-                  {isSeasonDropdownOpen && (
-                    <div className="season-dropdown-menu glass-premium animate-fade-in" role="listbox">
-                      {movie.seasons
-                        .filter(s => s.season_number > 0)
-                        .map(s => {
-                          const isCurrent = s.season_number === (selectedSeason || 1);
-                          return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              className={`season-option-item ${isCurrent ? 'selected' : ''}`}
-                              onClick={() => {
-                                setSelectedSeason(s.season_number);
-                                setIsSeasonDropdownOpen(false);
-                              }}
-                              role="option"
-                              aria-selected={isCurrent}
-                            >
-                              <div className="season-opt-info">
-                                <span className="season-opt-name">{s.name}</span>
-                                <span className="season-opt-count">{s.episode_count} Episodes</span>
-                              </div>
-                              {isCurrent && <Check size={15} className="season-opt-check" />}
-                            </button>
-                          );
-                        })
-                      }
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {loadingEpisodes ? (
-              <div className="loading-spinner-container" style={{ padding: '30px' }}>
-                <div className="spinner" />
-              </div>
-            ) : episodes.length > 0 ? (
-              <div className="episodes-carousel-wrapper">
-                <div className="episodes-scroll-container" ref={episodesScrollRef}>
-                  {episodes.map((ep) => {
-                    const epKey = `tv:${movie.id}:${ep.season_number}:${ep.episode_number}`;
-                    const epProg = episodeProgressMap[epKey];
-                    const isEpDone = epProg ? isEpisodeCompleted(epProg) : false;
-                    const hasEpProg = Boolean(epProg && (epProg.position > 0 || (typeof epProg.percentage === 'number' && epProg.percentage > 0)));
-                    const epPercentage = (epProg && typeof epProg.percentage === 'number')
-                      ? epProg.percentage
-                      : (epProg && epProg.duration > 0 ? Math.round((epProg.position / epProg.duration) * 100) : 0);
-
-                    const lastS = historyProgress?.lastSeason || 1;
-                    const lastE = historyProgress?.lastEpisode || 1;
-                    const isPriorEpisode = Boolean(
-                      historyProgress &&
-                      (ep.season_number < lastS || (ep.season_number === lastS && ep.episode_number < lastE))
-                    );
-                    const isResumeTarget = Boolean(
-                      historyProgress && 
-                      historyProgress.lastSeason === ep.season_number && 
-                      historyProgress.lastEpisode === ep.episode_number
-                    );
-                    const isResumeDone = isResumeTarget && isEpisodeCompleted(historyProgress);
-                    const isPlayed = isEpDone || isResumeDone || (isPriorEpisode && !hasEpProg);
-
-                    return (
-                      <div key={ep.id} className="episode-card-item">
-                        <Link
-                          href={`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`}
-                          className={`episode-item-card glass ${isResumeTarget ? 'episode-active' : ''} ${isPlayed ? 'episode-watched' : ''}`}
-                          onClick={(e) => {
+                <div className="similar-carousel-wrapper">
+                  <div className="similar-scroll-container" ref={similarScrollRef}>
+                    {similarMedia.map((item) => (
+                      <div key={item.id} className="similar-card-item">
+                        <MovieCard
+                          item={item}
+                          isAdded={watchlistIds.has(item.id)}
+                          toggleWatchlist={async (it, e) => {
                             e.preventDefault();
-                            router.push(`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`);
+                            e.stopPropagation();
+                            const stored = await AsyncStorage.getItem('watchlist');
+                            let list = stored ? JSON.parse(stored) : [];
+                            if (list.find((i: any) => i.id === it.id)) {
+                              list = list.filter((i: any) => i.id !== it.id);
+                            } else {
+                              list.push(it);
+                            }
+                            await AsyncStorage.setItem('watchlist', JSON.stringify(list));
+                            setWatchlistIds(new Set(list.map((i: any) => i.id)));
                           }}
-                        >
-                          <div className="ep-still-box">
-                            <img 
-                              src={getImageUrl(ep.still_path || movie.backdrop_path || movie.poster_path, 'w500')} 
-                              alt={ep.name} 
-                              className="ep-still-img" 
-                              loading="lazy"
-                            />
-                            
-                            <div className="ep-badge-pill">
-                              <span>EP {ep.episode_number}</span>
-                            </div>
-
-                            {isPlayed ? (
-                              <div className="ep-played-pill">
-                                <Check size={11} strokeWidth={3} />
-                                <span>Played</span>
-                              </div>
-                            ) : null}
-
-                            {ep.runtime && ep.runtime > 0 ? (
-                              <div className="ep-runtime-pill">
-                                <span>{ep.runtime}m</span>
-                              </div>
-                            ) : null}
-
-                            {hasEpProg && !isPlayed ? (
-                              <div className="ep-progress-bar-container">
-                                <div className="ep-progress-bar-fill" style={{ width: `${Math.min(100, Math.max(5, epPercentage))}%` }} />
-                              </div>
-                            ) : null}
-
-                            <div className="ep-play-overlay">
-                              <div className="ep-play-circle">
-                                <Play size={18} fill="white" style={{ marginLeft: 2 }} />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="ep-details">
-                            <h3 className="ep-title" title={`Episode ${ep.episode_number}: ${ep.name}`}>
-                              {ep.episode_number}. {ep.name || `Episode ${ep.episode_number}`}
-                            </h3>
-
-                            <div className="ep-meta-row">
-                              {ep.air_date ? (
-                                <span className="ep-meta-item">
-                                  <Calendar size={11} />
-                                  <span>{formatAirDate(ep.air_date)}</span>
-                                </span>
-                              ) : null}
-                              {ep.vote_average && ep.vote_average > 0 ? (
-                                <span className="ep-meta-item ep-rating-item">
-                                  <Star size={11} fill="#FFB800" color="#FFB800" />
-                                  <span>{ep.vote_average.toFixed(1)}</span>
-                                </span>
-                              ) : null}
-                              {isResumeTarget ? (
-                                <span className="ep-resume-badge">{isEpDone ? 'Next' : 'Resume'}</span>
-                              ) : null}
-                              {isPlayed ? (
-                                <span className="ep-played-badge">
-                                  <Check size={11} strokeWidth={2.5} />
-                                  <span>Played</span>
-                                </span>
-                              ) : null}
-                            </div>
-
-                            <p className="ep-overview">{ep.overview || "No episode description available."}</p>
-                          </div>
-                        </Link>
+                          showTitle={true}
+                        />
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
               </div>
-            ) : (
-              <p className="empty-text">No episodes found for this season.</p>
             )}
-          </div>
-        )}
-
-        {/* Similar Media Section */}
-        {similarMedia.length > 0 && (
-          <div className="similar-media-section">
-            <div className="section-header-row">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <h2>Similar Recommendations</h2>
-                <Link 
-                  href={`/similarmovies?id=${movie.id}&type=${typeStr}&name=${encodeURIComponent(titleText || '')}`}
-                  className="btn-secondary"
-                  style={{ fontSize: 12, padding: '5px 12px' }}
-                >
-                  View All Similar &rarr;
-                </Link>
-              </div>
-
-              <div className="carousel-nav-arrows">
-                <button className="nav-arrow-btn" onClick={() => scrollCarousel(similarScrollRef, 'left')} aria-label="Scroll similar left">
-                  <ChevronLeft size={18} />
-                </button>
-                <button className="nav-arrow-btn" onClick={() => scrollCarousel(similarScrollRef, 'right')} aria-label="Scroll similar right">
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            </div>
-
-            <div className="similar-carousel-wrapper">
-              <div className="similar-scroll-container" ref={similarScrollRef}>
-                {similarMedia.map((item) => (
-                  <div key={item.id} className="similar-card-item">
-                    <MovieCard
-                      item={item}
-                      isAdded={watchlistIds.has(item.id)}
-                      toggleWatchlist={async (it, e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const stored = await AsyncStorage.getItem('watchlist');
-                        let list = stored ? JSON.parse(stored) : [];
-                        if (list.find((i: any) => i.id === it.id)) {
-                          list = list.filter((i: any) => i.id !== it.id);
-                        } else {
-                          list.push(it);
-                        }
-                        await AsyncStorage.setItem('watchlist', JSON.stringify(list));
-                        setWatchlistIds(new Set(list.map((i: any) => i.id)));
-                      }}
-                      showTitle={true}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+          </main>{/* end detail-right-col */}
+        </div>{/* end desktop-layout-grid */}
+      </div>{/* end detail-content-wrapper */}
 
       {/* Trailer Modal */}
       {showTrailerModal && activeTrailerKey && (
@@ -1899,12 +1914,87 @@ function DetailContent() {
 
         .detail-content-wrapper {
           position: relative;
-          padding: 0 40px;
+          padding: 0 40px 60px;
           margin-top: -120px;
+          z-index: 5;
+        }
+
+        /* ── Desktop two-column grid ── */
+        .desktop-layout-grid {
           display: flex;
           flex-direction: column;
           gap: 34px;
-          z-index: 5;
+        }
+
+        @media (min-width: 1200px) {
+          .desktop-layout-grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 48px;
+            align-items: start;
+          }
+
+          .detail-left-col {
+            position: sticky;
+            top: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+            max-height: calc(100vh - 48px);
+            overflow-y: auto;
+            scrollbar-width: none;
+          }
+
+          .detail-left-col::-webkit-scrollbar { display: none; }
+
+          .detail-right-col {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            min-width: 0;
+          }
+
+          /* On desktop the main-meta-box stacks vertically inside the left col */
+          .main-meta-box {
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+            gap: 20px;
+          }
+
+          .poster-box {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 2 / 3;
+          }
+
+          .details-badges { justify-content: flex-start; }
+          .detail-actions { justify-content: flex-start; }
+
+          .left-col-ai {
+            margin-top: 0;
+          }
+        }
+
+        @media (min-width: 1600px) {
+          .desktop-layout-grid {
+            grid-template-columns: 420px 1fr;
+            gap: 56px;
+          }
+        }
+
+        /* Tablet — single column, horizontal meta-box */
+        @media (max-width: 1199px) {
+          .detail-left-col,
+          .detail-right-col {
+            display: contents;
+          }
+
+          .desktop-layout-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 34px;
+          }
         }
 
         .main-meta-box {
