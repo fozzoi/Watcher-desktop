@@ -118,6 +118,14 @@ function DetailContent() {
     };
   }, [ambientBg, dominantAccent]);
 
+  // Reset cast pagination and ensure scroll position starts at 0 (first cast member)
+  useEffect(() => {
+    setCastLimit(15);
+    if (castScrollRef.current) {
+      castScrollRef.current.scrollLeft = 0;
+    }
+  }, [movie?.id]);
+
   useEffect(() => {
     if (selectedGalleryIndex === null) return;
     document.body.style.overflow = 'hidden';
@@ -188,6 +196,12 @@ function DetailContent() {
     try {
       const details = await getMediaDetails(tmdbId, typeStr);
       setMovie(details);
+      setCastLimit(15);
+      requestAnimationFrame(() => {
+        if (castScrollRef.current) {
+          castScrollRef.current.scrollLeft = 0;
+        }
+      });
       setLoading(false);
       void getMovieImages(tmdbId, typeStr).then(setGalleryImages);
 
@@ -1108,7 +1122,16 @@ function DetailContent() {
                       <button
                         type="button"
                         className="section-action-btn"
-                        onClick={() => setCastLimit((prev) => (prev >= movie.cast!.length ? 15 : movie.cast!.length))}
+                        onClick={() => {
+                          if (castLimit >= movie.cast!.length) {
+                            setCastLimit(15);
+                            if (castScrollRef.current) {
+                              castScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+                            }
+                          } else {
+                            setCastLimit(movie.cast!.length);
+                          }
+                        }}
                       >
                         {castLimit >= movie.cast.length ? 'Show Less' : `Show All (${movie.cast.length})`}
                       </button>
@@ -1140,7 +1163,10 @@ function DetailContent() {
                       <button
                         type="button"
                         className="cast-card cast-load-more-card"
-                        onClick={() => setCastLimit((prev) => Math.min(prev + 15, movie.cast!.length))}
+                        onClick={(e) => {
+                          e.currentTarget.blur();
+                          setCastLimit((prev) => Math.min(prev + 15, movie.cast!.length));
+                        }}
                         title={`Load more cast (${movie.cast.length - castLimit} remaining)`}
                       >
                         <div className="cast-load-more-inner">
@@ -1672,7 +1698,7 @@ function DetailContent() {
           box-shadow: 0 8px 28px var(--tint-shadow);
         }
         .synopsis-box { padding: 22px 26px; }
-        .director-section { padding: 20px 22px; }
+        .director-section { padding: 20px 22px; overflow: visible; }
 
         /* ═════════ Ambient solid theme tokens & high contrast text ═════════ */
         .detail-container.is-ambient {
@@ -1808,6 +1834,9 @@ function DetailContent() {
           flex-direction: column;
           gap: 24px;
           min-width: 0;
+          padding: 8px 14px 24px 14px;
+          margin: -8px -14px -24px -14px;
+          overflow: visible;
         }
 
         @media (min-width: 1200px) {
@@ -1820,11 +1849,18 @@ function DetailContent() {
           .detail-side-col {
             position: sticky;
             top: 24px;
-            max-height: calc(100vh - 48px);
-            overflow-y: auto;
-            scrollbar-width: none;
+            overflow: visible;
+            padding: 8px 16px 24px 16px;
+            margin: -8px -16px -24px -16px;
           }
-          .detail-side-col::-webkit-scrollbar { display: none; }
+          @media (max-height: 600px) {
+            .detail-side-col {
+              max-height: calc(100vh - 48px);
+              overflow-y: auto;
+              scrollbar-width: none;
+            }
+            .detail-side-col::-webkit-scrollbar { display: none; }
+          }
 
           .main-meta-box { gap: 40px; align-items: flex-end; }
           .poster-box { width: 260px; height: 390px; }
@@ -2164,6 +2200,7 @@ function DetailContent() {
           backdrop-filter: blur(20px) saturate(180%) !important;
           -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
           box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4) !important;
+          overflow: visible;
         }
         .ai-header {
           display: flex; justify-content: space-between; align-items: center;
@@ -2344,13 +2381,12 @@ function DetailContent() {
         /* ═════════ Cast ═════════ */
         .cast-scroll-container {
           display: flex; align-items: flex-start; gap: 16px;
-          overflow-x: auto; scroll-behavior: smooth; scroll-snap-type: x mandatory;
+          overflow-x: auto; scroll-behavior: smooth;
           padding: 6px 0 16px 0; scrollbar-width: none;
         }
         .cast-scroll-container::-webkit-scrollbar { display: none; }
         .cast-card {
           flex: 0 0 130px; width: 130px; min-width: 130px; max-width: 130px;
-          scroll-snap-align: start;
           display: flex !important; flex-direction: column !important;
           gap: 4px; text-decoration: none; color: inherit;
         }
