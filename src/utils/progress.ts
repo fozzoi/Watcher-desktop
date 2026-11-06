@@ -38,16 +38,28 @@ export const saveProgress = async (progress: WatchProgress) => {
     const raw = (await AsyncStorage.getItem(PROGRESS_KEY)) || (await AsyncStorage.getItem(LEGACY_PROGRESS_KEY));
     const history = raw ? JSON.parse(raw) : {};
 
-    const dur = Number(progress.duration) || 0;
-    const pos = Number(progress.position) || 0;
-    const pct = dur > 0 ? Math.min(100, Math.max(0, (pos / dur) * 100)) : (progress.percentage || 0);
+    const epKey = progress.mediaType === 'tv'
+      ? `${progress.mediaType}:${progress.tmdbId}:${progress.lastSeason}:${progress.lastEpisode}`
+      : null;
+    const previous = epKey ? history[epKey] : (history[String(progress.tmdbId)] || null);
+
+    const dur = Number(progress.duration) > 0 
+      ? Number(progress.duration) 
+      : (previous?.duration ? Number(previous.duration) : 0);
+    const pos = Number(progress.position) > 0 
+      ? Number(progress.position) 
+      : (progress.completed ? (dur || 100) : (previous?.position ? Number(previous.position) : Number(progress.position) || 0));
+    const pct = dur > 0 
+      ? Math.min(100, Math.max(0, (pos / dur) * 100)) 
+      : (progress.percentage || (previous?.percentage || 0));
     const isCompleted = progress.completed === true || pct >= 90 || (dur > 0 && dur - pos <= 60 && pos >= 30);
 
     const updatedItem: WatchProgress = {
+      ...previous,
       ...progress,
       position: pos,
       duration: dur,
-      progress: dur > 0 ? pos / dur : 0,
+      progress: dur > 0 ? pos / dur : (previous?.progress || 0),
       percentage: Math.round(pct * 10) / 10,
       completed: isCompleted,
       updatedAt: progress.updatedAt || Date.now(),
@@ -57,8 +69,7 @@ export const saveProgress = async (progress: WatchProgress) => {
     history[String(progress.tmdbId)] = updatedItem;
 
     // For TV shows, also index by specific episode
-    if (progress.mediaType === 'tv') {
-      const epKey = `${progress.mediaType}:${progress.tmdbId}:${progress.lastSeason}:${progress.lastEpisode}`;
+    if (progress.mediaType === 'tv' && epKey) {
       history[epKey] = updatedItem;
     }
 
@@ -73,7 +84,7 @@ export const saveProgress = async (progress: WatchProgress) => {
     // Push progress mutation to cloud sync in background
     import('./syncManager')
       .then(({ syncManager }) => {
-        syncManager.queueWatchProgress({
+        const payload: Record<string, any> = {
           [String(progress.tmdbId)]: {
             progress: pos,
             position: pos,
@@ -90,7 +101,13 @@ export const saveProgress = async (progress: WatchProgress) => {
             poster: progress.poster,
             updatedAt: updatedItem.updatedAt,
           },
-        });
+        };
+        if (progress.mediaType === 'tv' && epKey) {
+          payload[epKey] = {
+            ...updatedItem,
+          };
+        }
+        syncManager.queueWatchProgress(payload);
       })
       .catch((err) => console.warn('Could not sync watch progress:', err));
   } catch (e) {
@@ -114,6 +131,7 @@ export const getProgress = async (
     if (mediaType === 'tv' && season && episode) {
       const epKey = `${mediaType}:${tmdbId}:${season}:${episode}`;
       if (history[epKey]) return history[epKey];
+      return null;
     }
 
     // Check by tmdbId key
@@ -128,6 +146,25 @@ export const getProgress = async (
     return (matching[0] as WatchProgress) || null;
   } catch (e) {
     return null;
+  }
+};
+
+// Get all episode-specific progress records for a given TV show
+export const getShowEpisodeProgressMap = async (tmdbId: number): Promise<Record<string, WatchProgress>> => {
+  try {
+    const raw = (await AsyncStorage.getItem(PROGRESS_KEY)) || (await AsyncStorage.getItem(LEGACY_PROGRESS_KEY));
+    if (!raw) return {};
+    const history = JSON.parse(raw);
+    const prefix = `tv:${tmdbId}:`;
+    const result: Record<string, WatchProgress> = {};
+    for (const [key, value] of Object.entries(history)) {
+      if (key.startsWith(prefix) && value) {
+        result[key] = value as WatchProgress;
+      }
+    }
+    return result;
+  } catch (e) {
+    return {};
   }
 };
 

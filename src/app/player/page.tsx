@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef, Suspense } from 'react';
+import React, { useEffect, useState, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   ArrowLeft, 
@@ -54,6 +54,9 @@ function PlayerContent() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const lastSavedPosRef = useRef(0);
+  const lastDurationRef = useRef(0);
+  const sessionStartTimeRef = useRef(Date.now());
+  const hasTriggeredNextRef = useRef(false);
 
   // Load poster if not passed
   useEffect(() => {
@@ -70,6 +73,23 @@ function PlayerContent() {
     };
     fetchPoster();
   }, [tmdbId, posterParam]);
+
+  // Record initial watch session on mount so season & episode are registered
+  useEffect(() => {
+    if (!tmdbId) return;
+    void saveProgress({
+      tmdbId,
+      mediaType: typeStr as 'movie' | 'tv',
+      title: titleStr,
+      poster: posterPath,
+      lastSeason: season,
+      lastEpisode: episode,
+      position: 0,
+      duration: 0,
+      completed: false,
+      updatedAt: Date.now()
+    });
+  }, [tmdbId, typeStr, titleStr, posterPath, season, episode]);
 
   // Fetch or construct stream URL based on active server
   useEffect(() => {
@@ -94,9 +114,12 @@ function PlayerContent() {
 
       if (activeServer === 'vidy') {
         setActiveProviderName("Vidy.st");
+        const savedProgress = await getProgress(tmdbId, typeStr as 'movie' | 'tv', season, episode);
+        const savedSecs = Math.floor(savedProgress?.position || 0);
+        const progressParam = savedSecs > 10 ? `&progress=${savedSecs}` : '';
         const defaultVidyUrl = isTv
-          ? `https://www.vidy.st/tv/${tmdbId}/${season}/${episode}?color=E50914&nextEpisode=true&episodeSelector=true&autoplayNextEpisode=true&autoplay=true&autoplay=1&autoPlay=true`
-          : `https://www.vidy.st/movie/${tmdbId}?color=E50914&autoplay=true&autoplay=1&autoPlay=true`;
+          ? `https://www.vidy.st/tv/${tmdbId}/${season}/${episode}?color=E50914&nextEpisode=true&episodeSelector=true&autoplayNextEpisode=true&autoplay=true&autoplay=1&autoPlay=true${progressParam}`
+          : `https://www.vidy.st/movie/${tmdbId}?color=E50914&autoplay=true&autoplay=1&autoPlay=true${progressParam}`;
         setStreamData({ is_m3u8: false, stream_url: defaultVidyUrl });
         setLoading(false);
         return;
@@ -324,72 +347,139 @@ function PlayerContent() {
     };
   }, [streamData, tmdbId, typeStr, season, episode, titleStr, posterPath, isTv, nextEpisode]);
 
-  // Listen to postMessage from embedded players (e.g. VidLink, Vidy)
+  // Listen to postMessage from embedded players (e.g. VidLink, Vidy, Vimeo, HTML5 embeds)
   useEffect(() => {
     const handleWindowMessage = (event: MessageEvent) => {
       try {
-        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        const raw = event.data;
+        const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
         if (!data) return;
+
+        let pos = 0;
+        let dur = 0;
+        let ended = false;
+
+        // VidLink / Vidy format: { type: 'MEDIA_DATA', data: { currentTime, duration } } or direct currentTime / position
         if (data.type === 'MEDIA_DATA' && data.data) {
-          const pos = Number(data.data.currentTime) || 0;
-          const dur = Number(data.data.duration) || 0;
-          if (dur > 0 && pos > 0) {
-            const isDone = pos / dur >= 0.9 || dur - pos <= 60;
-            saveProgress({
-              tmdbId,
-              mediaType: typeStr as 'movie' | 'tv',
-              title: titleStr,
-              poster: posterPath,
-              lastSeason: season,
-              lastEpisode: episode,
-              position: pos,
-              duration: dur,
-              completed: isDone,
-              updatedAt: Date.now()
-            });
+          pos = Number(data.data.currentTime ?? data.data.position) || 0;
+          dur = Number(data.data.duration) || 0;
+        } else if (data.currentTime !== undefined || data.position !== undefined) {
+          pos = Number(data.currentTime ?? data.position) || 0;
+          dur = Number(data.duration) || 0;
+        } else if (data.data && (data.data.currentTime !== undefined || data.data.position !== undefined)) {
+          pos = Number(data.data.currentTime ?? data.data.position) || 0;
+          dur = Number(data.data.duration) || 0;
+        }
+
+        if (data.event === 'ended' || data.type === 'ended') {
+          ended = true;
+          if (isTv && nextEpisode && !hasTriggeredNextRef.current) {
+            hasTriggeredNextRef.current = true;
+            void goToNextEpisode();
+            return;
           }
+        }
+
+        if (pos > 0) lastSavedPosRef.current = pos;
+        if (dur > 0) lastDurationRef.current = dur;
+
+        if (dur > 0 && (pos > 0 || ended)) {
+          const isDone = ended || pos / dur >= 0.9 || (dur - pos <= 60 && pos >= 30);
+          saveProgress({
+            tmdbId,
+            mediaType: typeStr as 'movie' | 'tv',
+            title: titleStr,
+            poster: posterPath,
+            lastSeason: season,
+            lastEpisode: episode,
+            position: ended ? dur : pos,
+            duration: dur,
+            completed: isDone,
+            updatedAt: Date.now()
+          });
         }
       } catch {}
     };
     window.addEventListener('message', handleWindowMessage);
     return () => window.removeEventListener('message', handleWindowMessage);
-  }, [tmdbId, typeStr, season, episode, titleStr, posterPath]);
+  }, [tmdbId, typeStr, season, episode, titleStr, posterPath, isTv, nextEpisode]);
 
-  const flushProgress = async () => {
-    if (videoRef.current && videoRef.current.currentTime > 0) {
-      const pos = videoRef.current.currentTime;
-      const dur = videoRef.current.duration || 0;
-      const isDone = dur > 0 && (pos / dur >= 0.9 || dur - pos <= 60);
-      await saveProgress({
-        tmdbId,
-        mediaType: typeStr as 'movie' | 'tv',
-        title: titleStr,
-        poster: posterPath,
-        lastSeason: season,
-        lastEpisode: episode,
-        position: pos,
-        duration: dur,
-        completed: isDone,
-        updatedAt: Date.now()
-      });
+  const flushProgress = useCallback(async () => {
+    const videoPos = videoRef.current?.currentTime;
+    const videoDur = videoRef.current?.duration;
+
+    let pos = (videoPos && videoPos > 0)
+      ? videoPos
+      : (lastSavedPosRef.current > 0 ? lastSavedPosRef.current : 0);
+    let dur = (videoDur && videoDur > 0)
+      ? videoDur
+      : (lastDurationRef.current > 0 ? lastDurationRef.current : 0);
+
+    const elapsed = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
+    if (pos === 0 && elapsed >= 10) {
+      pos = elapsed;
+      if (dur === 0) dur = isTv ? 2400 : 7200;
     }
+
+    const isDone = dur > 0 && (pos / dur >= 0.85 || (dur - pos <= 90 && pos >= 30) || (elapsed >= (isTv ? 1200 : 3600)));
+
+    await saveProgress({
+      tmdbId,
+      mediaType: typeStr as 'movie' | 'tv',
+      title: titleStr,
+      poster: posterPath,
+      lastSeason: season,
+      lastEpisode: episode,
+      position: pos,
+      duration: dur,
+      completed: isDone,
+      updatedAt: Date.now()
+    });
 
     // Save to general history list
     try {
       const storedHistory = await AsyncStorage.getItem('history');
       let currentHistory = storedHistory ? JSON.parse(storedHistory) : [];
-      if (!currentHistory.some((item: any) => item.id === tmdbId)) {
-        currentHistory.unshift({
-          id: tmdbId,
-          title: titleStr,
-          media_type: typeStr,
-          poster_path: posterPath,
-          timestamp: Date.now()
-        });
-        await AsyncStorage.setItem('history', JSON.stringify(currentHistory));
-      }
+      currentHistory = currentHistory.filter((item: any) => item.id !== tmdbId);
+      currentHistory.unshift({
+        id: tmdbId,
+        title: titleStr,
+        media_type: typeStr,
+        poster_path: posterPath,
+        season,
+        episode,
+        timestamp: Date.now()
+      });
+      await AsyncStorage.setItem('history', JSON.stringify(currentHistory.slice(0, 100)));
     } catch (e) {}
-  };
+
+    // Flush outbox to cloud sync server immediately
+    try {
+      const [token, rawUser] = await Promise.all([
+        AsyncStorage.getItem('watcher_auth_token'),
+        AsyncStorage.getItem('watcher_auth_user'),
+      ]);
+      const userId = rawUser ? JSON.parse(rawUser)?.userId : null;
+      if (token && userId) {
+        const { syncManager } = await import('@/utils/syncManager');
+        void syncManager.flushOutbox(token, userId);
+      }
+    } catch {}
+  }, [tmdbId, typeStr, titleStr, posterPath, season, episode, isTv]);
+
+  // Window unload / pagehide listeners to flush progress on browser/Tauri navigation
+  useEffect(() => {
+    const handleUnload = () => {
+      void flushProgress();
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('pagehide', handleUnload);
+      void flushProgress();
+    };
+  }, [flushProgress]);
 
   const handleExit = async () => {
     await flushProgress();

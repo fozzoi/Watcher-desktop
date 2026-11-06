@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   ChevronDown,
   RotateCcw,
+  RefreshCw,
   X,
   CheckCircle2,
   Video,
@@ -52,7 +53,7 @@ import {
   TMDBCollectionDetails
 } from '@/utils/tmdb';
 import { searchTorrents, TorrentResult } from '@/utils/Scraper';
-import { getProgress, isEpisodeCompleted, WatchProgress } from '@/utils/progress';
+import { getProgress, getShowEpisodeProgressMap, isEpisodeCompleted, WatchProgress } from '@/utils/progress';
 import { AsyncStorage } from '@/utils/storage';
 import { useImagePalette, warmPaletteForMedia, AMBIENT_PENDING_BG } from '@/utils/colorExtractor';
 import MovieCard from '@/components/MovieCard';
@@ -73,9 +74,11 @@ function DetailContent() {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [isWatched, setIsWatched] = useState(false);
   const [historyProgress, setHistoryProgress] = useState<WatchProgress | null>(null);
+  const [episodeProgressMap, setEpisodeProgressMap] = useState<Record<string, WatchProgress>>({});
   const [collectionData, setCollectionData] = useState<TMDBCollectionDetails | null>(null);
   
   // Cast and recommendations
+  const [castLimit, setCastLimit] = useState(15);
   const [similarMedia, setSimilarMedia] = useState<TMDBResult[]>([]);
   const [aiRecommendations, setAiRecommendations] = useState<TMDBResult[]>([]);
   const [loadingAi, setLoadingAi] = useState(false);
@@ -209,12 +212,21 @@ function DetailContent() {
       const progress = await getProgress(tmdbId);
       if (progress) setHistoryProgress(progress);
 
+      if (typeStr === 'tv') {
+        const epMap = await getShowEpisodeProgressMap(tmdbId);
+        setEpisodeProgressMap(epMap);
+      }
+
       const trailerList = await getTrailers(tmdbId, typeStr);
       setTrailers(trailerList);
 
       if (typeStr === 'tv' && details.seasons && details.seasons.length > 0) {
+        const savedSeason = progress?.lastSeason;
+        const validSavedSeason = savedSeason && details.seasons.some((s: any) => s.season_number === savedSeason)
+          ? savedSeason
+          : null;
         const firstSeason = details.seasons.find(s => s.season_number > 0) || details.seasons[0];
-        setSelectedSeason(firstSeason.season_number);
+        setSelectedSeason(validSavedSeason ?? firstSeason.season_number);
       }
     } catch (err) {
       console.error(err);
@@ -248,22 +260,47 @@ function DetailContent() {
     const refreshLibraryState = () => { void loadWatchlistState(); };
     const refreshProgress = () => {
       if (tmdbId) {
+        // Pull latest updates from cloud if logged in
+        AsyncStorage.getItem('watcher_auth_token').then((token) => {
+          if (token) {
+            import('@/utils/syncManager').then(({ syncManager }) => {
+              void syncManager.pullIfChanged(token);
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+
         void getProgress(tmdbId).then((prog) => {
-          if (prog) setHistoryProgress(prog);
+          if (prog) {
+            setHistoryProgress(prog);
+            if (typeStr === 'tv' && prog.lastSeason) {
+              setSelectedSeason(prog.lastSeason);
+            }
+          }
         });
+        if (typeStr === 'tv') {
+          void getShowEpisodeProgressMap(tmdbId).then((map) => {
+            setEpisodeProgressMap(map);
+          });
+        }
       }
     };
     window.addEventListener('watcher_cloud_synced', refreshLibraryState);
     window.addEventListener('watcher_cloud_synced', refreshProgress);
     window.addEventListener('watcher_local_library_changed', refreshLibraryState);
     window.addEventListener('watcher_watch_progress_changed', refreshProgress);
+    window.addEventListener('focus', refreshProgress);
+    window.addEventListener('pageshow', refreshProgress);
+    window.addEventListener('popstate', refreshProgress);
     return () => {
       window.removeEventListener('watcher_cloud_synced', refreshLibraryState);
       window.removeEventListener('watcher_cloud_synced', refreshProgress);
       window.removeEventListener('watcher_local_library_changed', refreshLibraryState);
       window.removeEventListener('watcher_watch_progress_changed', refreshProgress);
+      window.removeEventListener('focus', refreshProgress);
+      window.removeEventListener('pageshow', refreshProgress);
+      window.removeEventListener('popstate', refreshProgress);
     };
-  }, [loadWatchlistState, tmdbId]);
+  }, [loadWatchlistState, tmdbId, typeStr]);
 
   // Manual trigger for Gemini AI vibes (does not auto-run on mount)
   const handleFetchAiVibes = async () => {
@@ -646,8 +683,14 @@ function DetailContent() {
     return (
       <div className="empty-state">
         <Info size={32} />
-        <p>Movie details could not be found.</p>
-        <button className="btn-secondary" onClick={() => router.push('/')}>Go Home</button>
+        <p>Media details could not be loaded or timed out.</p>
+        <div style={{ display: 'flex', gap: 12, marginTop: 14 }}>
+          <button className="btn-primary" onClick={() => { setLoading(true); void fetchDetails(); }}>
+            <RefreshCw size={15} />
+            <span>Retry</span>
+          </button>
+          <button className="btn-secondary" onClick={() => router.push('/')}>Go Home</button>
+        </div>
       </div>
     );
   }
@@ -1254,20 +1297,34 @@ function DetailContent() {
         {movie.cast && movie.cast.length > 0 && (
           <div className="cast-section">
             <div className="section-header-row">
-              <h2>Cast</h2>
-              <div className="carousel-nav-arrows">
-                <button className="nav-arrow-btn" onClick={() => scrollCarousel(castScrollRef, 'left')} aria-label="Scroll cast left">
-                  <ChevronLeft size={18} />
-                </button>
-                <button className="nav-arrow-btn" onClick={() => scrollCarousel(castScrollRef, 'right')} aria-label="Scroll cast right">
-                  <ChevronRight size={18} />
-                </button>
+              <h2>
+                Cast
+                <span className="section-count-badge">({movie.cast.length})</span>
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {movie.cast.length > 15 && (
+                  <button
+                    type="button"
+                    className="section-action-btn"
+                    onClick={() => setCastLimit((prev) => (prev >= movie.cast!.length ? 15 : movie.cast!.length))}
+                  >
+                    {castLimit >= movie.cast.length ? 'Show Less' : `Show All (${movie.cast.length})`}
+                  </button>
+                )}
+                <div className="carousel-nav-arrows">
+                  <button className="nav-arrow-btn" onClick={() => scrollCarousel(castScrollRef, 'left')} aria-label="Scroll cast left">
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button className="nav-arrow-btn" onClick={() => scrollCarousel(castScrollRef, 'right')} aria-label="Scroll cast right">
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
               </div>
             </div>
             
             <div className="cast-carousel-wrapper">
               <div className="cast-scroll-container" ref={castScrollRef}>
-                {movie.cast.map((member) => (
+                {movie.cast.slice(0, castLimit).map((member) => (
                   <Link key={member.id} href={`/cast?id=${member.id}`} className="cast-card">
                     <div className="cast-avatar">
                       <img 
@@ -1281,6 +1338,23 @@ function DetailContent() {
                     <span className="cast-character" title={member.character}>{member.character}</span>
                   </Link>
                 ))}
+
+                {movie.cast.length > castLimit && (
+                  <button
+                    type="button"
+                    className="cast-card cast-load-more-card glass"
+                    onClick={() => setCastLimit((prev) => Math.min(prev + 15, movie.cast!.length))}
+                    title={`Load more cast (${movie.cast.length - castLimit} remaining)`}
+                  >
+                    <div className="cast-load-more-inner">
+                      <div className="cast-load-more-bubble">
+                        <ChevronRight size={22} />
+                      </div>
+                      <span className="cast-load-more-count">+{Math.min(15, movie.cast.length - castLimit)} More</span>
+                      <span className="cast-load-more-sub">Page {Math.floor(castLimit / 15) + 1}</span>
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1361,17 +1435,33 @@ function DetailContent() {
               <div className="episodes-carousel-wrapper">
                 <div className="episodes-scroll-container" ref={episodesScrollRef}>
                   {episodes.map((ep) => {
+                    const epKey = `tv:${movie.id}:${ep.season_number}:${ep.episode_number}`;
+                    const epProg = episodeProgressMap[epKey];
+                    const isEpDone = epProg ? isEpisodeCompleted(epProg) : false;
+                    const hasEpProg = Boolean(epProg && (epProg.position > 0 || (typeof epProg.percentage === 'number' && epProg.percentage > 0)));
+                    const epPercentage = (epProg && typeof epProg.percentage === 'number')
+                      ? epProg.percentage
+                      : (epProg && epProg.duration > 0 ? Math.round((epProg.position / epProg.duration) * 100) : 0);
+
+                    const lastS = historyProgress?.lastSeason || 1;
+                    const lastE = historyProgress?.lastEpisode || 1;
+                    const isPriorEpisode = Boolean(
+                      historyProgress &&
+                      (ep.season_number < lastS || (ep.season_number === lastS && ep.episode_number < lastE))
+                    );
                     const isResumeTarget = Boolean(
                       historyProgress && 
                       historyProgress.lastSeason === ep.season_number && 
                       historyProgress.lastEpisode === ep.episode_number
                     );
+                    const isResumeDone = isResumeTarget && isEpisodeCompleted(historyProgress);
+                    const isPlayed = isEpDone || isResumeDone || (isPriorEpisode && !hasEpProg);
 
                     return (
                       <div key={ep.id} className="episode-card-item">
                         <Link
                           href={`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`}
-                          className={`episode-item-card glass ${isResumeTarget ? 'episode-active' : ''}`}
+                          className={`episode-item-card glass ${isResumeTarget ? 'episode-active' : ''} ${isPlayed ? 'episode-watched' : ''}`}
                           onClick={(e) => {
                             e.preventDefault();
                             router.push(`/player?id=${movie.id}&type=tv&title=${encodeURIComponent(titleText || '')}&season=${ep.season_number}&episode=${ep.episode_number}&poster=${encodeURIComponent(movie.poster_path || '')}`);
@@ -1389,9 +1479,22 @@ function DetailContent() {
                               <span>EP {ep.episode_number}</span>
                             </div>
 
+                            {isPlayed ? (
+                              <div className="ep-played-pill">
+                                <Check size={11} strokeWidth={3} />
+                                <span>Played</span>
+                              </div>
+                            ) : null}
+
                             {ep.runtime && ep.runtime > 0 ? (
                               <div className="ep-runtime-pill">
                                 <span>{ep.runtime}m</span>
+                              </div>
+                            ) : null}
+
+                            {hasEpProg && !isPlayed ? (
+                              <div className="ep-progress-bar-container">
+                                <div className="ep-progress-bar-fill" style={{ width: `${Math.min(100, Math.max(5, epPercentage))}%` }} />
                               </div>
                             ) : null}
 
@@ -1421,7 +1524,13 @@ function DetailContent() {
                                 </span>
                               ) : null}
                               {isResumeTarget ? (
-                                <span className="ep-resume-badge">Resume</span>
+                                <span className="ep-resume-badge">{isEpDone ? 'Next' : 'Resume'}</span>
+                              ) : null}
+                              {isPlayed ? (
+                                <span className="ep-played-badge">
+                                  <Check size={11} strokeWidth={2.5} />
+                                  <span>Played</span>
+                                </span>
                               ) : null}
                             </div>
 
@@ -3447,6 +3556,127 @@ function DetailContent() {
           border-radius: 4px;
           background: var(--primary);
           color: #ffffff;
+        }
+
+        .ep-played-badge {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.4px;
+          padding: 1px 6px;
+          border-radius: 4px;
+          background: rgba(48, 209, 88, 0.18);
+          color: #30D158;
+          border: 1px solid rgba(48, 209, 88, 0.35);
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+        }
+
+        .ep-played-pill {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          background: rgba(48, 209, 88, 0.88);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          color: #ffffff;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.3px;
+          padding: 2px 7px;
+          border-radius: 6px;
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          z-index: 2;
+        }
+
+        .ep-progress-bar-container {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: 3.5px;
+          background: rgba(255, 255, 255, 0.2);
+          z-index: 2;
+        }
+
+        .ep-progress-bar-fill {
+          height: 100%;
+          background: var(--primary);
+        }
+
+        .cast-load-more-card {
+          border: 1px dashed rgba(255, 255, 255, 0.2);
+          cursor: pointer;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255, 255, 255, 0.04);
+          border-radius: 12px;
+          transition: var(--transition-smooth);
+        }
+
+        .cast-load-more-card:hover {
+          border-color: var(--primary);
+          background: rgba(229, 9, 20, 0.08);
+          transform: translateY(-4px);
+        }
+
+        .cast-load-more-inner {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 20px 8px;
+          width: 130px;
+          height: 175px;
+        }
+
+        .cast-load-more-bubble {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--foreground);
+        }
+
+        .cast-load-more-count {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--foreground);
+        }
+
+        .cast-load-more-sub {
+          font-size: 11px;
+          color: var(--foreground-muted);
+        }
+
+        .section-count-badge {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--foreground-muted);
+          margin-left: 6px;
+        }
+
+        .section-action-btn {
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          color: var(--foreground);
+          font-size: 12px;
+          font-weight: 600;
+          padding: 5px 12px;
+          border-radius: 20px;
+          cursor: pointer;
+          transition: var(--transition-smooth);
+        }
+
+        .section-action-btn:hover {
+          background: rgba(255, 255, 255, 0.18);
+          border-color: var(--foreground);
         }
 
         .ep-overview {

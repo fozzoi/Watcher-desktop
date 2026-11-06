@@ -48,13 +48,27 @@ async function saveCloudLibrary(library: CloudLibrary) {
   let saveOps: Promise<void>[] = [];
   applyingCloudState = true;
   try {
+    const localRaw = (await AsyncStorage.getItem('@watch_progress')) || (await AsyncStorage.getItem('watch_progress_v1'));
+    let localProg: Record<string, any> = {};
+    try { localProg = localRaw ? JSON.parse(localRaw) : {}; } catch { localProg = {}; }
+    const remoteProg = (library.watchProgress && typeof library.watchProgress === 'object') ? library.watchProgress : {};
+    const mergedProg: Record<string, any> = { ...localProg };
+    for (const [k, v] of Object.entries(remoteProg)) {
+      if (!v) continue;
+      const localVal: any = mergedProg[k];
+      if (!localVal || ((v as any).updatedAt || 0) >= ((localVal as any).updatedAt || 0)) {
+        mergedProg[k] = v;
+      }
+    }
+    const progJson = JSON.stringify(mergedProg);
+
     saveOps = [
       AsyncStorage.setItem('watchlist', JSON.stringify(library.watchlist || [])),
       AsyncStorage.setItem('history', JSON.stringify(library.history || [])),
       AsyncStorage.setItem('favoriteArtists', JSON.stringify(library.favoriteArtists || [])),
       AsyncStorage.setItem('savedCollections', JSON.stringify(library.savedCollections || [])),
-      AsyncStorage.setItem('@watch_progress', JSON.stringify(library.watchProgress || {})),
-      AsyncStorage.setItem('watch_progress_v1', JSON.stringify(library.watchProgress || {})),
+      AsyncStorage.setItem('@watch_progress', progJson),
+      AsyncStorage.setItem('watch_progress_v1', progJson),
     ];
     if (typeof library.preferences?.nsfwFilterEnabled === 'boolean') {
       saveOps.push(AsyncStorage.setItem('settings_nsfw', JSON.stringify(library.preferences.nsfwFilterEnabled)));
