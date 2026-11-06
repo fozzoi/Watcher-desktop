@@ -102,11 +102,19 @@ function DetailContent() {
       document.documentElement.style.setProperty('--page-ambient-accent', dominantAccent);
     }
     const prevBg = document.body.style.backgroundColor;
+    const prevBgImage = document.body.style.backgroundImage;
     document.body.style.backgroundColor = ambientBg;
+    document.body.style.backgroundImage = 'none';
+    document.documentElement.classList.add('is-ambient-page');
+    document.body.classList.add('is-ambient-page');
+
     return () => {
       document.documentElement.style.removeProperty('--page-ambient-bg');
       document.documentElement.style.removeProperty('--page-ambient-accent');
       document.body.style.backgroundColor = prevBg;
+      document.body.style.backgroundImage = prevBgImage;
+      document.documentElement.classList.remove('is-ambient-page');
+      document.body.classList.remove('is-ambient-page');
     };
   }, [ambientBg, dominantAccent]);
 
@@ -487,8 +495,8 @@ function DetailContent() {
         <style jsx>{`
           .detail-container {
             position: relative;
-            margin: -32px -36px 0;
-            width: calc(100% + 72px);
+            margin: 0;
+            width: 100%;
             min-height: 100vh;
             overflow: hidden;
             background: var(--bg-color);
@@ -555,9 +563,9 @@ function DetailContent() {
             animation: detail-skeleton-shimmer 1.5s ease-in-out infinite;
           }
           @keyframes detail-skeleton-shimmer { to { background-position: -200% 0; } }
-          @media (max-width: 1024px) { .detail-container { margin: -24px -24px 0; width: calc(100% + 48px); } }
+          @media (max-width: 1024px) { .detail-container { margin: 0; width: 100%; } }
           @media (max-width: 900px) {
-            .detail-container { margin: -20px -20px 0; width: calc(100% + 40px); }
+            .detail-container { margin: 0; width: 100%; }
             .skeleton-backdrop { height: 340px; min-height: 300px; }
             .skeleton-content { margin-top: -100px; }
           }
@@ -568,7 +576,7 @@ function DetailContent() {
             .skeleton-overview { width: 100%; }
           }
           @media (max-width: 640px) {
-            .detail-container { margin: -16px -16px 0; width: calc(100% + 32px); }
+            .detail-container { margin: 0; width: 100%; }
             .skeleton-back-button { top: 20px; left: 20px; }
             .skeleton-content { margin-top: -88px; padding: 0 20px 36px; gap: 32px; }
             .skeleton-poster { flex-basis: auto; width: 180px; height: 270px; }
@@ -884,7 +892,7 @@ function DetailContent() {
                       </button>
 
                       {isSeasonDropdownOpen && (
-                        <div className="season-dropdown-menu glass-premium animate-fade-in" role="listbox">
+                        <div className="season-dropdown-menu animate-fade-in" role="listbox">
                           {movie.seasons
                             .filter((s) => s.season_number > 0)
                             .map((s) => {
@@ -1274,7 +1282,7 @@ function DetailContent() {
             )}
 
             {/* AI Panel */}
-            <div className="ai-panel glass-premium animate-fade-in-up">
+            <div className="ai-panel animate-fade-in-up">
               <div className="ai-header">
                 <div className="ai-header-left">
                   <Sparkles size={18} className="ai-sparkle-icon" />
@@ -1510,7 +1518,7 @@ function DetailContent() {
       {/* Trailer Modal */}
       {showTrailerModal && activeTrailerKey && (
         <div className="modal-backdrop" onClick={() => setShowTrailerModal(false)}>
-          <div className="trailer-modal-content glass-premium" onClick={(e) => e.stopPropagation()}>
+          <div className="trailer-modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Official Trailer</h3>
               <button className="panel-close-btn" onClick={() => setShowTrailerModal(false)}>
@@ -1533,7 +1541,7 @@ function DetailContent() {
       {/* Torrent Modal */}
       {showTorrentModal && (
         <div className="modal-backdrop" onClick={() => setShowTorrentModal(false)}>
-          <div className="torrent-modal-content glass-premium" onClick={(e) => e.stopPropagation()}>
+          <div className="torrent-modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Download size={20} style={{ color: 'var(--accent)' }} />
@@ -1618,10 +1626,11 @@ function DetailContent() {
         /* ═════════ Adaptive colour tokens (all derived from the poster accent) ═════════ */
         .detail-container {
           position: relative;
-          margin: -24px -32px -80px;
-          padding-bottom: 80px;
-          width: calc(100% + 64px);
-          max-width: calc(100% + 64px);
+          margin: 0;
+          padding-bottom: 120px;
+          width: 100%;
+          max-width: 100%;
+          min-height: 100vh;
           box-sizing: border-box;
           background-color: var(--detail-ambient-bg, var(--bg-color));
           transition: background-color 0.4s ease;
@@ -1637,18 +1646,18 @@ function DetailContent() {
 
         @media (max-width: 1024px) {
           .detail-container {
-            margin: -20px -24px -80px;
-            padding-bottom: 80px;
-            width: calc(100% + 48px);
-            max-width: calc(100% + 48px);
+            margin: 0;
+            padding-bottom: 120px;
+            width: 100%;
+            max-width: 100%;
           }
         }
         @media (max-width: 768px) {
           .detail-container {
-            margin: -16px -16px -110px;
-            padding-bottom: 110px;
-            width: calc(100% + 32px);
-            max-width: calc(100% + 32px);
+            margin: 0;
+            padding-bottom: 130px;
+            width: 100%;
+            max-width: 100%;
           }
           .carousel-nav-arrows, .nav-arrow-btn { display: none !important; }
         }
@@ -1919,16 +1928,22 @@ function DetailContent() {
         .nav-arrow-btn {
           width: 32px; height: 32px;
           border-radius: 50%;
-          background: var(--tint);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid var(--tint-border);
-          color: #fff;
+          background: rgba(255, 255, 255, 0.12) !important;
+          backdrop-filter: blur(12px) !important;
+          -webkit-backdrop-filter: blur(12px) !important;
+          border: 1px solid rgba(255, 255, 255, 0.22) !important;
+          color: #ffffff !important;
           display: flex; align-items: center; justify-content: center;
           cursor: pointer;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
           transition: var(--transition-fast);
         }
-        .nav-arrow-btn:hover { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+        .nav-arrow-btn:hover {
+          background: var(--primary) !important;
+          border-color: var(--primary) !important;
+          color: #ffffff !important;
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;
+        }
 
         .cast-carousel-wrapper, .episodes-carousel-wrapper, .similar-carousel-wrapper, .vibe-carousel-wrapper {
           position: relative; margin: 0; width: 100%;
@@ -2140,31 +2155,31 @@ function DetailContent() {
         .director-name { font-size: 14px; font-weight: 600; color: #fff; }
         .director-role { font-size: 11.5px; color: rgba(255, 255, 255, 0.65); text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* ═════════ AI panel (accent-driven instead of purple) ═════════ */
+        /* ═════════ AI panel ═════════ */
         .ai-panel {
           padding: 24px;
           border-radius: var(--border-radius-lg);
-          border: 1px solid var(--tint-border-strong);
-          background: color-mix(in srgb, var(--accent) 10%, rgba(10, 10, 14, 0.55));
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          box-shadow: 0 10px 34px var(--tint-shadow);
+          border: 1px solid rgba(255, 255, 255, 0.16) !important;
+          background: rgba(0, 0, 0, 0.35) !important;
+          backdrop-filter: blur(20px) saturate(180%) !important;
+          -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+          box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4) !important;
         }
         .ai-header {
           display: flex; justify-content: space-between; align-items: center;
           margin-bottom: 20px; padding-bottom: 16px;
-          border-bottom: 1px solid var(--tint-border);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.12);
           flex-wrap: wrap; gap: 14px;
         }
         .ai-header-left { display: flex; align-items: center; gap: 12px; }
-        .ai-sparkle-icon { color: var(--accent-text); filter: drop-shadow(0 0 8px var(--tint-strong)); }
-        .ai-header-title { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
-        .ai-header-subtitle { font-size: 11.5px; color: rgba(255, 255, 255, 0.65); margin-top: 1px; }
+        .ai-sparkle-icon { color: var(--accent, var(--primary)); filter: drop-shadow(0 0 8px rgba(229, 9, 20, 0.4)); }
+        .ai-header-title { font-size: 18px; font-weight: 700; color: #ffffff !important; letter-spacing: -0.3px; }
+        .ai-header-subtitle { font-size: 11.5px; color: rgba(255, 255, 255, 0.72) !important; margin-top: 1px; }
 
         .ai-tabs {
           display: flex;
-          background: rgba(0, 0, 0, 0.35);
-          border: 1px solid var(--tint-border);
+          background: rgba(0, 0, 0, 0.5) !important;
+          border: 1px solid rgba(255, 255, 255, 0.15) !important;
           border-radius: 100px;
           padding: 3px; gap: 4px;
         }
@@ -2173,17 +2188,17 @@ function DetailContent() {
           border-radius: 100px;
           background: transparent;
           border: 1px solid transparent;
-          color: rgba(255, 255, 255, 0.7);
+          color: rgba(255, 255, 255, 0.75) !important;
           font-size: 13px; font-weight: 600;
           cursor: pointer;
           transition: var(--transition-fast);
         }
-        .ai-tab-btn:hover { color: #fff; }
+        .ai-tab-btn:hover { color: #ffffff !important; }
         .ai-tab-btn.active {
-          background: var(--tint-strong);
-          border-color: var(--tint-border-strong);
-          color: var(--accent-text);
-          box-shadow: 0 2px 10px var(--tint-shadow);
+          background: rgba(255, 255, 255, 0.22) !important;
+          border-color: rgba(255, 255, 255, 0.35) !important;
+          color: #ffffff !important;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
         }
 
         .ai-tab-body { min-height: 120px; }
@@ -2191,8 +2206,27 @@ function DetailContent() {
           display: flex; flex-direction: column; align-items: center; justify-content: center;
           padding: 30px 20px; text-align: center; gap: 16px;
         }
-        .ai-unloaded-state p { font-size: 14px; color: rgba(255, 255, 255, 0.72); max-width: 500px; line-height: 1.5; }
-        .ai-action-btn { display: inline-flex; align-items: center; gap: 10px; padding: 12px 24px; border-radius: 100px; font-size: 14px; font-weight: 600; cursor: pointer; transition: var(--transition-smooth); }
+        .ai-unloaded-state p { font-size: 14px; color: rgba(255, 255, 255, 0.88) !important; max-width: 500px; line-height: 1.5; }
+        .ai-action-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 24px;
+          border-radius: 100px;
+          font-size: 14px;
+          font-weight: 700 !important;
+          cursor: pointer;
+          transition: var(--transition-smooth);
+          background: var(--primary) !important;
+          color: #ffffff !important;
+          border: 1px solid rgba(255, 255, 255, 0.2) !important;
+          box-shadow: 0 6px 20px rgba(229, 9, 20, 0.35) !important;
+        }
+        .ai-action-btn:hover {
+          transform: translateY(-2px);
+          filter: brightness(1.1);
+          box-shadow: 0 8px 24px rgba(229, 9, 20, 0.45) !important;
+        }
         .ai-action-btn:hover { transform: translateY(-2px); }
 
         .re-generate-btn {

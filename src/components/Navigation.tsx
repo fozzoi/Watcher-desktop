@@ -782,45 +782,189 @@ export default function Navigation() {
 
         /* ===== Ambient Themed Overrides (Detail & Cast Pages) ===== */
         :root[style*="--page-ambient-bg"] .desktop-sidebar,
-        :root[style*="--page-ambient-bg"] [data-theme="light"] .desktop-sidebar {
+        :root[style*="--page-ambient-bg"] [data-theme="light"] .desktop-sidebar,
+        html.is-ambient-page .desktop-sidebar,
+        body.is-ambient-page .desktop-sidebar {
           background: color-mix(in srgb, var(--page-ambient-bg) 88%, rgba(12, 12, 16, 0.94)) !important;
           border-color: color-mix(in srgb, var(--page-ambient-accent, #ffffff) 25%, rgba(255, 255, 255, 0.12)) !important;
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+          color-scheme: dark !important;
         }
 
         :root[style*="--page-ambient-bg"] .mobile-bottom-dock,
-        :root[style*="--page-ambient-bg"] [data-theme="light"] .mobile-bottom-dock {
+        :root[style*="--page-ambient-bg"] [data-theme="light"] .mobile-bottom-dock,
+        html.is-ambient-page .mobile-bottom-dock,
+        body.is-ambient-page .mobile-bottom-dock {
           background: color-mix(in srgb, var(--page-ambient-bg) 90%, rgba(12, 12, 16, 0.96)) !important;
           border-top: 1px solid color-mix(in srgb, var(--page-ambient-accent, #ffffff) 25%, rgba(255, 255, 255, 0.14)) !important;
           box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4) !important;
+          color-scheme: dark !important;
         }
 
-        :root[style*="--page-ambient-bg"] .dock-tab-btn {
+        :root[style*="--page-ambient-bg"] .dock-tab-btn,
+        html.is-ambient-page .dock-tab-btn,
+        body.is-ambient-page .dock-tab-btn {
           color: rgba(255, 255, 255, 0.65) !important;
         }
 
-        :root[style*="--page-ambient-bg"] .dock-tab-btn.active {
+        :root[style*="--page-ambient-bg"] .dock-tab-btn.active,
+        html.is-ambient-page .dock-tab-btn.active,
+        body.is-ambient-page .dock-tab-btn.active {
           color: var(--page-ambient-accent, var(--primary)) !important;
         }
 
-        :root[style*="--page-ambient-bg"] .dock-tab-btn.active .dock-icon {
+        :root[style*="--page-ambient-bg"] .dock-tab-btn.active .dock-icon,
+        html.is-ambient-page .dock-tab-btn.active .dock-icon,
+        body.is-ambient-page .dock-tab-btn.active .dock-icon {
           color: var(--page-ambient-accent, var(--primary)) !important;
           filter: drop-shadow(0 0 10px var(--page-ambient-accent, var(--primary-glow))) !important;
         }
 
-        :root[style*="--page-ambient-bg"] .dock-tab-btn.active .dock-label {
+        :root[style*="--page-ambient-bg"] .dock-tab-btn.active .dock-label,
+        html.is-ambient-page .dock-tab-btn.active .dock-label,
+        body.is-ambient-page .dock-tab-btn.active .dock-label {
           color: #ffffff !important;
           font-weight: 700 !important;
         }
 
-        :root[style*="--page-ambient-bg"] .nav-item-btn.active {
-          background: color-mix(in srgb, var(--page-ambient-accent, var(--primary)) 22%, transparent) !important;
-          border-color: color-mix(in srgb, var(--page-ambient-accent, var(--primary)) 40%, transparent) !important;
+        :root[style*="--page-ambient-bg"] .brand-name,
+        html.is-ambient-page .brand-name,
+        body.is-ambient-page .brand-name {
+          background: linear-gradient(135deg, #ffffff 0%, rgba(255, 255, 255, 0.8) 100%) !important;
+          -webkit-background-clip: text !important;
+          -webkit-text-fill-color: transparent !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .brand-tag,
+        html.is-ambient-page .brand-tag,
+        body.is-ambient-page .brand-tag {
+          color: var(--page-ambient-accent, var(--primary)) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .sidebar-brand-wrapper,
+        :root[style*="--page-ambient-bg"] .sidebar-footer,
+        html.is-ambient-page .sidebar-brand-wrapper,
+        html.is-ambient-page .sidebar-footer,
+        body.is-ambient-page .sidebar-brand-wrapper,
+        body.is-ambient-page .sidebar-footer {
+          border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .nav-group-title,
+        html.is-ambient-page .nav-group-title,
+        body.is-ambient-page .nav-group-title {
+          color: rgba(255, 255, 255, 0.55) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .nav-item-btn,
+        :root[style*="--page-ambient-bg"] [data-theme="light"] .nav-item-btn,
+        html.is-ambient-page .nav-item-btn,
+        body.is-ambient-page .nav-item-btn {
+          color: rgba(255, 255, 255, 0.82) !important;
+          background: transparent !important;
+          border-color: transparent !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .nav-item-btn:hover,
+        :root[style*="--page-ambient-bg"] [data-theme="light"] .nav-item-btn:hover,
+        html.is-ambient-page .nav-item-btn:hover,
+        body.is-ambient-page .nav-item-btn:hover {
+          color: #ffffff !important;
+          background: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .nav-item-btn .nav-item-icon,
+        html.is-ambient-page .nav-item-btn .nav-item-icon,
+        body.is-ambient-page .nav-item-btn .nav-item-icon {
+          color: rgba(255, 255, 255, 0.75) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .nav-item-btn:hover .nav-item-icon,
+        html.is-ambient-page .nav-item-btn:hover .nav-item-icon,
+        body.is-ambient-page .nav-item-btn:hover .nav-item-icon {
           color: #ffffff !important;
         }
 
-        :root[style*="--page-ambient-bg"] .nav-item-btn.active .nav-icon {
+        :root[style*="--page-ambient-bg"] .nav-item-btn.active,
+        :root[style*="--page-ambient-bg"] [data-theme="light"] .nav-item-btn.active,
+        html.is-ambient-page .nav-item-btn.active,
+        body.is-ambient-page .nav-item-btn.active {
+          background: color-mix(in srgb, var(--page-ambient-accent, var(--primary)) 24%, rgba(255, 255, 255, 0.08)) !important;
+          border-color: color-mix(in srgb, var(--page-ambient-accent, var(--primary)) 45%, rgba(255, 255, 255, 0.2)) !important;
+          color: #ffffff !important;
+          font-weight: 700 !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .nav-item-btn.active .nav-item-icon,
+        html.is-ambient-page .nav-item-btn.active .nav-item-icon,
+        body.is-ambient-page .nav-item-btn.active .nav-item-icon {
           color: var(--page-ambient-accent, var(--primary)) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .nav-badge-pill,
+        :root[style*="--page-ambient-bg"] [data-theme="light"] .nav-badge-pill,
+        html.is-ambient-page .nav-badge-pill,
+        body.is-ambient-page .nav-badge-pill {
+          background: rgba(168, 85, 247, 0.25) !important;
+          border-color: rgba(168, 85, 247, 0.45) !important;
+          color: #d8b4fe !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .action-icon-btn,
+        :root[style*="--page-ambient-bg"] [data-theme="light"] .action-icon-btn,
+        html.is-ambient-page .action-icon-btn,
+        body.is-ambient-page .action-icon-btn {
+          background: rgba(255, 255, 255, 0.08) !important;
+          border: 1px solid rgba(255, 255, 255, 0.15) !important;
+          color: rgba(255, 255, 255, 0.9) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .action-icon-btn:hover,
+        :root[style*="--page-ambient-bg"] [data-theme="light"] .action-icon-btn:hover,
+        html.is-ambient-page .action-icon-btn:hover,
+        body.is-ambient-page .action-icon-btn:hover {
+          background: rgba(255, 255, 255, 0.16) !important;
+          border-color: rgba(255, 255, 255, 0.28) !important;
+          color: #ffffff !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .user-profile-tile,
+        html.is-ambient-page .user-profile-tile,
+        body.is-ambient-page .user-profile-tile {
+          background: rgba(255, 255, 255, 0.08) !important;
+          border: 1px solid rgba(255, 255, 255, 0.14) !important;
+          color: #ffffff !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .user-display-name,
+        html.is-ambient-page .user-display-name,
+        body.is-ambient-page .user-display-name {
+          color: #ffffff !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .user-sync-label,
+        html.is-ambient-page .user-sync-label,
+        body.is-ambient-page .user-sync-label {
+          color: rgba(255, 255, 255, 0.65) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .cloud-sync-tile,
+        html.is-ambient-page .cloud-sync-tile,
+        body.is-ambient-page .cloud-sync-tile {
+          background: rgba(0, 180, 216, 0.12) !important;
+          border: 1px dashed rgba(0, 180, 216, 0.4) !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .sync-title,
+        html.is-ambient-page .sync-title,
+        body.is-ambient-page .sync-title {
+          color: #22d3ee !important;
+        }
+
+        :root[style*="--page-ambient-bg"] .sync-sub,
+        html.is-ambient-page .sync-sub,
+        body.is-ambient-page .sync-sub {
+          color: rgba(255, 255, 255, 0.65) !important;
         }
       `}</style>
     </>

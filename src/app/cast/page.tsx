@@ -55,11 +55,19 @@ function CastDetailContent() {
       document.documentElement.style.setProperty('--page-ambient-accent', dominantAccent);
     }
     const prevBg = document.body.style.backgroundColor;
+    const prevBgImage = document.body.style.backgroundImage;
     document.body.style.backgroundColor = ambientBg;
+    document.body.style.backgroundImage = 'none';
+    document.documentElement.classList.add('is-ambient-page');
+    document.body.classList.add('is-ambient-page');
+
     return () => {
       document.documentElement.style.removeProperty('--page-ambient-bg');
       document.documentElement.style.removeProperty('--page-ambient-accent');
       document.body.style.backgroundColor = prevBg;
+      document.body.style.backgroundImage = prevBgImage;
+      document.documentElement.classList.remove('is-ambient-page');
+      document.body.classList.remove('is-ambient-page');
     };
   }, [ambientBg, dominantAccent]);
 
@@ -474,6 +482,15 @@ function CastDetailContent() {
           display: flex;
           flex-direction: column;
           gap: 30px;
+          padding: 24px 32px 120px 32px;
+          box-sizing: border-box;
+          min-height: 100vh;
+        }
+
+        @media (max-width: 768px) {
+          .cast-detail-page {
+            padding: 16px 16px 130px 16px;
+          }
         }
 
         .cast-detail-page.is-ambient {
@@ -673,21 +690,23 @@ function CastDetailContent() {
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          background: rgba(255, 255, 255, 0.05);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid var(--card-border);
-          color: var(--foreground-muted);
+          background: rgba(255, 255, 255, 0.12) !important;
+          backdrop-filter: blur(12px) !important;
+          -webkit-backdrop-filter: blur(12px) !important;
+          border: 1px solid rgba(255, 255, 255, 0.22) !important;
+          color: #ffffff !important;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
           transition: var(--transition-fast);
         }
         .nav-arrow-btn:hover {
-          background: var(--primary);
-          border-color: var(--primary);
-          color: #fff;
+          background: var(--primary) !important;
+          border-color: var(--primary) !important;
+          color: #ffffff !important;
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;
         }
         .gallery-carousel-wrapper {
           position: relative;

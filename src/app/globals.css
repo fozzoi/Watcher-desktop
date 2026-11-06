@@ -258,6 +258,70 @@ body:has(.ai-chat-layout) {
   overflow: hidden !important;
 }
 
+/* Ambient themed pages (Detail & Cast) */
+html.is-ambient-page,
+html.is-ambient-page body,
+body.is-ambient-page,
+:root[style*="--page-ambient-bg"] body {
+  background-color: var(--page-ambient-bg) !important;
+  background-image: none !important;
+  background: var(--page-ambient-bg) !important;
+}
+
+.layout-container:has(.detail-container),
+.layout-container:has(.is-ambient),
+.layout-container:has(.cast-detail-page),
+html.is-ambient-page .layout-container,
+body.is-ambient-page .layout-container,
+:root[style*="--page-ambient-bg"] .layout-container {
+  background-color: var(--page-ambient-bg) !important;
+  background-image: none !important;
+  background: var(--page-ambient-bg) !important;
+}
+
+.layout-container:has(.detail-container) .main-content,
+.layout-container:has(.is-ambient) .main-content,
+html.is-ambient-page .main-content,
+body.is-ambient-page .main-content {
+  padding: 0 !important;
+  background-color: var(--page-ambient-bg) !important;
+  background-image: none !important;
+  background: var(--page-ambient-bg) !important;
+}
+
+:root[style*="--page-ambient-bg"] .nav-arrow-btn,
+:root[style*="--page-ambient-bg"] .carousel-nav-arrows .nav-arrow-btn,
+html.is-ambient-page .nav-arrow-btn,
+body.is-ambient-page .nav-arrow-btn,
+.detail-container.is-ambient .nav-arrow-btn,
+.cast-detail-page.is-ambient .nav-arrow-btn {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+}
+
+:root[style*="--page-ambient-bg"] .nav-arrow-btn:hover,
+:root[style*="--page-ambient-bg"] .carousel-nav-arrows .nav-arrow-btn:hover,
+html.is-ambient-page .nav-arrow-btn:hover,
+body.is-ambient-page .nav-arrow-btn:hover,
+.detail-container.is-ambient .nav-arrow-btn:hover,
+.cast-detail-page.is-ambient .nav-arrow-btn:hover {
+  background: var(--page-ambient-accent, var(--primary)) !important;
+  color: #ffffff !important;
+  border-color: var(--page-ambient-accent, var(--primary)) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;
+}
+
+:root[style*="--page-ambient-bg"] .shimmer-bar,
+:root[style*="--page-ambient-bg"] .vibe-skeleton-card,
+html.is-ambient-page .shimmer-bar,
+html.is-ambient-page .vibe-skeleton-card {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.03) 75%) !important;
+}
+
 /* Tablet */
 @media (max-width: 1024px) {
   .main-content {
@@ -1374,4 +1438,56 @@ option {
     animation: none !important;
   }
 }
+
+/* ============================================================
+   Fixes: missing keyframes / .glass-card, and hard-coded dark-only
+   text colours that were invisible in light mode.
+   ============================================================ */
+
+/* Used by globals (.hero-skeleton etc.) but was never defined globally */
+@keyframes skeletonShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Used by explore/HeroSection.tsx skeleton but never defined */
+.glass-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Theme-aware skeletons (work in dark + light) */
+.hero-skeleton {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--foreground) 5%, transparent) 25%,
+    color-mix(in srgb, var(--foreground) 11%, transparent) 50%,
+    color-mix(in srgb, var(--foreground) 5%, transparent) 75%
+  );
+  background-size: 200% 100%;
+}
+
+/* World Cinema: text was #fafafa / #9b9ba3 (invisible on light bg) */
+.world-section-title,
+.world-card-title { color: var(--foreground); }
+.world-card-subtext,
+.world-lang-counter,
+.ranked-subtext,
+.spotlight-subtitle-muted { color: var(--foreground-muted); }
+
+/* Ranked + world poster placeholders follow the theme */
+.ranked-placeholder,
+.world-placeholder,
+.world-poster-box {
+  background: color-mix(in srgb, var(--foreground) 8%, var(--bg-color));
+}
+
+/* Tab chips: clearer idle state in light mode */
+[data-theme="light"] .world-tab-chip {
+  border-color: var(--card-border);
+  background: rgba(255, 255, 255, 0.9);
+}
+[data-theme="light"] .world-tab-chip.active { color: #fff; }
 
