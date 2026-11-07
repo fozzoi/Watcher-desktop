@@ -5,6 +5,7 @@ import React, { useEffect, useState, useRef, useCallback, Suspense } from 'react
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   ArrowLeft, 
+  SkipBack,
   Loader, 
   AlertTriangle, 
   SkipForward, 
@@ -19,12 +20,12 @@ import {
 import Hls from 'hls.js';
 import { getProgress, saveProgress } from '@/utils/progress';
 import { getPlayerPreferences, savePlayerPreferences } from '@/utils/playerPreferences';
+import type { PlayerServer } from '@/utils/playerPreferences';
+import { findAdjacentEpisode, type SeasonEpisodeCount } from '@/utils/playerEpisodes';
+import { getMediaDetails } from '@/utils/tmdb';
 import { AsyncStorage } from '@/utils/storage';
 
-const CREDIT_SKIP_WINDOW_SECONDS = 90;
-const CREDIT_MIN_PROGRESS = 0.8;
-
-type StreamServer = 'vidy' | 'vidlink' | 'vidsrc' | 'autoembed' | 'multiembed' | 'twoembed';
+type StreamServer = PlayerServer;
 
 function PlayerContent() {
   const router = useRouter();
@@ -41,16 +42,19 @@ function PlayerContent() {
   const isTv = typeStr === 'tv';
   const season = seasonStr ? Number(seasonStr) : 1;
   const episode = episodeStr ? Number(episodeStr) : 1;
-  const nextEpisode = isTv ? episode + 1 : null;
 
   const [streamData, setStreamData] = useState<{ is_m3u8: boolean; stream_url: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeServer, setActiveServer] = useState<StreamServer>('vidy');
+  const [serverPreferenceLoaded, setServerPreferenceLoaded] = useState(false);
   const [isServerMenuOpen, setIsServerMenuOpen] = useState(false);
   const [activeProviderName, setActiveProviderName] = useState("Vidy.st");
   const [error, setError] = useState<string | null>(null);
-  const [showNextEpisode, setShowNextEpisode] = useState(false);
   const [posterPath, setPosterPath] = useState(posterParam);
+  const [seasonData, setSeasonData] = useState<{ tmdbId: number; counts: SeasonEpisodeCount[] } | null>(null);
+  const seasonCounts = seasonData?.tmdbId === tmdbId ? seasonData.counts : [];
+  const previousEpisode = isTv ? findAdjacentEpisode(season, episode, seasonCounts, -1) : undefined;
+  const nextEpisode = isTv ? findAdjacentEpisode(season, episode, seasonCounts, 1) : undefined;
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -58,6 +62,52 @@ function PlayerContent() {
   const lastDurationRef = useRef(0);
   const sessionStartTimeRef = useRef(Date.now());
   const hasTriggeredNextRef = useRef(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    getPlayerPreferences()
+      .then(({ preferredServer }) => {
+        if (isMounted) setActiveServer(preferredServer);
+      })
+      .catch((error) => console.error('Failed to load preferred streaming server:', error))
+      .finally(() => {
+        if (isMounted) setServerPreferenceLoaded(true);
+      });
+
+    return () => { isMounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!isTv || !tmdbId) return;
+
+    let isMounted = true;
+    getMediaDetails(tmdbId, 'tv')
+      .then((details) => {
+        if (!isMounted) return;
+        const counts = (details.seasons || [])
+          .filter((item) => item.season_number > 0 && item.episode_count > 0)
+          .map((item) => [item.season_number, item.episode_count] as const)
+          .sort(([seasonA], [seasonB]) => seasonA - seasonB);
+        setSeasonData({ tmdbId, counts });
+      })
+      .catch((error) => {
+        console.error('Failed to load episode navigation details:', error);
+      });
+
+    return () => { isMounted = false; };
+  }, [tmdbId, isTv]);
+
+  useEffect(() => {
+    hasTriggeredNextRef.current = false;
+  }, [season, episode]);
+
+  const selectServer = (server: StreamServer) => {
+    setActiveServer(server);
+    setIsServerMenuOpen(false);
+    void savePlayerPreferences(undefined, { preferredServer: server }).catch((error) => {
+      console.error('Failed to save preferred streaming server:', error);
+    });
+  };
 
   // Load poster if not passed
   useEffect(() => {
@@ -77,7 +127,7 @@ function PlayerContent() {
 
   // Record initial watch session on mount so season & episode are registered
   useEffect(() => {
-    if (!tmdbId) return;
+    if (!tmdbId || !serverPreferenceLoaded) return;
     void saveProgress({
       tmdbId,
       mediaType: typeStr as 'movie' | 'tv',
@@ -94,20 +144,19 @@ function PlayerContent() {
 
   // Fetch or construct stream URL based on active server
   useEffect(() => {
-    if (!tmdbId) return;
+    if (!tmdbId || !serverPreferenceLoaded) return;
     
     let isMounted = true;
     const loadStream = async () => {
       setLoading(true);
       setError(null);
-      setShowNextEpisode(false);
 
       try {
         if (activeServer === 'vidsrc') {
         setActiveProviderName("VidSrc Cloud");
         const url = isTv 
-          ? `https://vidsrc.pm/embed/tv/${tmdbId}/${season}/${episode}`
-          : `https://vidsrc.pm/embed/movie/${tmdbId}`;
+          ? `https://vidsrc.pm/embed/tv/${tmdbId}/${season}/${episode}?autoplay=1`
+          : `https://vidsrc.pm/embed/movie/${tmdbId}?autoplay=1`;
         setStreamData({ is_m3u8: false, stream_url: url });
         setLoading(false);
         return;
@@ -129,8 +178,8 @@ function PlayerContent() {
       if (activeServer === 'twoembed') {
         setActiveProviderName("2Embed Player");
         const url = isTv 
-          ? `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`
-          : `https://www.2embed.cc/embed/${tmdbId}`;
+          ? `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}&autoplay=1`
+          : `https://www.2embed.cc/embed/${tmdbId}?autoplay=1`;
         setStreamData({ is_m3u8: false, stream_url: url });
         setLoading(false);
         return;
@@ -139,8 +188,8 @@ function PlayerContent() {
       if (activeServer === 'multiembed') {
         setActiveProviderName("MultiEmbed Player");
         const url = isTv 
-          ? `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}`
-          : `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`;
+          ? `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}&autoplay=1`
+          : `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&autoplay=1`;
         setStreamData({ is_m3u8: false, stream_url: url });
         setLoading(false);
         return;
@@ -149,8 +198,8 @@ function PlayerContent() {
       if (activeServer === 'autoembed') {
         setActiveProviderName("AutoEmbed Player");
         const url = isTv 
-          ? `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}`
-          : `https://player.autoembed.cc/embed/movie/${tmdbId}`;
+          ? `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}?autoplay=1`
+          : `https://player.autoembed.cc/embed/movie/${tmdbId}?autoplay=1`;
         setStreamData({ is_m3u8: false, stream_url: url });
         setLoading(false);
         return;
@@ -159,8 +208,8 @@ function PlayerContent() {
       if (activeServer === 'vidlink') {
         setActiveProviderName("VidLink Cloud");
         const url = isTv 
-          ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}`
-          : `https://vidlink.pro/movie/${tmdbId}`;
+          ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?autoplay=1`
+          : `https://vidlink.pro/movie/${tmdbId}?autoplay=1`;
         setStreamData({ is_m3u8: false, stream_url: url });
         setLoading(false);
         return;
@@ -176,8 +225,8 @@ function PlayerContent() {
       } catch (err: any) {
         if (isMounted) {
           const fallbackUrl = isTv 
-            ? `https://vidsrc.pm/embed/tv/${tmdbId}/${season}/${episode}`
-            : `https://vidsrc.pm/embed/movie/${tmdbId}`;
+            ? `https://vidsrc.pm/embed/tv/${tmdbId}/${season}/${episode}?autoplay=1`
+            : `https://vidsrc.pm/embed/movie/${tmdbId}?autoplay=1`;
           setStreamData({ is_m3u8: false, stream_url: fallbackUrl });
           setActiveProviderName("VidSrc Cloud (Auto)");
         }
@@ -194,7 +243,7 @@ function PlayerContent() {
         hlsRef.current.destroy();
       }
     };
-  }, [tmdbId, typeStr, season, episode, titleStr, activeServer, isTv]);
+  }, [tmdbId, typeStr, season, episode, titleStr, activeServer, isTv, serverPreferenceLoaded]);
 
   // Configure HLS.js player when direct HLS stream is resolved
   useEffect(() => {
@@ -207,7 +256,12 @@ function PlayerContent() {
 
     const initPlayer = async () => {
       const preferences = await getPlayerPreferences();
-      const savedProgress = await getProgress(tmdbId);
+      const savedProgress = await getProgress(
+        tmdbId,
+        typeStr as 'movie' | 'tv',
+        isTv ? season : undefined,
+        isTv ? episode : undefined,
+      );
       const initialPos = savedProgress?.position || 0;
 
       if (Hls.isSupported()) {
@@ -281,12 +335,6 @@ function PlayerContent() {
 
       lastSavedPosRef.current = pos;
 
-      // Credit skip detection
-      const remaining = dur - pos;
-      const progress = pos / dur;
-      if (isTv && nextEpisode && progress >= CREDIT_MIN_PROGRESS && remaining <= CREDIT_SKIP_WINDOW_SECONDS) {
-        setShowNextEpisode(true);
-      }
     };
 
     const handleVolumeChange = () => {
@@ -310,7 +358,7 @@ function PlayerContent() {
         updatedAt: Date.now()
       });
       if (isTv && nextEpisode) {
-        goToNextEpisode();
+        goToNextEpisode(true);
       }
     };
 
@@ -376,7 +424,7 @@ function PlayerContent() {
           ended = true;
           if (isTv && nextEpisode && !hasTriggeredNextRef.current) {
             hasTriggeredNextRef.current = true;
-            void goToNextEpisode();
+            void goToNextEpisode(true);
             return;
           }
         }
@@ -487,26 +535,41 @@ function PlayerContent() {
     router.replace(`/detail?id=${tmdbId}&type=${typeStr}`);
   };
 
-  const goToNextEpisode = async () => {
-    if (!nextEpisode) return;
-    if (videoRef.current) {
+  const navigateEpisode = async (
+    target: { season: number; episode: number } | undefined,
+    markCurrentComplete: boolean,
+  ) => {
+    if (!target) return;
+    await flushProgress();
+    if (markCurrentComplete) {
+      const duration = videoRef.current?.duration || lastDurationRef.current || 100;
       await saveProgress({
         tmdbId,
-        mediaType: typeStr as 'movie' | 'tv',
+        mediaType: 'tv',
         title: titleStr,
         poster: posterPath,
         lastSeason: season,
         lastEpisode: episode,
-        position: videoRef.current.duration || 100,
-        duration: videoRef.current.duration || 100,
+        position: duration,
+        duration,
         completed: true,
         updatedAt: Date.now()
       });
     }
-    await flushProgress();
     if (hlsRef.current) hlsRef.current.destroy();
-    router.replace(`/player?id=${tmdbId}&type=tv&title=${encodeURIComponent(titleStr)}&season=${season}&episode=${nextEpisode}&poster=${encodeURIComponent(posterPath)}`);
+    const params = new URLSearchParams({
+      id: String(tmdbId),
+      type: 'tv',
+      title: titleStr,
+      season: String(target.season),
+      episode: String(target.episode),
+      poster: posterPath,
+    });
+    router.replace(`/player?${params.toString()}`);
   };
+
+  const goToNextEpisode = (markCurrentComplete = false) => navigateEpisode(nextEpisode, markCurrentComplete);
+  const goToPreviousEpisode = () => navigateEpisode(previousEpisode, false);
 
   return (
     <div className="player-fullscreen-container">
@@ -534,39 +597,39 @@ function PlayerContent() {
               <div className="server-dropdown glass-premium">
                 <button 
                   className={activeServer === 'vidy' ? 'active' : ''}
-                  onClick={() => { setActiveServer('vidy'); setIsServerMenuOpen(false); }}
+                  onClick={() => selectServer('vidy')}
                 >
                   <span className="server-name">Vidy.st</span>
                   <span className="server-badge">Fast &amp; Clean</span>
                 </button>
                 <button 
                   className={activeServer === 'vidlink' ? 'active' : ''}
-                  onClick={() => { setActiveServer('vidlink'); setIsServerMenuOpen(false); }}
+                  onClick={() => selectServer('vidlink')}
                 >
                   <span className="server-name">VidLink Cloud</span>
                   <span className="server-badge">Ultra HD</span>
                 </button>
                 <button 
                   className={activeServer === 'vidsrc' ? 'active' : ''}
-                  onClick={() => { setActiveServer('vidsrc'); setIsServerMenuOpen(false); }}
+                  onClick={() => selectServer('vidsrc')}
                 >
                   <span className="server-name">VidSrc Cloud</span>
                 </button>
                 <button 
                   className={activeServer === 'autoembed' ? 'active' : ''}
-                  onClick={() => { setActiveServer('autoembed'); setIsServerMenuOpen(false); }}
+                  onClick={() => selectServer('autoembed')}
                 >
                   <span className="server-name">AutoEmbed</span>
                 </button>
                 <button 
                   className={activeServer === 'multiembed' ? 'active' : ''}
-                  onClick={() => { setActiveServer('multiembed'); setIsServerMenuOpen(false); }}
+                  onClick={() => selectServer('multiembed')}
                 >
                   <span className="server-name">MultiEmbed</span>
                 </button>
                 <button 
                   className={activeServer === 'twoembed' ? 'active' : ''}
-                  onClick={() => { setActiveServer('twoembed'); setIsServerMenuOpen(false); }}
+                  onClick={() => selectServer('twoembed')}
                 >
                   <span className="server-name">2Embed Player</span>
                 </button>
@@ -594,19 +657,19 @@ function PlayerContent() {
             <h3>Playback Connection Failed</h3>
             <p>{error}</p>
             <div className="error-actions">
-              <button className="btn-secondary" onClick={() => setActiveServer('vidsrc')}>
+              <button className="btn-secondary" onClick={() => selectServer('vidsrc')}>
                 Try VidSrc
               </button>
-              <button className="btn-secondary" onClick={() => setActiveServer('vidy')}>
+              <button className="btn-secondary" onClick={() => selectServer('vidy')}>
                 Try Vidy.st
               </button>
-              <button className="btn-secondary" onClick={() => setActiveServer('twoembed')}>
+              <button className="btn-secondary" onClick={() => selectServer('twoembed')}>
                 Try 2Embed
               </button>
-              <button className="btn-secondary" onClick={() => setActiveServer('multiembed')}>
+              <button className="btn-secondary" onClick={() => selectServer('multiembed')}>
                 Try MultiEmbed
               </button>
-              <button className="btn-secondary" onClick={() => setActiveServer('autoembed')}>
+              <button className="btn-secondary" onClick={() => selectServer('autoembed')}>
                 Try AutoEmbed
               </button>
               <button className="btn-primary" onClick={handleExit}>
@@ -634,10 +697,26 @@ function PlayerContent() {
           )
         ) : null}
 
-        {/* Next Episode Prompt Button (Near end of episode) */}
-        {showNextEpisode && isTv && nextEpisode && (
-          <button className="next-episode-floating-btn animate-fade-in-up" onClick={goToNextEpisode}>
-            <span>Next Episode (S{season} E{nextEpisode})</span>
+        {previousEpisode && (
+          <button
+            type="button"
+            className="episode-navigation-btn previous-episode-floating-btn animate-fade-in-up"
+            onClick={goToPreviousEpisode}
+            aria-label={`Play previous episode, season ${previousEpisode.season}, episode ${previousEpisode.episode}`}
+          >
+            <SkipBack size={18} />
+            <span>Previous (S{previousEpisode.season} E{previousEpisode.episode})</span>
+          </button>
+        )}
+
+        {nextEpisode && isTv && (
+          <button
+            type="button"
+            className="episode-navigation-btn next-episode-floating-btn animate-fade-in-up"
+            onClick={() => goToNextEpisode()}
+            aria-label={`Play next episode, season ${nextEpisode.season}, episode ${nextEpisode.episode}`}
+          >
+            <span>Next Episode (S{nextEpisode.season} E{nextEpisode.episode})</span>
             <SkipForward size={18} />
           </button>
         )}
@@ -846,11 +925,9 @@ function PlayerContent() {
           background: #000;
         }
 
-        .next-episode-floating-btn {
+        .episode-navigation-btn {
           position: absolute;
           bottom: 36px;
-          right: 36px;
-          background: var(--primary-gradient);
           color: #fff;
           border: none;
           padding: 14px 24px;
@@ -861,14 +938,42 @@ function PlayerContent() {
           align-items: center;
           gap: 10px;
           cursor: pointer;
-          box-shadow: 0 8px 25px rgba(229, 9, 20, 0.6);
           z-index: 150;
           transition: var(--transition-smooth);
+        }
+
+        .next-episode-floating-btn {
+          right: 36px;
+          background: var(--primary-gradient);
+          box-shadow: 0 8px 25px rgba(229, 9, 20, 0.6);
+        }
+
+        .previous-episode-floating-btn {
+          left: 36px;
+          background: rgba(15, 15, 20, 0.88);
+          border: 1px solid rgba(255, 255, 255, 0.28);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
         }
 
         .next-episode-floating-btn:hover {
           transform: translateY(-2px) scale(1.03);
           box-shadow: 0 10px 30px rgba(229, 9, 20, 0.8);
+        }
+
+        .previous-episode-floating-btn:hover {
+          transform: translateY(-2px) scale(1.03);
+          background: rgba(40, 40, 48, 0.94);
+        }
+
+        @media (max-width: 640px) {
+          .episode-navigation-btn {
+            bottom: 20px;
+            padding: 12px 14px;
+            font-size: 12px;
+          }
+          .next-episode-floating-btn { right: 12px; }
+          .previous-episode-floating-btn { left: 12px; }
         }
 
         .status-overlay {

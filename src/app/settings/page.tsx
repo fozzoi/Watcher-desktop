@@ -55,6 +55,7 @@ import {
 import { 
   getPlayerPreferences, 
   savePlayerPreferences, 
+  DEFAULT_PLAYER_PREFERENCES,
   PlayerPreferences,
   PlayerQuality
 } from '@/utils/playerPreferences';
@@ -85,13 +86,7 @@ export default function SettingsPage() {
   const [userPrefs, setUserPrefs] = useState<UserPreferences>(DEFAULT_PREFERENCES);
 
   // Player Preferences
-  const [playerPrefs, setPlayerPrefs] = useState<PlayerPreferences>({
-    volume: 1,
-    muted: false,
-    audioTrack: null,
-    subtitleTrack: null,
-    quality: 'auto'
-  });
+  const [playerPrefs, setPlayerPrefs] = useState<PlayerPreferences>(DEFAULT_PLAYER_PREFERENCES);
   const [autoSkipCredits, setAutoSkipCredits] = useState(true);
 
   // Cloud Sync & Google Auth
