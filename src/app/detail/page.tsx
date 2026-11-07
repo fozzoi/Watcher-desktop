@@ -1633,8 +1633,8 @@ function DetailContent() {
           -webkit-backdrop-filter: blur(14px);
           box-shadow: 0 8px 28px var(--tint-shadow);
         }
-        .synopsis-box { padding: 22px 26px; border: none; }
-        .director-section { padding: 20px 22px; overflow: visible; border: none; }
+        .synopsis-box { padding: 22px 26px; border: none !important; }
+        .director-section { padding: 20px 22px; overflow: visible; border: none !important; }
 
         /* ═════════ Ambient solid theme tokens & high contrast text ═════════ */
         .detail-container.is-ambient {
@@ -1774,7 +1774,7 @@ function DetailContent() {
           margin: -8px -14px -24px -14px;
           overflow: visible !important;
           max-height: none !important;
-          border: 1px solid color-mix(in srgb, var(--accent, var(--primary)) 72%, transparent);
+          border: none !important;
           border-radius: var(--border-radius-lg);
         }
 
@@ -2110,7 +2110,7 @@ function DetailContent() {
           display: inline-flex; align-items: center; gap: 14px;
           padding: 10px 16px 10px 10px;
           background: var(--tint);
-          border: none;
+          border: none !important;
           border-radius: 100px;
           text-decoration: none;
           transition: var(--transition-fast);
@@ -2604,7 +2604,7 @@ function DetailContent() {
           display: flex; align-items: center; justify-content: space-between;
           padding: 10px 14px;
           border-radius: 10px;
-          border: none;
+          border: none !important;
           background: transparent;
           color: #fff;
           font-size: 13px; text-align: left;
