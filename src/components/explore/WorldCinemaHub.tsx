@@ -199,6 +199,13 @@ const WorldCinemaHub = memo(({ langData, savedIds, toggleWatchlist }: WorldCinem
             type="button"
             className={`world-tab-chip ${activeCode === 'all' ? 'active' : ''}`}
             onClick={() => setActiveCode('all')}
+            style={activeCode === 'all' ? {
+              backgroundColor: '#e50914',
+              color: '#ffffff',
+              borderColor: '#e50914',
+              boxShadow: '0 4px 14px rgba(229, 9, 20, 0.45)',
+              fontWeight: 700
+            } : undefined}
           >
             {activeCode === 'all' ? '• All' : 'All'}
           </button>
@@ -210,6 +217,13 @@ const WorldCinemaHub = memo(({ langData, savedIds, toggleWatchlist }: WorldCinem
                 type="button"
                 className={`world-tab-chip ${isSelected ? 'active' : ''}`}
                 onClick={() => setActiveCode(lang.code)}
+                style={isSelected ? {
+                  backgroundColor: '#e50914',
+                  color: '#ffffff',
+                  borderColor: '#e50914',
+                  boxShadow: '0 4px 14px rgba(229, 9, 20, 0.45)',
+                  fontWeight: 700
+                } : undefined}
               >
                 {lang.label}
               </button>

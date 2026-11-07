@@ -4,9 +4,9 @@
 // Ported from the Watcher Expo app — franchise/collection spotlight carousel, adapted for Next.js/web.
 // STRICTLY displays real TMDB Collections and always navigates directly to the collection page.
 
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Layers } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import { getImageUrl } from '@/utils/tmdb';
 
 interface SpotlightCarouselProps {
@@ -54,10 +54,6 @@ const SpotlightCard = memo(
             {filmsCount ? `${filmsCount} Films • Saga` : (item.vote_average ? `★ ${item.vote_average.toFixed(1)} Rating • Franchise` : 'Franchise Collection')}
           </p>
         </div>
-
-        <div className="spotlight-arrow">
-          <ChevronRight size={16} strokeWidth={2.5} />
-        </div>
       </div>
     );
   },
@@ -67,6 +63,18 @@ const SpotlightCard = memo(
 const SpotlightCarousel = memo(
   ({ title = 'Franchise Spotlight', eyebrow = 'COLLECTION SPOTLIGHT', data }: SpotlightCarouselProps) => {
     const router = useRouter();
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const scroll = (direction: 'left' | 'right') => {
+      if (scrollContainerRef.current) {
+        const { scrollLeft, clientWidth } = scrollContainerRef.current;
+        const scrollAmount = clientWidth * 0.75;
+        scrollContainerRef.current.scrollTo({
+          left: direction === 'left' ? scrollLeft - scrollAmount : scrollLeft + scrollAmount,
+          behavior: 'smooth'
+        });
+      }
+    };
 
     const validData = useMemo(() => {
       if (!Array.isArray(data)) return [];
@@ -114,9 +122,18 @@ const SpotlightCarousel = memo(
       <div className="spotlight-section">
         <div className="spotlight-header">
           <h2 className="spotlight-section-title">{title}</h2>
+          <div className="header-nav-arrows">
+            <button className="header-arrow-btn" onClick={() => scroll('left')} aria-label="Scroll spotlight left">
+              <ChevronLeft size={16} />
+            </button>
+            <button className="header-arrow-btn" onClick={() => scroll('right')} aria-label="Scroll spotlight right">
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
 
         <div
+          ref={scrollContainerRef}
           className="spotlight-scroll-container"
           style={{
             display: 'flex',
