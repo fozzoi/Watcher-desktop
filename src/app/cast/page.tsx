@@ -1,5 +1,6 @@
 "use client";
 
+import PageLoading from '@/components/PageLoading';
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -203,11 +204,7 @@ function CastDetailContent() {
   });
 
   if (loading) {
-    return (
-      <div className="loading-spinner-container">
-        <div className="spinner" />
-      </div>
-    );
+    return <PageLoading label="Loading cast details" />;
   }
 
   if (!person) {
@@ -980,13 +977,5 @@ function CastDetailContent() {
 }
 
 export default function CastPage() {
-  return (
-    <Suspense fallback={
-      <div className="loading-spinner-container">
-        <div className="spinner" />
-      </div>
-    }>
-      <CastDetailContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<PageLoading label="Loading cast details" />}><CastDetailContent /></Suspense>;
 }

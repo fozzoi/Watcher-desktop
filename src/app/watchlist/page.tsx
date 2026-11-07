@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { 
   Bookmark, 
   History, 
   Heart, 
   Layers,
+  ChevronLeft,
+  ChevronRight,
   Trash2, 
   RefreshCw, 
   ArrowUpDown, 
@@ -15,13 +16,10 @@ import {
   FileText, 
   Image as ImageIcon, 
   Link2,
-  AlertCircle,
   Search,
   BarChart3,
   Film,
   Tv,
-  Sparkles,
-  SlidersHorizontal,
   Compass,
   Cloud
 } from 'lucide-react';
@@ -32,13 +30,14 @@ import { GENRE_OPTIONS } from '@/utils/userPreferences';
 import { useAuth } from '@/context/AuthContext';
 import axios from 'axios';
 import RubberSegment from '@/components/RubberSegment';
+import AuroraBackground from '@/components/AuroraBackground';
+import PageLoading from '@/components/PageLoading';
 
 type TabType = 'watchlist' | 'history' | 'artists' | 'collections';
 type MediaTypeFilter = 'all' | 'movie' | 'tv' | 'collection';
 type SortOption = 'default' | 'title' | 'rating' | 'date';
 
 export default function WatchListPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('watchlist');
   
   const [watchlist, setWatchlist] = useState<any[]>([]);
@@ -78,11 +77,12 @@ export default function WatchListPage() {
   // Infinite Scroll States
   const [visibleCount, setVisibleCount] = useState(24);
   const observerTarget = useRef<HTMLDivElement>(null);
+  const genreScrollRef = useRef<HTMLDivElement>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  const { user, token, isSyncing, syncNow } = useAuth();
+  const { user, isSyncing, syncNow } = useAuth();
 
   const mainTabItems = useMemo(() => [
     {
@@ -516,19 +516,24 @@ export default function WatchListPage() {
   }, [loading, filteredAndSortedItems.length, visibleCount]);
 
   return (
-    <div className="watchlist-container">
+    <>
+      <AuroraBackground />
+      <div className="watchlist-container relative z-10">
       {/* Header section */}
       <div className="header-row animate-fade-in-up">
         <div className="header-left">
-          <h1 className="header-title">My Library</h1>
+          <div className="header-copy">
+            <h1 className="header-title">My Library</h1>
+          </div>
           <div className="library-stats-pill">
-            <span>{filteredAndSortedItems.length} items</span>
+            <Bookmark size={14} />
+            <span>{filteredAndSortedItems.length} saved</span>
           </div>
         </div>
         
         <div className="header-actions">
           {/* Search Toggle */}
-          <button 
+          <button
             className={`icon-btn ${isSearchOpen ? 'active' : ''}`}
             onClick={() => {
               setIsSearchOpen(prev => !prev);
@@ -540,38 +545,41 @@ export default function WatchListPage() {
           </button>
 
           {/* Stats Page Link */}
-          <Link href="/stats" className="icon-btn" title="View Watch Statistics & Insights">
-            <BarChart3 size={16} />
-            <span className="btn-text">Stats</span>
-          </Link>
-
-          {/* Cloud Sync Button */}
-          {user ? (
-            <button
-              className="icon-btn"
-              onClick={() => syncNow()}
-              disabled={isSyncing}
-              title={isSyncing ? "Synchronizing with Cloud..." : "Sync with Cloud"}
-              style={{ borderColor: 'rgba(0, 180, 216, 0.4)' }}
-            >
-              <Cloud size={16} style={{ color: '#00B4D8' }} className={isSyncing ? "animate-spin" : ""} />
-              <span className="btn-text" style={{ color: '#00B4D8' }}>{isSyncing ? 'Syncing...' : 'Synced'}</span>
-            </button>
-          ) : (
+          <div className="header-utility-group" aria-label="Library tools">
             <Link
-              href="/settings"
-              className="icon-btn"
-              title="Sign in to sync your library across devices"
-              style={{ borderColor: 'rgba(0, 180, 216, 0.2)' }}
+              href="/stats"
+              className="icon-btn stats-action"
+              title="View Watch Statistics & Insights"
             >
-              <Cloud size={16} style={{ color: '#888' }} />
-              <span className="btn-text">Cloud</span>
+              <BarChart3 size={16} />
+              <span className="btn-text">Stats</span>
             </Link>
-          )}
+
+            {user ? (
+              <button
+                className="icon-btn cloud-action"
+                onClick={() => syncNow()}
+                disabled={isSyncing}
+                title={isSyncing ? "Synchronizing with Cloud..." : "Sync with Cloud"}
+              >
+                <Cloud size={16} className={isSyncing ? "animate-spin" : ""} />
+                <span className="btn-text">{isSyncing ? 'Syncing' : 'Sync'}</span>
+              </button>
+            ) : (
+              <Link
+                href="/settings"
+                className="icon-btn cloud-action"
+                title="Sign in to sync your library across devices"
+              >
+                <Cloud size={16} />
+                <span className="btn-text">Sync</span>
+              </Link>
+            )}
+          </div>
 
           {/* Sort Menu Button */}
           <button 
-            className="icon-btn" 
+            className="icon-btn sort-action"
             onClick={() => {
               if (sortBy === 'default') setSortBy('title');
               else if (sortBy === 'title') setSortBy('rating');
@@ -587,7 +595,13 @@ export default function WatchListPage() {
 
           {/* Import sync options button */}
           <div className="import-menu-container">
-            <button className="icon-btn btn-primary" onClick={() => setIsImportMenuOpen(!isImportMenuOpen)}>
+            <button
+              className="icon-btn btn-primary"
+              onClick={() => setIsImportMenuOpen(!isImportMenuOpen)}
+              title="Sync or import a watchlist"
+              aria-label="Sync or import a watchlist"
+              aria-expanded={isImportMenuOpen}
+            >
               <RefreshCw size={15} />
               <span className="btn-text">Sync & Import</span>
             </button>
@@ -723,25 +737,43 @@ export default function WatchListPage() {
           <div className="filter-divider" />
 
           {/* Genre Chips Carousel */}
-          <div className="genres-scroll-row">
-            {GENRE_OPTIONS.map(genre => {
-              const isSelected = selectedGenreIds.includes(genre.id);
-              return (
-                <button 
-                  key={genre.id}
-                  className={`genre-chip ${isSelected ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedGenreIds(prev => 
-                      prev.includes(genre.id) ? prev.filter(id => id !== genre.id) : [...prev, genre.id]
-                    );
-                  }}
-                >
-                  <span className="genre-emoji">{genre.emoji}</span>
-                  <span className="genre-label">{genre.label}</span>
-                  {isSelected && <X size={12} className="genre-clear" />}
-                </button>
-              );
-            })}
+          <div className="genres-carousel">
+            <button
+              type="button"
+              className="genres-scroll-arrow"
+              onClick={() => genreScrollRef.current?.scrollBy({ left: -240, behavior: 'smooth' })}
+              aria-label="Scroll genres left"
+            >
+              <ChevronLeft size={17} />
+            </button>
+            <div className="genres-scroll-row" ref={genreScrollRef}>
+              {GENRE_OPTIONS.map(genre => {
+                const isSelected = selectedGenreIds.includes(genre.id);
+                return (
+                  <button
+                    key={genre.id}
+                    className={`genre-chip ${isSelected ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedGenreIds(prev =>
+                        prev.includes(genre.id) ? prev.filter(id => id !== genre.id) : [...prev, genre.id]
+                      );
+                    }}
+                  >
+                    <span className="genre-emoji">{genre.emoji}</span>
+                    <span className="genre-label">{genre.label}</span>
+                    {isSelected && <X size={12} className="genre-clear" />}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              className="genres-scroll-arrow"
+              onClick={() => genreScrollRef.current?.scrollBy({ left: 240, behavior: 'smooth' })}
+              aria-label="Scroll genres right"
+            >
+              <ChevronRight size={17} />
+            </button>
           </div>
         </div>
       )}
@@ -756,15 +788,7 @@ export default function WatchListPage() {
 
       {/* Library Content Grid */}
       {loading ? (
-        <div className="skeleton-grid animate-fade-in-up">
-          {[...Array(12)].map((_, i) => (
-            <div key={i} className="skeleton-card">
-              <div className="skeleton-image" />
-              <div className="skeleton-text" />
-              <div className="skeleton-text short" />
-            </div>
-          ))}
-        </div>
+        <PageLoading label="Loading your library" className="min-h-64" />
       ) : filteredAndSortedItems.length > 0 ? (
         <>
           <div className="media-grid animate-fade-in-up">
@@ -1283,13 +1307,45 @@ export default function WatchListPage() {
 
         .genres-scroll-row {
           display: flex;
+          flex: 1;
           gap: 8px;
           overflow-x: auto;
           scrollbar-width: none;
+          min-width: 0;
+          scroll-behavior: smooth;
         }
 
         .genres-scroll-row::-webkit-scrollbar {
           display: none;
+        }
+
+        .genres-carousel {
+          display: flex;
+          flex: 1;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+        }
+
+        .genres-scroll-arrow {
+          display: inline-flex;
+          flex: 0 0 30px;
+          width: 30px;
+          height: 30px;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--card-border);
+          border-radius: 50%;
+          background: var(--card-bg);
+          color: var(--foreground-muted);
+          cursor: pointer;
+          transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+        }
+
+        .genres-scroll-arrow:hover {
+          color: var(--foreground);
+          border-color: var(--primary);
+          background: color-mix(in srgb, var(--primary) 12%, var(--card-bg));
         }
 
         .genre-chip {
@@ -1876,7 +1932,657 @@ export default function WatchListPage() {
             gap: 12px !important;
           }
         }
+
+        .watchlist-container {
+          width: 100%;
+          max-width: 1440px;
+          margin: 0 auto;
+          padding-bottom: 84px;
+        }
+
+        .header-row {
+          align-items: flex-end;
+          margin-bottom: 30px;
+          gap: 20px;
+        }
+
+        .header-left {
+          align-items: flex-end;
+          gap: 18px;
+        }
+
+        .header-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+
+        .header-eyebrow {
+          color: var(--primary);
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.16em;
+        }
+
+        .header-title {
+          font-size: clamp(30px, 3.2vw, 42px);
+          font-weight: 800;
+          letter-spacing: -0.045em;
+          line-height: 1.05;
+        }
+
+        .header-description {
+          color: var(--foreground-muted);
+          font-size: 14px;
+          line-height: 1.55;
+        }
+
+        .library-stats-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          margin-bottom: 2px;
+          padding: 8px 11px;
+          border-radius: 10px;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .header-actions {
+          gap: 8px;
+          justify-content: flex-end;
+        }
+
+        .icon-btn {
+          min-height: 40px;
+          padding: 8px 12px;
+          border-radius: 11px;
+          background: var(--card-bg);
+          box-shadow: 0 2px 8px var(--shadow-color);
+        }
+
+        .icon-btn:hover {
+          background: var(--sidebar-hover);
+          border-color: var(--card-hover-border);
+          transform: translateY(-1px);
+        }
+
+        .icon-btn.btn-primary {
+          background: var(--primary-gradient);
+          color: #fff;
+          box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .search-bar-row {
+          margin: -10px 0 24px;
+        }
+
+        .search-input-wrapper {
+          max-width: 680px;
+        }
+
+        .search-input-field {
+          min-height: 48px;
+          border-radius: 13px;
+          box-shadow: 0 5px 20px var(--shadow-color);
+        }
+
+        .tabs-row {
+          max-width: none;
+          margin-bottom: 18px;
+          border-bottom: 1px solid var(--card-border);
+          padding-bottom: 14px;
+        }
+
+        :global(.watchlist-rubber-segment) {
+          max-width: 100%;
+          border: 1px solid var(--card-border);
+          border-radius: 14px;
+          background: var(--card-bg);
+          box-shadow: none;
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+        }
+
+        :global(.watchlist-rubber-segment .rubber-segment__item) {
+          padding-right: 13px;
+          padding-left: 13px;
+          font-weight: 600;
+        }
+
+        .filters-container {
+          flex-wrap: wrap;
+          gap: 10px;
+          margin-bottom: 24px;
+          overflow: visible;
+        }
+
+        .media-type-pills,
+        .genres-scroll-row {
+          gap: 7px;
+        }
+
+        .pill-btn,
+        .genre-chip {
+          min-height: 34px;
+          padding: 6px 12px;
+          border-radius: 10px;
+          background: var(--card-bg);
+          transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+        }
+
+        .pill-btn.active {
+          background: var(--foreground);
+          color: var(--bg-color);
+          border-color: var(--foreground);
+        }
+
+        .filter-divider {
+          display: none;
+        }
+
+        .genres-scroll-row {
+          max-width: 100%;
+          padding: 1px 0 3px;
+        }
+
+        @media (max-width: 768px) {
+          .genres-scroll-arrow {
+            display: none;
+          }
+        }
+
+        .genre-chip.active {
+          background: color-mix(in srgb, var(--primary) 12%, var(--card-bg));
+        }
+
+        .sync-banner {
+          min-height: 44px;
+          padding: 10px 14px;
+          margin-bottom: 20px;
+          border-radius: 12px;
+        }
+
+        .watchlist-container .media-grid,
+        .watchlist-container .skeleton-grid {
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          gap: 24px 18px;
+          margin-top: 0;
+        }
+
+        .library-card-wrapper {
+          min-width: 0;
+        }
+
+        .card-link {
+          gap: 10px;
+        }
+
+        .card-image-box {
+          border: 1px solid var(--card-border) !important;
+          border-radius: 15px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+        }
+
+        .library-card-wrapper:hover .card-image-box {
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+        }
+
+        .card-overlay {
+          background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, transparent 28%, transparent 55%, rgba(0, 0, 0, 0.22) 100%);
+        }
+
+        .card-top-badges {
+          top: 10px;
+          left: 10px;
+          gap: 6px;
+        }
+
+        .badge-pill {
+          padding: 5px 8px;
+          border-radius: 7px;
+          font-size: 9px;
+          letter-spacing: 0.05em;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+
+        .remove-btn {
+          top: 9px;
+          right: 9px;
+          width: 34px;
+          height: 34px;
+          background: rgba(15, 15, 20, 0.7);
+          border-color: rgba(255, 255, 255, 0.18);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+
+        .remove-btn.watchlist-heart-btn {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: rgba(15, 15, 20, 0.7) !important;
+          border: 1px solid rgba(255, 255, 255, 0.18) !important;
+          backdrop-filter: blur(12px) !important;
+          -webkit-backdrop-filter: blur(12px) !important;
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25) !important;
+        }
+
+        .remove-btn.watchlist-heart-btn:hover {
+          transform: scale(1.08);
+          background: rgba(15, 15, 20, 0.88) !important;
+        }
+
+        .card-info {
+          gap: 4px;
+          padding: 0 2px;
+        }
+
+        .card-title {
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1.35;
+        }
+
+        .card-subtext {
+          font-size: 12px;
+        }
+
+        .empty-state {
+          max-width: 620px;
+          margin-top: 18px;
+          padding: 64px 24px;
+          border: 1px solid var(--card-border);
+          border-radius: 22px;
+          background: color-mix(in srgb, var(--card-bg) 78%, transparent);
+        }
+
+        .empty-icon-circle {
+          width: 64px;
+          height: 64px;
+          margin-bottom: 4px;
+          border-radius: 18px;
+          background: color-mix(in srgb, var(--primary) 10%, var(--card-bg));
+          color: var(--primary);
+        }
+
+        .empty-state h2 {
+          font-size: 21px;
+          letter-spacing: -0.02em;
+        }
+
+        .empty-state p {
+          max-width: 420px;
+          font-size: 14px;
+          line-height: 1.65;
+        }
+
+        .empty-actions {
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+
+        .watchlist-container button:focus-visible,
+        .watchlist-container a:focus-visible {
+          outline: 2px solid var(--primary);
+          outline-offset: 3px;
+        }
+
+        .skeleton-image,
+        .skeleton-text {
+          background-color: var(--input-bg);
+        }
+
+        @media (min-width: 1500px) {
+          .watchlist-container .media-grid,
+          .watchlist-container .skeleton-grid {
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+          }
+        }
+
+        @media (max-width: 640px) {
+          .watchlist-container {
+            padding-bottom: 56px;
+          }
+
+          .header-row {
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid var(--card-border);
+          }
+
+          .header-left {
+            width: 100%;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+          }
+
+          .header-copy {
+            min-width: 0;
+          }
+
+          .header-title {
+            font-size: 30px;
+          }
+
+          .header-description {
+            max-width: 260px;
+            font-size: 13px;
+          }
+
+          .library-stats-pill {
+            flex-shrink: 0;
+            margin-top: 19px;
+            padding: 7px 9px;
+          }
+
+          .header-actions {
+            width: 100%;
+            justify-content: flex-start;
+          }
+
+          .header-actions .btn-text {
+            display: none !important;
+          }
+
+          .header-actions .icon-btn {
+            width: 40px;
+            min-width: 40px;
+            height: 38px;
+            min-height: 38px;
+            padding: 7px !important;
+          }
+
+          .header-actions .icon-btn:first-child,
+          .header-actions .btn-danger-ghost {
+            width: 38px;
+            padding: 7px !important;
+          }
+
+          .tabs-row {
+            overflow-x: auto;
+            padding: 0 0 12px;
+          }
+
+          :global(.watchlist-rubber-segment) {
+            width: max-content;
+          }
+
+          :global(.watchlist-rubber-segment .rubber-segment__item) {
+            padding-right: 9px;
+            padding-left: 9px;
+            font-size: 12px;
+          }
+
+          .filters-container {
+            align-items: flex-start;
+            flex-direction: column;
+            margin-bottom: 20px;
+          }
+
+          .media-type-pills {
+            max-width: 100%;
+            overflow-x: auto;
+          }
+
+          .watchlist-container .media-grid,
+          .watchlist-container .skeleton-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 18px 12px !important;
+          }
+
+          .empty-state {
+            padding: 48px 18px;
+          }
+        }
+
+        .header-row {
+          align-items: center;
+          margin-bottom: 18px;
+          gap: 14px;
+        }
+
+        .header-left {
+          flex: 0 0 auto;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .header-copy {
+          gap: 0;
+        }
+
+        .header-title {
+          font-size: clamp(26px, 2.5vw, 34px);
+          line-height: 1.1;
+        }
+
+        .library-stats-pill {
+          margin: 0;
+          padding: 6px 9px;
+        }
+
+        .header-actions {
+          flex: 0 1 auto;
+          flex-wrap: nowrap;
+          gap: 6px;
+        }
+
+        .header-actions .icon-btn {
+          display: inline-flex;
+          flex: 0 0 auto;
+          align-items: center;
+          justify-content: center;
+          min-width: 36px;
+          min-height: 36px;
+          padding: 7px 10px;
+          white-space: nowrap;
+        }
+
+        .header-utility-group {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          padding: 2px;
+          border: 1px solid var(--card-border);
+          border-radius: 12px;
+          background: var(--card-bg);
+        }
+
+        .header-utility-group .icon-btn {
+          border-color: transparent;
+          background: transparent;
+          box-shadow: none;
+        }
+
+        .header-utility-group .icon-btn:hover {
+          background: var(--sidebar-hover);
+          border-color: transparent;
+          transform: none;
+        }
+
+        .header-utility-group .cloud-action {
+          color: #0891b2;
+        }
+
+        [data-theme="dark"] .header-utility-group .cloud-action {
+          color: #67e8f9;
+        }
+
+        .header-actions .btn-primary {
+          background: var(--primary-gradient);
+        }
+
+        @media (max-width: 1050px) {
+          .header-row {
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 14px;
+          }
+
+          .header-actions {
+            width: 100%;
+            justify-content: flex-start;
+          }
+        }
+
+        .tabs-row {
+          margin-bottom: 12px;
+          padding-bottom: 9px;
+        }
+
+        .filters-container {
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+
+        .search-bar-row {
+          margin: 0 0 14px;
+        }
+
+        @media (max-width: 640px) {
+          .header-row {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            gap: 10px;
+          }
+
+          .header-left {
+            width: auto;
+            align-items: center;
+            gap: 9px;
+          }
+
+          .header-title {
+            font-size: 27px;
+          }
+
+          .library-stats-pill {
+            margin: 0;
+            padding: 5px 7px;
+            font-size: 11px;
+          }
+
+          .header-actions {
+            gap: 5px;
+          }
+
+          .header-actions .icon-btn {
+            width: 36px;
+            min-width: 36px;
+            height: 36px;
+            min-height: 36px;
+            padding: 6px !important;
+          }
+
+          .header-actions .stats-action,
+          .header-actions .cloud-action {
+            width: auto;
+            min-width: 0;
+            padding: 6px 8px !important;
+            gap: 5px;
+          }
+
+          .header-actions .stats-action .btn-text,
+          .header-actions .cloud-action .btn-text {
+            display: inline !important;
+            font-size: 11px;
+          }
+
+          .header-actions .import-menu-container > .icon-btn {
+            width: auto;
+            min-width: 36px;
+          }
+
+          .header-actions .import-menu-container .btn-text,
+          .header-actions .sort-action .btn-text {
+            display: none !important;
+          }
+
+          .header-actions .btn-danger-ghost {
+            width: 34px;
+            min-width: 34px;
+          }
+
+          .tabs-row {
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+          }
+
+          .filters-container {
+            gap: 7px;
+            margin-bottom: 14px;
+          }
+
+          .pill-btn,
+          .genre-chip {
+            min-height: 31px;
+            padding: 5px 9px;
+          }
+        }
+
+        :global(.watchlist-container .header-utility-group .icon-btn) {
+          display: inline-flex !important;
+          flex: 0 0 auto;
+          align-items: center;
+          justify-content: center;
+          width: auto !important;
+          min-width: 0 !important;
+          min-height: 34px !important;
+          height: 34px !important;
+          gap: 5px;
+          padding: 6px 9px !important;
+          border: 1px solid transparent;
+          border-radius: 9px;
+          background: transparent;
+          box-shadow: none;
+          color: var(--foreground-muted);
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1;
+          text-decoration: none;
+          white-space: nowrap;
+        }
+
+        :global(.watchlist-container .header-utility-group .icon-btn:hover) {
+          border-color: transparent;
+          background: var(--sidebar-hover);
+          color: var(--foreground);
+          transform: none;
+        }
+
+        :global(.watchlist-container .header-utility-group .cloud-action) {
+          color: #0891b2;
+        }
+
+        :global([data-theme="dark"] .watchlist-container .header-utility-group .cloud-action) {
+          color: #67e8f9;
+        }
+
+        :global(.watchlist-container .header-actions .header-utility-group .icon-btn .btn-text) {
+          display: inline !important;
+          font-size: 12px;
+        }
+
+        @media (max-width: 640px) {
+          :global(.watchlist-container .header-utility-group .icon-btn) {
+            min-height: 32px !important;
+            height: 32px !important;
+            padding: 5px 7px !important;
+            gap: 4px;
+            font-size: 11px;
+          }
+
+          :global(.watchlist-container .header-actions .header-utility-group .icon-btn .btn-text) {
+            display: inline !important;
+            font-size: 11px;
+          }
+        }
       `}</style>
-    </div>
+      </div>
+    </>
   );
 }

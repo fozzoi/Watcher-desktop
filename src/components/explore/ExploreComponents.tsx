@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -16,12 +16,12 @@ import {
 import type { WatchProgress } from "@/utils/progress";
 import { getImageUrl, type TMDBResult } from "@/utils/tmdb";
 import { GENRE_DATA } from "./ExploreConstants";
+import PageLoading from "@/components/PageLoading";
 
 export type ExploreRowData = {
   title: string;
   type: string;
   items: TMDBResult[];
-  note?: string;
 };
 
 function getTitle(item: TMDBResult) {
@@ -56,9 +56,12 @@ export function ExplorePosterCard({
           <Link href={`/detail?id=${item.id}&type=${mediaType}`} aria-label={`View ${title}`} className="absolute inset-0">
             <img
               src={getImageUrl(item.poster_path, "w342")}
+              srcSet={`${getImageUrl(item.poster_path, "w185")} 185w, ${getImageUrl(item.poster_path, "w342")} 342w`}
+              sizes={layout === "rail" ? "(max-width: 640px) 148px, 170px" : "(max-width: 640px) 44vw, (max-width: 1023px) 22vw, 16vw"}
               alt={title}
               loading="lazy"
               decoding="async"
+              fetchPriority="low"
               className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
             />
             <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/90 via-black/35 to-transparent" />
@@ -106,10 +109,9 @@ export function ExploreCatalogRow({
   };
 
   return (
-    <section className="mb-9" aria-label={row.title}>
+    <section className="mb-7" aria-label={row.title}>
       <div className="mb-3 flex min-h-11 items-end justify-between gap-3">
         <div className="min-w-0">
-          {row.note && <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--primary)]">{row.note}</p>}
           <h2 className="truncate text-xl font-bold tracking-tight text-[var(--foreground)] sm:text-2xl">{row.title}</h2>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -124,10 +126,10 @@ export function ExploreCatalogRow({
       </div>
       <div
         ref={rail}
-        className="-mx-4 -my-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 py-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:gap-4 sm:px-6"
+        className="-mx-4 -my-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth scroll-pl-5 px-5 py-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:gap-4 sm:scroll-pl-6 sm:px-6"
       >
         {row.items.map((item, index) => (
-          <div key={`${getMediaType(item)}-${item.id}-${index}`} className="snap-start">
+          <div key={`${getMediaType(item)}-${item.id}-${index}`} className="snap-start snap-always">
             <ExplorePosterCard item={item} saved={savedIds.has(item.id)} onToggle={onToggle} />
           </div>
         ))}
@@ -161,38 +163,134 @@ export function ExploreGenrePicker({
 }
 
 export function ExploreHero({
-  item,
-  saved,
+  items,
+  savedIds,
   onToggle,
 }: {
-  item: TMDBResult;
-  saved: boolean;
+  items: TMDBResult[];
+  savedIds: Set<number>;
   onToggle: (item: TMDBResult) => void;
 }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const slideCount = items.length;
+  const currentIndex = slideCount ? activeIndex % slideCount : 0;
+  const item = items[currentIndex];
+
+  useEffect(() => {
+    if (slideCount < 2 || paused) return;
+    const timer = window.setInterval(() => {
+      setActiveIndex((index) => (index + 1) % slideCount);
+    }, 6500);
+    return () => window.clearInterval(timer);
+  }, [paused, slideCount]);
+
+  if (!item) return null;
+
   const mediaType = getMediaType(item);
   const date = item.release_date || item.first_air_date;
+  const saved = savedIds.has(item.id);
+
+  const changeSlide = (direction: -1 | 1) => {
+    setActiveIndex((index) => ((index % slideCount) + direction + slideCount) % slideCount);
+  };
 
   return (
-    <section className="relative isolate mb-8 min-h-[360px] rounded-[28px] border border-white/10 bg-[#17171b] sm:min-h-[430px] lg:min-h-[500px]">
-      <div className="absolute inset-0 -z-10 overflow-hidden rounded-[28px]">
-        <img src={getImageUrl(item.backdrop_path || item.poster_path, "original")} alt="" fetchPriority="high" className="h-full w-full object-cover object-center opacity-75" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/75 to-black/10" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/5" />
+    <section
+      className="group relative isolate mb-6 min-h-[300px] overflow-hidden rounded-[24px] border border-white/10 bg-[#17171b] sm:min-h-[350px] lg:min-h-[380px]"
+      role="region"
+      aria-label="Featured titles"
+      aria-roledescription="carousel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false);
+      }}
+    >
+      <div className="absolute inset-0 z-0 overflow-hidden rounded-[24px]">
+        <img
+          key={item.id}
+          src={getImageUrl(item.backdrop_path || item.poster_path, "w1280")}
+          srcSet={`${getImageUrl(item.backdrop_path || item.poster_path, "w780")} 780w, ${getImageUrl(item.backdrop_path || item.poster_path, "w1280")} 1280w`}
+          sizes="100vw"
+          alt=""
+          fetchPriority="high"
+          decoding="async"
+          className="absolute inset-0 h-full w-full animate-[hero-image-in_500ms_ease-out] object-cover object-center opacity-90"
+        />
+        <div className="absolute inset-0 z-[2] bg-gradient-to-r from-black/65 via-black/25 to-transparent" />
+        <div className="absolute inset-0 z-[2] bg-gradient-to-t from-black/45 via-transparent to-transparent" />
       </div>
-      <div className="flex min-h-[360px] max-w-2xl flex-col justify-end p-6 sm:min-h-[430px] sm:p-10 lg:min-h-[500px] lg:p-14">
-        <p className="mb-3 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-white/75"><span className="size-1.5 rounded-full bg-[var(--accent)]" />TODAY’S SPOTLIGHT</p>
+      <div
+        key={`content-${item.id}`}
+        className="relative z-10 flex min-h-[300px] max-w-2xl animate-[hero-content-in_350ms_ease-out] flex-col justify-end p-6 sm:min-h-[350px] sm:p-10 lg:min-h-[380px] lg:p-12"
+        role="group"
+        aria-roledescription="slide"
+        aria-label={`${currentIndex + 1} of ${slideCount}: ${getTitle(item)}`}
+      >
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">FEATURED</p>
         <h2 className="max-w-xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">{getTitle(item)}</h2>
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/75">
           <span>{mediaType === "tv" ? "Series" : "Movie"}</span>
           {date && <><span aria-hidden="true">·</span><span>{date.slice(0, 4)}</span></>}
           {item.vote_average > 0 && <><span aria-hidden="true">·</span><span className="inline-flex items-center gap-1"><Star size={14} fill="#fbbf24" stroke="#fbbf24" />{item.vote_average.toFixed(1)}</span></>}
         </div>
-        <p className="mt-4 line-clamp-3 max-w-xl text-sm leading-6 text-white/75 sm:text-base">{item.overview || "A new story to add to your watchlist."}</p>
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-5 flex flex-wrap gap-3">
           <Link href={`/detail?id=${item.id}&type=${mediaType}`} className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition hover:bg-white/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><CirclePlay size={18} /> Explore title</Link>
           <button type="button" onClick={() => onToggle(item)} className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/20 bg-black/25 px-5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">{saved ? <Check size={17} /> : <BookmarkPlus size={17} />}{saved ? "In watchlist" : "Add to watchlist"}</button>
         </div>
       </div>
+      {slideCount > 1 && (
+        <>
+          <div className="absolute right-4 top-4 z-10 flex gap-2 sm:right-6 sm:top-6">
+            <button
+              type="button"
+              onClick={() => changeSlide(-1)}
+              aria-label="Previous featured title"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white backdrop-blur transition hover:bg-black/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => changeSlide(1)}
+              aria-label="Next featured title"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white backdrop-blur transition hover:bg-black/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+          <div className="absolute bottom-4 right-5 z-10 flex items-center gap-2 sm:bottom-6 sm:right-7" aria-label="Choose featured title">
+            {items.map((featuredItem, index) => (
+              <button
+                key={featuredItem.id}
+                type="button"
+                onClick={() => setActiveIndex(index)}
+                aria-label={`Show ${getTitle(featuredItem)}`}
+                aria-current={currentIndex === index ? "true" : undefined}
+                className={`h-2 rounded-full transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${activeIndex === index ? "w-6 bg-white" : "w-2 bg-white/55 hover:bg-white/85"}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+      <style jsx>{`
+        @keyframes hero-image-in {
+          from { opacity: 0.45; transform: scale(1.015); }
+          to { opacity: 0.75; transform: scale(1); }
+        }
+        @keyframes hero-content-in {
+          from { opacity: 0.55; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          section :global(img),
+          section > div:nth-child(2) {
+            animation: none;
+          }
+        }
+      `}</style>
     </section>
   );
 }
@@ -208,13 +306,10 @@ export function ExploreContinueWatching({
 
   return (
     <section className="mb-8" aria-label="Your recent watches">
-      <div className="mb-2">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--primary)]">PICK UP WHERE YOU LEFT OFF</p>
-        <h2 className="text-xl font-bold text-[var(--foreground)] sm:text-2xl">Your recent watches</h2>
-      </div>
-      <div className="-mx-4 -my-4 flex gap-3 overflow-x-auto px-5 py-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:px-6">
+      <h2 className="mb-1 text-xl font-bold text-[var(--foreground)] sm:text-2xl">Continue watching</h2>
+      <div className="-mx-4 -my-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth scroll-pl-5 px-5 py-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:scroll-pl-6 sm:px-6">
         {history.slice(0, 12).map((entry) => (
-          <article key={entry.tmdbId} className="group relative w-64 shrink-0 rounded-2xl transition duration-300 hover:-translate-y-1 sm:w-72">
+          <article key={entry.tmdbId} className="group relative w-64 shrink-0 snap-start snap-always rounded-2xl transition duration-300 hover:-translate-y-1 sm:w-72">
             <div className="relative rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[0_8px_20px_rgba(0,0,0,0.2)] transition group-hover:border-[var(--card-hover-border)] group-hover:shadow-[0_16px_32px_rgba(0,0,0,0.3)]">
               <Link href={`/player?id=${entry.tmdbId}&type=${entry.mediaType}&title=${encodeURIComponent(entry.title)}&poster=${encodeURIComponent(entry.poster)}`} className="flex min-h-[122px] gap-3 rounded-2xl p-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]">
                 <img src={getImageUrl(entry.poster, "w185")} alt="" className="h-24 w-16 shrink-0 rounded-lg object-cover" loading="lazy" />
@@ -233,17 +328,27 @@ export function ExploreContinueWatching({
   );
 }
 
-export function ExploreSkeleton() {
+export function ExploreLoading({ label }: { label: string }) {
   return (
-    <div aria-busy="true" aria-label="Loading recommendations">
-      {[0, 1, 2].map((row) => (
-        <div key={row} className="mb-8">
-          <div className="mb-3 h-7 w-48 animate-pulse rounded bg-[var(--input-bg)]" />
-          <div className="-mx-4 -my-4 flex gap-4 overflow-x-auto px-5 py-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:px-6">
-            {Array.from({ length: 7 }, (_, index) => <div key={index} className="aspect-[2/3] w-[148px] shrink-0 animate-pulse rounded-2xl bg-[var(--input-bg)] sm:w-[170px]" />)}
-          </div>
-        </div>
-      ))}
+    <PageLoading label={label} className="min-h-[32vh] px-6" />
+  );
+}
+
+export function ExploreProgress() {
+  return (
+    <div className="mb-5 h-1 overflow-hidden rounded-full bg-[var(--card-border)]" role="progressbar" aria-label="Updating recommendations">
+      <div className="explore-progress h-full w-1/3 rounded-full bg-[var(--primary)]" />
+      <style jsx>{`
+        @keyframes explore-progress {
+          0% { transform: translateX(-120%); }
+          55% { transform: translateX(195%); }
+          100% { transform: translateX(390%); }
+        }
+        .explore-progress { animation: explore-progress 1.4s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .explore-progress { animation: none; opacity: 0.65; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -264,11 +369,10 @@ export function ExploreSearchGrid({
   return (
     <section aria-live="polite" aria-busy={loading}>
       <div className="mb-5">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--primary)]">SEARCH</p>
-        <h2 className="mt-1 text-2xl font-bold text-[var(--foreground)]">{loading ? "Looking through the library…" : `Results for “${query.trim()}”`}</h2>
+        <h2 className="text-xl font-bold text-[var(--foreground)]">{loading ? "Searching…" : `Results for “${query.trim()}”`}</h2>
       </div>
       {loading ? (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-4 sm:gap-x-4 lg:grid-cols-6 xl:grid-cols-7">{Array.from({ length: 12 }, (_, i) => <div key={i} className="aspect-[2/3] w-full max-w-[180px] animate-pulse rounded-2xl bg-[var(--input-bg)]" />)}</div>
+        <ExploreLoading label="Searching titles" />
       ) : results.length ? (
         <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-4 sm:gap-x-4 lg:grid-cols-6 xl:grid-cols-7">{results.map((item) => <ExplorePosterCard key={`${getMediaType(item)}-${item.id}`} item={item} saved={savedIds.has(item.id)} onToggle={onToggle} layout="grid" />)}</div>
       ) : (

@@ -1,5 +1,6 @@
 "use client";
 
+import PageLoading from '@/components/PageLoading';
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Film, Star, AlertCircle } from 'lucide-react';
@@ -89,11 +90,7 @@ function SimilarMoviesContent() {
   };
 
   if (loading) {
-    return (
-      <div className="loading-spinner-container">
-        <div className="spinner" />
-      </div>
-    );
+    return <PageLoading label="Loading similar titles" />;
   }
 
   return (
@@ -194,13 +191,5 @@ function SimilarMoviesContent() {
 }
 
 export default function SimilarMoviesPage() {
-  return (
-    <Suspense fallback={
-      <div className="loading-spinner-container">
-        <div className="spinner" />
-      </div>
-    }>
-      <SimilarMoviesContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<PageLoading label="Loading similar titles" />}><SimilarMoviesContent /></Suspense>;
 }

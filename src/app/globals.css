@@ -316,7 +316,7 @@ html[data-theme="light"].is-ambient-page .ai-panel,
   background: rgba(0, 0, 0, 0.42) !important;
   backdrop-filter: blur(24px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border: none !important;
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45) !important;
   color: #ffffff !important;
 }
@@ -328,7 +328,7 @@ html[data-theme="light"].is-ambient-page .director-section,
   background: rgba(0, 0, 0, 0.35) !important;
   backdrop-filter: blur(20px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border: none !important;
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4) !important;
 }
 

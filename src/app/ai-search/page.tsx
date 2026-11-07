@@ -28,6 +28,7 @@ import {
 } from '@/utils/chatStorage';
 import { getUserPreferences } from '@/utils/userPreferences';
 import { AsyncStorage } from '@/utils/storage';
+import { Split } from 'loading-dev';
 
 interface ChatMessage {
   id: string;
@@ -682,10 +683,8 @@ export default function AiChatPage() {
                       <Sparkles size={12} className="sender-icon" />
                       <span>{aiName} is thinking</span>
                     </div>
-                    <div className="whatsapp-typing-indicator">
-                      <span className="indicator-dot" />
-                      <span className="indicator-dot" />
-                      <span className="indicator-dot" />
+                    <div className="whatsapp-typing-indicator" role="status" aria-label={`${aiName} is thinking`}>
+                      <Split size={24} color="currentColor" duration={1400} />
                     </div>
                   </div>
                 </div>
@@ -1817,22 +1816,6 @@ export default function AiChatPage() {
           align-items: center;
           gap: 5px;
           padding: 4px 0;
-        }
-
-        .indicator-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: rgba(245, 245, 247, 0.6);
-          animation: bounceDots 1.2s infinite ease-in-out;
-        }
-
-        .indicator-dot:nth-child(2) { animation-delay: 0.2s; }
-        .indicator-dot:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes bounceDots {
-          0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
-          40% { transform: translateY(-5px); opacity: 1; }
         }
 
         /* ===== Quick Prompts Strip ===== */

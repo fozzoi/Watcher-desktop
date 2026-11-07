@@ -1,5 +1,6 @@
 "use client";
 
+import PageLoading from '@/components/PageLoading';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, History, ArrowLeft, Search, Calendar, AlertTriangle } from 'lucide-react';
@@ -144,9 +145,7 @@ export default function HistoryPage() {
 
       {/* History Items Lists */}
       {loading ? (
-        <div className="loading-spinner-container">
-          <div className="spinner" />
-        </div>
+        <PageLoading label="Loading watch history" />
       ) : hasItems ? (
         <div className="history-lists animate-fade-in-up">
           {Object.entries(grouped).map(([groupName, items]) => {

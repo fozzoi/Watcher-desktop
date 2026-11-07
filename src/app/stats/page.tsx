@@ -1,5 +1,6 @@
 "use client";
 
+import PageLoading from '@/components/PageLoading';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
@@ -105,11 +106,7 @@ export default function StatsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="loading-spinner-container">
-        <div className="spinner" />
-      </div>
-    );
+    return <PageLoading label="Loading statistics" />;
   }
 
   return (

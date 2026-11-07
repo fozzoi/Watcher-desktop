@@ -1,5 +1,6 @@
 "use client";
 
+import PageLoading from '@/components/PageLoading';
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -129,11 +130,7 @@ function CollectionDetailContent() {
   };
 
   if (loading) {
-    return (
-      <div className="loading-spinner-container">
-        <div className="spinner" />
-      </div>
-    );
+    return <PageLoading label="Loading collection" />;
   }
 
   if (!collection) {
@@ -521,13 +518,5 @@ function CollectionDetailContent() {
 }
 
 export default function CollectionPage() {
-  return (
-    <Suspense fallback={
-      <div className="loading-spinner-container">
-        <div className="spinner" />
-      </div>
-    }>
-      <CollectionDetailContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<PageLoading label="Loading collection" />}><CollectionDetailContent /></Suspense>;
 }

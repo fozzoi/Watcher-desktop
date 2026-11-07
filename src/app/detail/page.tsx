@@ -19,7 +19,9 @@ import { getProgress, getShowEpisodeProgressMap, isEpisodeCompleted, WatchProgre
 import { AsyncStorage } from '@/utils/storage';
 import { useImagePalette, warmPaletteForMedia, AMBIENT_PENDING_BG } from '@/utils/colorExtractor';
 import MovieCard from '@/components/MovieCard';
+import PageLoading from '@/components/PageLoading';
 import axios from 'axios';
+import { Split } from 'loading-dev';
 
 // Picks black/white text for a given hex background
 const readableOn = (hex: string) => {
@@ -481,133 +483,7 @@ function DetailContent() {
   };
 
   if (loading) {
-    return (
-      <div className="detail-container detail-skeleton" aria-busy="true" aria-label="Loading title details">
-        <div className="skeleton-backdrop">
-          <div className="skeleton-back-button skeleton-shimmer" />
-          <div className="skeleton-backdrop-shade" />
-        </div>
-        <div className="skeleton-content">
-          <div className="skeleton-main">
-            <div className="skeleton-poster skeleton-shimmer" />
-            <div className="skeleton-meta">
-              <div className="skeleton-title skeleton-shimmer" />
-              <div className="skeleton-tagline skeleton-shimmer" />
-              <div className="skeleton-badges">
-                <div className="skeleton-badge skeleton-shimmer" />
-                <div className="skeleton-badge skeleton-shimmer" />
-                <div className="skeleton-badge skeleton-shimmer" />
-                <div className="skeleton-badge skeleton-shimmer" />
-              </div>
-              <div className="skeleton-actions">
-                <div className="skeleton-action skeleton-shimmer" />
-                <div className="skeleton-action secondary skeleton-shimmer" />
-              </div>
-            </div>
-          </div>
-          <div className="skeleton-overview">
-            <div className="skeleton-heading skeleton-shimmer" />
-            <div className="skeleton-line skeleton-shimmer" />
-            <div className="skeleton-line skeleton-shimmer" />
-            <div className="skeleton-line short skeleton-shimmer" />
-          </div>
-        </div>
-        <style jsx>{`
-          .detail-container {
-            position: relative;
-            margin: 0;
-            width: 100%;
-            min-height: 100vh;
-            overflow: hidden;
-            background: var(--bg-color);
-          }
-          .skeleton-backdrop {
-            position: relative;
-            height: min(55vh, 480px);
-            min-height: 420px;
-            background: var(--card-bg);
-          }
-          .skeleton-back-button {
-            position: absolute;
-            z-index: 1;
-            top: 30px;
-            left: 40px;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-          }
-          .skeleton-backdrop-shade {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(180deg, transparent 25%, var(--bg-color) 100%);
-          }
-          .skeleton-content {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 40px;
-            margin-top: -120px;
-            padding: 0 40px 48px;
-          }
-          .skeleton-main { display: flex; align-items: flex-end; gap: 32px; }
-          .skeleton-poster {
-            flex: 0 0 220px;
-            height: 330px;
-            border: 1px solid var(--card-border);
-            border-radius: var(--border-radius-md);
-          }
-          .skeleton-meta {
-            display: flex;
-            flex: 1;
-            flex-direction: column;
-            gap: 16px;
-            padding-bottom: 4px;
-          }
-          .skeleton-title { width: min(58%, 440px); height: 42px; border-radius: 6px; }
-          .skeleton-tagline { width: min(38%, 300px); height: 16px; border-radius: 5px; }
-          .skeleton-badges, .skeleton-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-          .skeleton-badge { width: 74px; height: 28px; border-radius: 14px; }
-          .skeleton-badge:nth-child(2) { width: 110px; }
-          .skeleton-badge:nth-child(3) { width: 58px; }
-          .skeleton-actions { margin-top: 4px; }
-          .skeleton-action { width: 150px; height: 46px; border-radius: var(--border-radius-md); }
-          .skeleton-action.secondary { width: 112px; }
-          .skeleton-overview { display: flex; flex-direction: column; gap: 12px; max-width: 760px; }
-          .skeleton-heading { width: 150px; height: 24px; margin-bottom: 4px; border-radius: 5px; }
-          .skeleton-line { width: 100%; height: 14px; border-radius: 5px; }
-          .skeleton-line.short { width: 68%; }
-          .skeleton-shimmer {
-            background: linear-gradient(90deg, var(--card-bg) 25%, var(--sidebar-hover) 50%, var(--card-bg) 75%);
-            background-size: 200% 100%;
-            animation: detail-skeleton-shimmer 1.5s ease-in-out infinite;
-          }
-          @keyframes detail-skeleton-shimmer { to { background-position: -200% 0; } }
-          @media (max-width: 1024px) { .detail-container { margin: 0; width: 100%; } }
-          @media (max-width: 900px) {
-            .detail-container { margin: 0; width: 100%; }
-            .skeleton-backdrop { height: 340px; min-height: 300px; }
-            .skeleton-content { margin-top: -100px; }
-          }
-          @media (max-width: 768px) {
-            .skeleton-main { flex-direction: column; align-items: center; text-align: center; }
-            .skeleton-meta { align-items: center; width: 100%; }
-            .skeleton-badges, .skeleton-actions { justify-content: center; }
-            .skeleton-overview { width: 100%; }
-          }
-          @media (max-width: 640px) {
-            .detail-container { margin: 0; width: 100%; }
-            .skeleton-back-button { top: 20px; left: 20px; }
-            .skeleton-content { margin-top: -88px; padding: 0 20px 36px; gap: 32px; }
-            .skeleton-poster { flex-basis: auto; width: 180px; height: 270px; }
-            .skeleton-title { width: 78%; height: 34px; }
-            .skeleton-tagline { width: 52%; }
-            .skeleton-overview { text-align: left; }
-          }
-          @media (prefers-reduced-motion: reduce) { .skeleton-shimmer { animation: none; } }
-        `}</style>
-      </div>
-    );
+    return <PageLoading label="Loading title details" className="min-h-screen" />;
   }
 
   if (!movie) {
@@ -945,9 +821,7 @@ function DetailContent() {
                 </div>
 
                 {loadingEpisodes ? (
-                  <div className="loading-spinner-container" style={{ padding: '30px' }}>
-                    <div className="spinner" />
-                  </div>
+                  <PageLoading label="Loading episodes" />
                 ) : episodes.length > 0 ? (
                   <div className="episodes-carousel-wrapper">
                     <div className="episodes-scroll-container" ref={episodesScrollRef}>
@@ -1435,10 +1309,8 @@ function DetailContent() {
                         ))}
                         {movieChatLoading && (
                           <div className="chat-bubble-row bot">
-                            <div className="bubble-content loading">
-                              <span className="typing-dot" />
-                              <span className="typing-dot" />
-                              <span className="typing-dot" />
+                            <div className="bubble-content loading" role="status" aria-label="Cinema AI is thinking">
+                              <Split size={24} color="currentColor" duration={1400} />
                             </div>
                           </div>
                         )}
@@ -1646,9 +1518,7 @@ function DetailContent() {
 
             <div className="torrent-modal-body">
               {torrentLoading ? (
-                <div className="loading-spinner-container" style={{ padding: '40px 0' }}>
-                  <div className="spinner" />
-                </div>
+                <PageLoading label="Loading torrent sources" />
               ) : torrents.length > 0 ? (
                 <div className="torrent-list">
                   {torrents.map((t) => (
@@ -1763,8 +1633,8 @@ function DetailContent() {
           -webkit-backdrop-filter: blur(14px);
           box-shadow: 0 8px 28px var(--tint-shadow);
         }
-        .synopsis-box { padding: 22px 26px; }
-        .director-section { padding: 20px 22px; overflow: visible; }
+        .synopsis-box { padding: 22px 26px; border: none; }
+        .director-section { padding: 20px 22px; overflow: visible; border: none; }
 
         /* ═════════ Ambient solid theme tokens & high contrast text ═════════ */
         .detail-container.is-ambient {
@@ -1904,6 +1774,8 @@ function DetailContent() {
           margin: -8px -14px -24px -14px;
           overflow: visible !important;
           max-height: none !important;
+          border: 1px solid color-mix(in srgb, var(--accent, var(--primary)) 72%, transparent);
+          border-radius: var(--border-radius-lg);
         }
 
         @media (min-width: 1200px) {
@@ -2238,13 +2110,13 @@ function DetailContent() {
           display: inline-flex; align-items: center; gap: 14px;
           padding: 10px 16px 10px 10px;
           background: var(--tint);
-          border: 1px solid var(--tint-border);
+          border: none;
           border-radius: 100px;
           text-decoration: none;
           transition: var(--transition-fast);
           cursor: pointer;
         }
-        .director-card:hover { background: var(--tint-hover); border-color: var(--tint-border-strong); transform: translateY(-1px); }
+        .director-card:hover { background: var(--tint-hover); transform: translateY(-1px); }
         .director-avatar { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 2px solid var(--tint-border-strong); }
         .director-img { width: 100%; height: 100%; object-fit: cover; }
         .director-meta { display: flex; flex-direction: column; gap: 2px; }
@@ -2255,7 +2127,7 @@ function DetailContent() {
         .ai-panel {
           padding: 24px;
           border-radius: var(--border-radius-lg);
-          border: 1px solid rgba(255, 255, 255, 0.16) !important;
+          border: none !important;
           background: rgba(0, 0, 0, 0.35) !important;
           backdrop-filter: blur(20px) saturate(180%) !important;
           -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
@@ -2905,11 +2777,7 @@ function DetailContent() {
 export default function DetailPage() {
   return (
     <Suspense
-      fallback={
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '100px' }}>
-          <div className="spinner" />
-        </div>
-      }
+      fallback={<PageLoading label="Loading title details" className="min-h-screen" />}
     >
       <DetailContent />
     </Suspense>

@@ -1,5 +1,6 @@
 "use client";
 
+import PageLoading from '@/components/PageLoading';
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Film, AlertCircle, Loader2 } from 'lucide-react';
@@ -157,9 +158,7 @@ function ViewAllContent() {
 
       {/* Grid listing */}
       {loading ? (
-        <div className="loading-spinner-container">
-          <div className="spinner" />
-        </div>
+        <PageLoading label="Loading titles" />
       ) : items.length > 0 ? (
         <div className="results-wrapper animate-fade-in-up">
           <div className="media-grid">
@@ -355,13 +354,5 @@ function ViewAllContent() {
 }
 
 export default function ViewAllPage() {
-  return (
-    <Suspense fallback={
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}>
-        <div className="spinner" />
-      </div>
-    }>
-      <ViewAllContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<PageLoading label="Loading titles" />}><ViewAllContent /></Suspense>;
 }

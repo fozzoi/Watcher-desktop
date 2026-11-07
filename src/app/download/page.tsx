@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Download, Smartphone, Monitor, Terminal, Globe, ShieldCheck, Info, ExternalLink, RefreshCw } from 'lucide-react';
+import { Download, Smartphone, Monitor, Terminal, ShieldCheck, Info, ExternalLink } from 'lucide-react';
 import MicroSlats from '@/components/MicroSlats';
-import SpecularButton from '@/components/SpecularButton';
 
 interface ReleaseAsset {
   name: string;
@@ -265,27 +264,6 @@ export default function DownloadPage() {
         <div className="hero-content">
           <h1>Download Watcher</h1>
           <p>Stream and track your favorite movies & series anywhere on Android, Windows, or Linux.</p>
-          <div className="hero-actions">
-            <SpecularButton
-              size="md"
-              radius={10}
-              tint="#ffffff"
-              tintOpacity={0.06}
-              textColor="#f5f5f5"
-              lineColor="#888888"
-              baseColor="#444444"
-              intensity={0.9}
-              idleIntensity={0.3}
-              thickness={1}
-              glow={0.7}
-              onClick={() => {
-                if (typeof window !== 'undefined') window.location.href = '/';
-              }}
-            >
-              <Globe size={16} />
-              <span>Back to Home</span>
-            </SpecularButton>
-          </div>
         </div>
       </div>
 
@@ -461,11 +439,6 @@ export default function DownloadPage() {
           font-size: 15.5px;
           line-height: 1.5;
           margin: 0 0 20px 0;
-        }
-
-        .hero-actions {
-          display: flex;
-          gap: 12px;
         }
 
         /* Error notification banner */

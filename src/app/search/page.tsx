@@ -1,124 +1,157 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, X, Magnet, Share2, ArrowUp, ArrowDown, History, Film, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { searchTorrents, TorrentResult } from '@/utils/Scraper';
-import { AsyncStorage } from '@/utils/storage';
+import PageLoading from "@/components/PageLoading";
+import React, { FormEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  CheckCircle2,
+  Clock3,
+  Download,
+  Film,
+  History,
+  Magnet,
+  Search,
+  X,
+} from "lucide-react";
+import { searchTorrents, TorrentResult } from "@/utils/Scraper";
+import { AsyncStorage } from "@/utils/storage";
+import AuroraBackground from "@/components/AuroraBackground";
+
+type StatusMessage = {
+  text: string;
+  type: "success" | "error" | "info";
+};
+
+interface SearchHistoryEntry {
+  query: string;
+  date: string;
+}
+
+const qualityFor = (name: string) => {
+  const normalized = name.toLowerCase();
+  if (normalized.includes("2160p") || normalized.includes("4k")) {
+    return { label: "4K", style: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" };
+  }
+  if (normalized.includes("1080p")) {
+    return { label: "1080p", style: "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400" };
+  }
+  if (normalized.includes("720p")) {
+    return { label: "720p", style: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400" };
+  }
+  return { label: "SD", style: "border-[var(--card-border)] bg-[var(--badge-bg)] text-[var(--foreground-muted)]" };
+};
 
 function TorrentSearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<TorrentResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [downloadingHash, setDownloadingHash] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
+  const searchRequestRef = useRef(0);
+  const lastPrefillRef = useRef<string | null>(null);
 
-  // Prefill query from URL if passed (e.g. from Detail page click "Search Torrents")
-  useEffect(() => {
-    const prefill = searchParams.get('prefillQuery');
-    if (prefill) {
-      setSearchQuery(prefill);
-      handleSearch(prefill);
-    }
-  }, [searchParams]);
-
-  // Clean parameters on unmount or query reset
-  const handleClear = () => {
-    setSearchQuery("");
-    setResults([]);
-    setHasSearched(false);
-    setShowMore(false);
-    router.replace('/search');
-  };
-
-  const getQualityInfo = (name: string): { label: string; color: string } => {
-    const lowerName = name.toLowerCase();
-    if (lowerName.includes('2160p') || lowerName.includes('4k')) return { label: '4K', color: '#00ff08' };
-    if (lowerName.includes('1080p')) return { label: '1080p', color: '#00d5ff' };
-    if (lowerName.includes('720p')) return { label: '720p', color: '#ffaa00' };
-    return { label: 'SD', color: '#888' };
-  };
-
-  const handleSearch = async (customQuery?: string) => {
-    const queryToSearch = (typeof customQuery === 'string' ? customQuery : searchQuery).trim();
+  const handleSearch = useCallback(async (customQuery?: string) => {
+    const queryToSearch = (customQuery ?? searchQuery).trim();
     if (!queryToSearch) return;
-    
+
+    const requestId = ++searchRequestRef.current;
     setHasSearched(true);
     setLoading(true);
     setResults([]);
+    setShowMore(false);
     setStatusMessage(null);
-    
-    // Save to history
+
     try {
-      const jsonValue = await AsyncStorage.getItem("searchHistory");
-      let currentHistory = jsonValue ? JSON.parse(jsonValue) : [];
-      currentHistory = currentHistory.filter((item: any) => item.query.toLowerCase() !== queryToSearch.trim().toLowerCase());
-      currentHistory.push({ query: queryToSearch.trim(), date: new Date().toISOString() });
-      await AsyncStorage.setItem("searchHistory", JSON.stringify(currentHistory));
-    } catch (e) {
-      console.error("History save error:", e);
+      const storedHistory = await AsyncStorage.getItem("searchHistory");
+      const history: SearchHistoryEntry[] = storedHistory ? JSON.parse(storedHistory) : [];
+      const nextHistory = history.filter(
+        (item) => item.query.toLowerCase() !== queryToSearch.toLowerCase()
+      );
+      nextHistory.push({ query: queryToSearch, date: new Date().toISOString() });
+      await AsyncStorage.setItem("searchHistory", JSON.stringify(nextHistory));
+    } catch (error) {
+      console.error("History save error:", error);
     }
 
     try {
       const scrapedResults = await searchTorrents(queryToSearch);
-      setResults(scrapedResults);
+      if (requestId === searchRequestRef.current) setResults(scrapedResults);
     } catch (error) {
-      console.error(error);
-      setStatusMessage({
-        text: error instanceof Error ? error.message : "Failed to fetch search results.",
-        type: "error"
-      });
+      console.error("Torrent search failed:", error);
+      if (requestId === searchRequestRef.current) {
+        setStatusMessage({
+          text: error instanceof Error ? error.message : "Could not load search results.",
+          type: "error",
+        });
+      }
     } finally {
-      setLoading(false);
+      if (requestId === searchRequestRef.current) setLoading(false);
     }
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const prefill = searchParams.get("prefillQuery");
+    if (!prefill || prefill === lastPrefillRef.current) return;
+
+    lastPrefillRef.current = prefill;
+    setSearchQuery(prefill);
+    void handleSearch(prefill);
+  }, [handleSearch, searchParams]);
+
+  const handleClear = () => {
+    searchRequestRef.current += 1;
+    lastPrefillRef.current = null;
+    setSearchQuery("");
+    setResults([]);
+    setLoading(false);
+    setHasSearched(false);
+    setShowMore(false);
+    setStatusMessage(null);
+    router.replace("/search");
   };
 
-  // Download torrent file from backend cache
   const handleDownloadTorrent = async (item: TorrentResult) => {
-    // Extract hash from magnet
     const match = item.url.match(/urn:btih:([a-fA-F0-9]{40})/i);
     if (!match) {
-      setStatusMessage({ text: "No valid hash found in magnet link.", type: "error" });
+      setStatusMessage({ text: "No valid hash found in this magnet link.", type: "error" });
       return;
     }
-    
+
     const hash = match[1].toUpperCase();
     setDownloadingHash(hash);
-    setStatusMessage({ text: `Requesting torrent from cache...`, type: "info" });
+    setStatusMessage({ text: "Checking the available file cache…", type: "info" });
 
     try {
-      const downloadUrl = `https://watcher-api-rho.vercel.app/api/torrent-file?hash=${hash}`;
-      const response = await fetch(downloadUrl);
-      
-      if (response.status !== 200) {
-        throw new Error("Torrent not in cache");
-      }
-      
-      const blob = await response.blob();
-      
-      if (blob.size < 40) {
-        throw new Error("Invalid file content");
-      }
+      const response = await fetch(
+        `https://watcher-api-rho.vercel.app/api/torrent-file?hash=${hash}`
+      );
+      if (!response.ok) throw new Error("Torrent file is not available in the cache.");
 
-      // Trigger browser file download
+      const blob = await response.blob();
+      if (blob.size < 40) throw new Error("The returned file is invalid.");
+
+      const objectUrl = URL.createObjectURL(blob);
       const downloadLink = document.createElement("a");
-      downloadLink.href = URL.createObjectURL(blob);
-      downloadLink.download = `${item.name.replace(/[^a-z0-9]/gi, '_').substring(0, 50)}.torrent`;
+      downloadLink.href = objectUrl;
+      downloadLink.download = `${item.name.replace(/[^a-z0-9]/gi, "_").substring(0, 50)}.torrent`;
       document.body.appendChild(downloadLink);
       downloadLink.click();
-      document.body.removeChild(downloadLink);
-      
-      setStatusMessage({ text: "Torrent file downloaded successfully!", type: "success" });
+      downloadLink.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+
+      setStatusMessage({ text: "Torrent file downloaded.", type: "success" });
     } catch (error) {
-      console.error(error);
-      setStatusMessage({ 
-        text: "This torrent isn't cached yet. Use 'Open Magnet' instead to stream directly.", 
-        type: "error" 
+      console.error("Torrent file download failed:", error);
+      setStatusMessage({
+        text: "This file is not cached yet. You can try opening the magnet link instead.",
+        type: "error",
       });
     } finally {
       setDownloadingHash(null);
@@ -127,706 +160,268 @@ function TorrentSearchContent() {
 
   const visibleResults = showMore ? results : results.slice(0, 8);
 
-  return (
-    <div className="search-container">
-      {/* Header section */}
-      <div className="header-row animate-fade-in-up">
-        <div className="title-section">
-          <div className="header-icon-box">
-            <Magnet className="header-icon" size={24} />
-          </div>
-          <div>
-            <h1 className="header-title">Torrent Search</h1>
-            <p className="header-subtitle">Find & stream high-speed verified magnet links</p>
-          </div>
-        </div>
-        <button 
-          className="history-pill"
-          onClick={() => router.push('/history')}
-        >
-          <History size={15} />
-          <span>Search History</span>
-        </button>
-      </div>
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void handleSearch();
+  };
 
-      {/* Input section */}
-      <div className="search-input-wrapper animate-fade-in-up">
-        <span className="search-icon-wrapper">
-          <Search size={20} />
-        </span>
-        <input
-          type="text"
-          placeholder="Search movies, shows, anime torrents..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-          className="search-input-field"
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 pb-20 pt-6 sm:px-7 sm:pt-10 lg:px-10">
+      <header className="mb-8 flex flex-col gap-5 border-b border-[var(--card-border)] pb-7 sm:mb-10 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
+        <div className="max-w-2xl">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-[var(--primary)]">
+            Watcher · Discover
+          </p>
+          <h1 className="text-3xl font-extrabold tracking-[-0.04em] text-[var(--foreground)] sm:text-4xl">
+            Search titles
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-[var(--foreground-muted)] sm:text-base">
+            Find a movie, series, or anime across available sources.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push("/history")}
+          className="inline-flex h-10 w-fit shrink-0 items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] px-3.5 text-sm font-semibold text-[var(--foreground-muted)] transition hover:border-[var(--card-hover-border)] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+        >
+          <History size={16} />
+          Search history
+        </button>
+      </header>
+
+      <form
+        onSubmit={submitSearch}
+        role="search"
+        className="mb-8 flex min-w-0 items-center gap-2 rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] p-2 shadow-[0_8px_28px_var(--shadow-color)] transition focus-within:border-[var(--primary)] focus-within:ring-4 focus-within:ring-[var(--primary-glow)] sm:mb-10"
+      >
+        <Search
+          aria-hidden="true"
+          size={19}
+          className="ml-2 shrink-0 text-[var(--foreground-muted)]"
         />
-        {searchQuery.length > 0 && (
-          <button className="clear-btn" onClick={handleClear} aria-label="Clear input">
-            <X size={18} />
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Search a title…"
+          aria-label="Search a title"
+          className="h-11 min-w-0 flex-1 bg-transparent px-2 text-sm font-medium text-[var(--foreground)] outline-none placeholder:text-[var(--foreground-muted)] sm:text-base"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={handleClear}
+            aria-label="Clear search"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-[var(--foreground-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+          >
+            <X size={17} />
           </button>
         )}
-        <button 
-          className="search-submit-btn" 
-          onClick={() => handleSearch()}
+        <button
+          type="submit"
           disabled={loading || !searchQuery.trim()}
-          aria-label="Submit search"
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[image:var(--primary-gradient)] px-3.5 text-sm font-bold text-white shadow-[0_3px_12px_var(--primary-glow)] transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
         >
           {loading ? (
-            <div className="submit-btn-spinner" />
+            <span className="size-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
           ) : (
-            <>
-              <Search size={16} />
-              <span className="submit-btn-text">Search</span>
-            </>
+            <Search size={16} />
           )}
+          <span className="hidden sm:inline">{loading ? "Searching" : "Search"}</span>
         </button>
-      </div>
+      </form>
 
-      {/* Dynamic Status Banner */}
       {statusMessage && (
-        <div className={`status-banner ${statusMessage.type} animate-fade-in-up`}>
-          {statusMessage.type === 'error' ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
-          <span>{statusMessage.text}</span>
-          <button className="banner-close" onClick={() => setStatusMessage(null)}>
+        <div
+          role={statusMessage.type === "error" ? "alert" : "status"}
+          className={`mb-7 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+            statusMessage.type === "error"
+              ? "border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-300"
+              : statusMessage.type === "success"
+                ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+          }`}
+        >
+          {statusMessage.type === "error" ? (
+            <AlertCircle size={17} className="mt-0.5 shrink-0" />
+          ) : (
+            <CheckCircle2 size={17} className="mt-0.5 shrink-0" />
+          )}
+          <span className="flex-1 leading-6">{statusMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setStatusMessage(null)}
+            aria-label="Dismiss message"
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md opacity-70 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+          >
             <X size={14} />
           </button>
         </div>
       )}
 
-      {/* Results panel */}
-      {hasSearched && (
-        <div className="results-panel animate-fade-in-up">
-          <h2 className="results-header-title">
-            {loading ? 'Scanning sources...' : `Found ${results.length} torrents`}
-          </h2>
+      {hasSearched ? (
+        <section aria-live="polite">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-[var(--card-border)] pb-3">
+            <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)] sm:text-xl">
+              {loading ? "Searching available sources" : "Search results"}
+            </h2>
+            {!loading && (
+              <span className="text-sm text-[var(--foreground-muted)]">
+                {results.length} {results.length === 1 ? "match" : "matches"}
+              </span>
+            )}
+          </div>
 
           {loading ? (
-            <div className="loader-container">
-              <div className="spinner" />
-              <p className="loading-text">Crawling indexers & scraping proxy sources...</p>
+            <div className="divide-y divide-[var(--card-border)]" aria-busy="true">
+              {Array.from({ length: 5 }, (_, index) => (
+                <div key={index} className="flex animate-pulse gap-4 py-5">
+                  <div className="size-11 shrink-0 rounded-xl bg-[var(--input-bg)]" />
+                  <div className="flex-1 space-y-3">
+                    <div className="h-4 w-3/5 rounded bg-[var(--input-bg)]" />
+                    <div className="h-3 w-2/5 rounded bg-[var(--input-bg)]" />
+                    <div className="h-3 w-1/4 rounded bg-[var(--input-bg)]" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : results.length > 0 ? (
-            <div className="results-list">
+            <div className="divide-y divide-[var(--card-border)]">
               {visibleResults.map((item, index) => {
-                const quality = getQualityInfo(item.name);
-                const isDownloading = downloadingHash === item.url.match(/urn:btih:([a-fA-F0-9]{40})/i)?.[1]?.toUpperCase();
-                
-                let healthColor = '#EF4444'; 
-                if (item.seeds > 50) healthColor = '#22C55E'; 
-                else if (item.seeds > 10) healthColor = '#EAB308';
+                const quality = qualityFor(item.name);
+                const hash = item.url.match(/urn:btih:([a-fA-F0-9]{40})/i)?.[1]?.toUpperCase();
+                const isDownloading = downloadingHash === hash;
+                const seedStyle =
+                  item.seeds > 50
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : item.seeds > 10
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-[var(--foreground-muted)]";
 
                 return (
-                  <div key={item.id || index} className="torrent-card glass">
-                    <div className="card-top">
-                      <div className="video-icon-box">
-                        <Film size={22} className="card-video-icon" />
-                      </div>
-                      <div className="card-details">
-                        <h3 className="torrent-name" title={item.name}>{item.name}</h3>
-                        <div className="tags-row">
-                          <span className="tag quality" style={{ borderColor: quality.color, color: quality.color }}>
+                  <article
+                    key={item.id || index}
+                    className="group py-5 transition-colors hover:bg-[color-mix(in_srgb,var(--foreground)_2%,transparent)] sm:px-3"
+                  >
+                    <div className="flex gap-3 sm:gap-4">
+                      <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--input-bg)] text-[var(--foreground-muted)] sm:size-11">
+                        <Film size={19} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <h3
+                          title={item.name}
+                          className="line-clamp-2 text-sm font-bold leading-5 text-[var(--foreground)] sm:text-base"
+                        >
+                          {item.name}
+                        </h3>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                          <span className={`rounded-md border px-2 py-1 font-bold ${quality.style}`}>
                             {quality.label}
                           </span>
-                          <span className="tag size">{item.size}</span>
-                          <span className="tag source">{item.source}</span>
-                        </div>
-                        <div className="seeds-peers-row">
-                          <span className="seed-badge" style={{ color: healthColor }}>
-                            <ArrowUp size={12} />
-                            <strong>{item.seeds} Seeds</strong>
+                          <span className="rounded-md border border-[var(--card-border)] px-2 py-1 text-[var(--foreground-muted)]">
+                            {item.size}
                           </span>
-                          <span className="peer-badge">
-                            <ArrowDown size={12} />
-                            {item.peers} Peers
+                          <span className="text-[var(--foreground-muted)]">
+                            {item.source}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium">
+                          <span className={`inline-flex items-center gap-1.5 ${seedStyle}`}>
+                            <ArrowUp size={13} />
+                            {item.seeds} seeds
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 text-[var(--foreground-muted)]">
+                            <ArrowDown size={13} />
+                            {item.peers} peers
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="card-actions">
-                      <button 
-                        className="share-file-btn" 
-                        onClick={() => handleDownloadTorrent(item)}
+                    <div className="mt-4 grid grid-cols-2 gap-2 pl-[52px] sm:flex sm:justify-end sm:pl-0">
+                      <button
+                        type="button"
+                        onClick={() => void handleDownloadTorrent(item)}
                         disabled={isDownloading}
-                        title="Download torrent file"
+                        className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[var(--card-border)] px-3 text-xs font-semibold text-[var(--foreground-muted)] transition hover:border-[var(--card-hover-border)] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)] disabled:cursor-wait disabled:opacity-60 sm:h-10 sm:px-4 sm:text-sm"
                       >
                         {isDownloading ? (
-                          <div className="small-spinner" />
+                          <span className="size-3.5 animate-spin rounded-full border-2 border-current/30 border-t-current" />
                         ) : (
-                          <>
-                            <Share2 size={16} />
-                            <span>Download .torrent</span>
-                          </>
+                          <Download size={15} />
                         )}
+                        Download file
                       </button>
-
-                      <a 
+                      <a
                         href={item.url}
-                        className="open-magnet-btn"
-                        title="Open magnet link in client"
+                        className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[image:var(--primary-gradient)] px-3 text-xs font-bold text-white shadow-[0_2px_8px_var(--primary-glow)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:h-10 sm:px-4 sm:text-sm"
                       >
-                        <Magnet size={16} />
-                        <span>Open Magnet</span>
+                        <Magnet size={15} />
+                        Open magnet
                       </a>
                     </div>
-                  </div>
+                  </article>
                 );
               })}
 
               {results.length > 8 && (
-                <button className="see-more-btn" onClick={() => setShowMore(!showMore)}>
-                  {showMore ? 'Show Less' : 'Show More Results'}
-                </button>
+                <div className="pt-5 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowMore((value) => !value)}
+                    className="rounded-lg px-4 py-2 text-sm font-semibold text-[var(--primary)] transition hover:bg-[var(--sidebar-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+                  >
+                    {showMore ? "Show fewer results" : `Show all ${results.length} results`}
+                  </button>
+                </div>
               )}
             </div>
           ) : (
-            <div className="empty-state">
-              <AlertCircle size={32} className="empty-icon" />
-              <p>No results found. Try adjusting your query words.</p>
+            <div className="flex min-h-56 flex-col items-center justify-center px-6 py-10 text-center">
+              <span className="mb-4 inline-flex size-12 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--foreground-muted)]">
+                <Search size={21} />
+              </span>
+              <h3 className="font-semibold text-[var(--foreground)]">
+                No matches found
+              </h3>
+              <p className="mt-1 max-w-sm text-sm leading-6 text-[var(--foreground-muted)]">
+                Try another title or check the spelling.
+              </p>
             </div>
           )}
-        </div>
+        </section>
+      ) : (
+        <section className="grid gap-8 border-t border-[var(--card-border)] py-7 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-12">
+          <div>
+            <h2 className="text-base font-bold text-[var(--foreground)]">
+              Start with a title
+            </h2>
+            <p className="mt-1 max-w-lg text-sm leading-6 text-[var(--foreground-muted)]">
+              Enter a movie, series, or anime above. Results include format,
+              file size, and source activity.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-medium text-[var(--foreground-muted)]">
+            <Clock3 size={15} />
+            Searches are saved to your history
+          </div>
+        </section>
       )}
-
-      {/* Landing display if idle */}
-      {!hasSearched && (
-        <div className="idle-splash animate-fade-in-up">
-          <Magnet size={56} className="splash-icon" />
-          <h2>Hybrid Torrent Client</h2>
-          <p>Scrape real-time movie/series magnets instantly and download .torrent files.</p>
-        </div>
-      )}
-
-      <style jsx>{`
-        .search-container {
-          max-width: 820px;
-          margin: 0 auto;
-          width: 100%;
-        }
-
-        .header-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 24px;
-          flex-wrap: wrap;
-          gap: 16px;
-        }
-
-        .title-section {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }
-
-        .header-icon-box {
-          width: 44px;
-          height: 44px;
-          border-radius: 14px;
-          background: rgba(229, 9, 20, 0.12);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .header-icon {
-          color: var(--primary);
-          filter: drop-shadow(0 0 8px var(--primary-glow));
-        }
-
-        .header-title {
-          font-size: 26px;
-          font-weight: 800;
-          color: var(--foreground);
-          letter-spacing: -0.5px;
-          line-height: 1.15;
-        }
-
-        .header-subtitle {
-          font-size: 13px;
-          color: var(--foreground-muted);
-          margin-top: 3px;
-        }
-
-        .history-pill {
-          background: var(--card-bg);
-          border: 1px solid var(--input-border);
-          border-radius: 12px;
-          padding: 8px 16px;
-          color: var(--foreground-muted);
-          font-size: 13px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-          transition: var(--transition-smooth);
-        }
-
-        .history-pill:hover {
-          color: var(--foreground);
-          background: var(--sidebar-hover);
-          border-color: var(--card-hover-border);
-        }
-
-        .search-input-wrapper {
-          position: relative;
-          width: 100%;
-          display: flex;
-          align-items: center;
-          margin-bottom: 24px;
-          background: var(--input-bg);
-          border: 1.5px solid var(--input-border);
-          border-radius: 18px;
-          box-shadow: 0 4px 20px var(--shadow-color);
-          box-sizing: border-box;
-          padding: 5px 6px 5px 16px;
-          gap: 10px;
-          transition: var(--transition-smooth);
-        }
-
-        .search-input-wrapper:focus-within {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px var(--primary-glow), 0 8px 25px var(--shadow-color);
-        }
-
-        .search-icon-wrapper {
-          color: var(--foreground-muted);
-          pointer-events: none;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 22px;
-          height: 22px;
-          flex-shrink: 0;
-        }
-
-        .search-input-field {
-          flex: 1;
-          height: 46px;
-          padding: 0 8px;
-          background: transparent !important;
-          border: none !important;
-          color: var(--foreground);
-          font-size: 15px;
-          font-weight: 500;
-          outline: none;
-          box-sizing: border-box;
-        }
-
-        .search-input-field::placeholder {
-          color: var(--foreground-muted);
-          opacity: 0.75;
-        }
-
-        .clear-btn {
-          background: transparent;
-          border: none;
-          color: var(--foreground-muted);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 8px;
-          border-radius: 50%;
-          transition: var(--transition-smooth);
-          flex-shrink: 0;
-        }
-
-        .clear-btn:hover {
-          color: var(--foreground);
-          background: var(--sidebar-hover);
-        }
-
-        .search-submit-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          height: 44px;
-          padding: 0 20px;
-          border-radius: 12px;
-          background: var(--primary-gradient);
-          color: #ffffff;
-          border: none;
-          font-size: 14px;
-          font-weight: 700;
-          cursor: pointer;
-          flex-shrink: 0;
-          transition: var(--transition-fast);
-          box-shadow: 0 2px 10px var(--primary-glow);
-        }
-
-        .search-submit-btn:hover:not(:disabled) {
-          filter: brightness(1.1);
-          transform: translateY(-1px);
-        }
-
-        .search-submit-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .submit-btn-spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-          border-top-color: #ffffff;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        @media (max-width: 640px) {
-          .header-row {
-            margin-bottom: 18px;
-          }
-          .header-title {
-            font-size: 22px;
-          }
-          .search-input-wrapper {
-            padding: 4px 5px 4px 12px;
-            border-radius: 14px;
-            margin-bottom: 18px;
-          }
-          .search-input-field {
-            height: 40px;
-            font-size: 13.5px;
-          }
-          .search-submit-btn {
-            height: 38px;
-            padding: 0 12px;
-            border-radius: 10px;
-          }
-          .submit-btn-text {
-            display: none;
-          }
-        }
-
-        /* Status banner */
-        .status-banner {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px 18px;
-          border-radius: var(--border-radius-md);
-          margin-bottom: 20px;
-          font-size: 13.5px;
-          font-weight: 500;
-          position: relative;
-        }
-
-        .status-banner.error {
-          background: rgba(239, 68, 68, 0.15);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(239, 68, 68, 0.25);
-          color: #fca5a5;
-        }
-
-        .status-banner.success {
-          background: rgba(34, 197, 94, 0.15);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(34, 197, 94, 0.25);
-          color: #86efac;
-        }
-
-        .status-banner.info {
-          background: rgba(59, 130, 246, 0.15);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(59, 130, 246, 0.25);
-          color: #93c5fd;
-        }
-
-        .banner-close {
-          position: absolute;
-          right: 14px;
-          top: 50%;
-          transform: translateY(-50%);
-          background: transparent;
-          border: none;
-          color: currentColor;
-          cursor: pointer;
-          opacity: 0.7;
-          transition: var(--transition-smooth);
-        }
-
-        .banner-close:hover {
-          opacity: 1;
-        }
-
-        /* Results panel */
-        .results-panel {
-          width: 100%;
-        }
-
-        .results-header-title {
-          font-size: 18px;
-          font-weight: 700;
-          color: var(--foreground);
-          margin-bottom: 16px;
-        }
-
-        .results-list {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .torrent-card {
-          border-radius: var(--border-radius-md);
-          border: 1px solid var(--card-border);
-          overflow: hidden;
-          background: var(--card-bg);
-          box-shadow: 0 4px 16px var(--shadow-color);
-          transition: var(--transition-smooth);
-        }
-
-        .torrent-card:hover {
-          border-color: var(--card-hover-border);
-          transform: translateY(-2px);
-        }
-
-        .card-top {
-          display: flex;
-          padding: 18px;
-          gap: 18px;
-        }
-
-        .video-icon-box {
-          width: 48px;
-          height: 48px;
-          border-radius: var(--border-radius-sm);
-          background: var(--input-bg);
-          border: 1px solid var(--card-border);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .card-video-icon {
-          color: var(--foreground-muted);
-        }
-
-        .card-details {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          min-width: 0; /* allows text truncation */
-        }
-
-        .torrent-name {
-          font-size: 16px;
-          font-weight: 700;
-          color: var(--foreground);
-          line-height: 1.4;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-        }
-
-        .tags-row {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .tag {
-          font-size: 10px;
-          font-weight: 700;
-          padding: 3px 8px;
-          border-radius: 4px;
-          background: var(--badge-bg);
-          border: 1px solid var(--badge-border);
-          color: var(--foreground-muted);
-        }
-
-        .tag.quality {
-          border-width: 1px;
-        }
-
-        .seeds-peers-row {
-          display: flex;
-          gap: 16px;
-          font-size: 12px;
-          margin-top: 4px;
-        }
-
-        .seed-badge, .peer-badge {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .peer-badge {
-          color: var(--foreground-muted);
-        }
-
-        .card-actions {
-          display: flex;
-          border-top: 1px solid var(--card-border);
-          background: var(--badge-bg);
-        }
-
-        .share-file-btn, .open-magnet-btn {
-          flex: 1;
-          height: 48px;
-          border: none;
-          background: transparent;
-          color: var(--foreground-muted);
-          font-size: 13.5px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          cursor: pointer;
-          transition: var(--transition-smooth);
-        }
-
-        .share-file-btn:hover {
-          background: var(--sidebar-hover);
-          color: var(--foreground);
-        }
-
-        .open-magnet-btn {
-          background: var(--primary-gradient);
-          color: #ffffff;
-          box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
-        }
-
-        .open-magnet-btn:hover {
-          filter: brightness(1.1);
-          box-shadow: 0 0 10px var(--primary-glow);
-        }
-
-        .share-file-btn:border-right {
-          border-right: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .see-more-btn {
-          background: transparent;
-          border: 1px dashed rgba(255, 255, 255, 0.15);
-          color: var(--foreground-muted);
-          height: 48px;
-          border-radius: var(--border-radius-md);
-          font-weight: 600;
-          cursor: pointer;
-          transition: var(--transition-smooth);
-          margin-top: 10px;
-        }
-
-        .see-more-btn:hover {
-          color: var(--foreground);
-          border-color: rgba(255, 255, 255, 0.3);
-          background: rgba(255, 255, 255, 0.02);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-        }
-
-        /* Loading splash */
-        .loader-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 60px 0;
-          gap: 16px;
-        }
-
-        .spinner {
-          width: 36px;
-          height: 36px;
-          border: 3px solid rgba(255,255,255,0.06);
-          border-top-color: var(--primary);
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-
-        .small-spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255,255,255,0.2);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-          font-size: 13.5px;
-          color: var(--foreground-muted);
-        }
-
-        .empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 60px 0;
-          gap: 12px;
-          color: var(--foreground-muted);
-        }
-
-        .empty-icon {
-          color: var(--foreground-muted);
-          opacity: 0.5;
-        }
-
-        /* Idle state splash */
-        .idle-splash {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          padding: 120px 20px;
-          gap: 16px;
-        }
-
-        .splash-icon {
-          color: var(--primary);
-          opacity: 0.8;
-          filter: drop-shadow(0 0 12px var(--primary-glow));
-          margin-bottom: 8px;
-        }
-
-        .idle-splash h2 {
-          font-size: 22px;
-          font-weight: 800;
-          color: var(--foreground);
-        }
-
-        .idle-splash p {
-          font-size: 14px;
-          color: var(--foreground-muted);
-          max-width: 360px;
-          line-height: 1.5;
-        }
-      `}</style>
     </div>
   );
 }
 
 export default function TorrentSearch() {
   return (
-    <Suspense fallback={
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '100px' }}>
-        <div className="spinner" />
+    <div className="relative isolate min-h-screen">
+      <AuroraBackground />
+      <div className="relative z-10">
+        <Suspense
+          fallback={<PageLoading label="Loading search" className="min-h-64 w-full px-4" />}
+        >
+          <TorrentSearchContent />
+        </Suspense>
       </div>
-    }>
-      <TorrentSearchContent />
-    </Suspense>
+    </div>
   );
 }

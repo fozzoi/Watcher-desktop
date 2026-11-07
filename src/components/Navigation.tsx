@@ -5,9 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/context/AuthContext';
-import { motion } from 'framer-motion';
 import { 
-  Compass, Search, Bookmark, Sparkles, Settings, Film, 
+  Compass, Search, Bookmark, Sparkles, Settings,
   ChevronLeft, ChevronRight, Sun, Moon, Monitor, BarChart3, Cloud, Download
 } from 'lucide-react';
 
@@ -127,17 +126,31 @@ export default function Navigation() {
   return (
     <>
       {/* ===== Desktop Docked Sidebar ===== */}
-      <aside className={`desktop-sidebar ${collapsed ? 'collapsed' : ''}`}>
+      <aside
+        className={`desktop-sidebar ${collapsed ? 'collapsed' : ''}`}
+        style={{
+          backdropFilter: 'blur(32px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(32px) saturate(180%)',
+        }}
+      >
         {/* Brand Area */}
         <div className="sidebar-brand-wrapper">
           <Link href="/" className="sidebar-brand" title="Watcher Home">
             <div className="brand-emblem">
-              <Film size={18} className="emblem-icon" />
+              <svg className="watcher-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                <path
+                  d="M3.5 16s4.55-7.5 12.5-7.5 12.5 7.5 12.5 7.5-4.55 7.5-12.5 7.5S3.5 16 3.5 16Z"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                />
+                <circle cx="16" cy="16" r="4.3" fill="currentColor" />
+                <circle cx="16" cy="16" r="1.5" fill="var(--sidebar-bg, #121216)" />
+              </svg>
             </div>
             {!collapsed && (
               <div className="brand-text-block">
                 <span className="brand-name">WATCHER</span>
-                <span className="brand-tag">CINEMA</span>
+                <span className="brand-tag">FILM LIBRARY</span>
               </div>
             )}
           </Link>
@@ -244,7 +257,13 @@ export default function Navigation() {
       </aside>
 
       {/* ===== Phone: Floating Bottom Dock Tab Bar (Android-like) ===== */}
-      <nav className={`mobile-bottom-dock glass-premium ${!isVisible ? 'hidden' : ''}`}>
+      <nav
+        className={`mobile-bottom-dock ${!isVisible ? 'hidden' : ''}`}
+        style={{
+          backdropFilter: 'blur(32px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(32px) saturate(180%)',
+        }}
+      >
         {mobileNavItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
@@ -323,23 +342,26 @@ export default function Navigation() {
         .brand-emblem {
           width: 38px;
           height: 38px;
-          border-radius: 12px;
-          background: linear-gradient(135deg, rgba(229, 9, 20, 0.22) 0%, rgba(229, 9, 20, 0.06) 100%);
-          border: 1px solid rgba(229, 9, 20, 0.35);
+          border-radius: 13px;
+          background: linear-gradient(145deg, rgba(229, 9, 20, 0.2), rgba(229, 9, 20, 0.055));
+          border: 1px solid rgba(229, 9, 20, 0.3);
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          box-shadow: 0 4px 14px rgba(229, 9, 20, 0.25);
-          transition: var(--transition-fast);
+          box-shadow: 0 5px 16px rgba(229, 9, 20, 0.16);
+          transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
         }
 
         .sidebar-brand:hover .brand-emblem {
-          transform: scale(1.05);
+          transform: translateY(-1px);
           border-color: var(--primary);
+          box-shadow: 0 8px 20px rgba(229, 9, 20, 0.24);
         }
 
-        .emblem-icon {
+        .watcher-mark {
+          width: 23px;
+          height: 23px;
           color: var(--primary);
           filter: drop-shadow(0 0 6px var(--primary-glow));
         }
@@ -355,16 +377,17 @@ export default function Navigation() {
         .brand-name {
           font-size: 16.5px;
           font-weight: 800;
-          letter-spacing: 2px;
+          letter-spacing: 1.75px;
           background: linear-gradient(135deg, var(--foreground) 0%, var(--foreground-muted) 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
 
         .brand-tag {
-          font-size: 9px;
+          margin-top: 3px;
+          font-size: 8px;
           font-weight: 700;
-          letter-spacing: 1.5px;
+          letter-spacing: 1.25px;
           color: var(--primary);
           opacity: 0.9;
         }
@@ -1060,6 +1083,123 @@ export default function Navigation() {
         html.is-ambient-page .sync-sub,
         body.is-ambient-page .sync-sub {
           color: rgba(255, 255, 255, 0.65) !important;
+        }
+
+        .desktop-sidebar {
+          background: var(--sidebar-bg);
+          border-color: var(--sidebar-border);
+          border-radius: 22px;
+          box-shadow: 0 16px 48px -16px rgba(0, 0, 0, 0.62), 0 2px 8px rgba(0, 0, 0, 0.18);
+          backdrop-filter: blur(32px) saturate(180%);
+          -webkit-backdrop-filter: blur(32px) saturate(180%);
+        }
+
+        [data-theme="light"] .desktop-sidebar,
+        :global([data-theme="light"]) .desktop-sidebar {
+          background: var(--sidebar-bg);
+          border-color: var(--sidebar-border);
+          box-shadow: 0 16px 48px -16px rgba(20, 25, 40, 0.16), 0 2px 8px rgba(20, 25, 40, 0.05);
+        }
+
+        .sidebar-brand-wrapper {
+          padding: 6px 6px 16px;
+          margin-bottom: 20px;
+        }
+
+        .nav-group-section {
+          gap: 7px;
+        }
+
+        .sidebar-nav-scroll {
+          gap: 20px;
+        }
+
+        .nav-group-items {
+          gap: 5px;
+        }
+
+        .nav-item-btn {
+          min-height: 42px;
+          border-radius: 12px;
+          padding: 9px 11px;
+        }
+
+        .nav-item-btn.active {
+          position: relative;
+          border-color: transparent;
+          background: color-mix(in srgb, var(--primary) 12%, transparent);
+          box-shadow: none;
+        }
+
+        .nav-item-btn.active::before {
+          position: absolute;
+          left: -1px;
+          top: 10px;
+          bottom: 10px;
+          width: 3px;
+          border-radius: 0 3px 3px 0;
+          background: var(--primary);
+          content: "";
+        }
+
+        [data-theme="light"] .nav-item-btn.active,
+        :global([data-theme="light"]) .nav-item-btn.active {
+          color: var(--primary);
+          background: color-mix(in srgb, var(--primary) 8%, transparent);
+          border-color: transparent;
+        }
+
+        .sidebar-footer {
+          gap: 12px;
+          padding-top: 14px;
+        }
+
+        .cloud-sync-tile,
+        .user-profile-tile {
+          min-height: 46px;
+          border-radius: 13px;
+        }
+
+        .action-icon-btn {
+          min-height: 36px;
+          border-radius: 11px;
+        }
+
+        @media (max-width: 768px) {
+          .mobile-bottom-dock {
+            left: 12px;
+            right: 12px;
+            bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+            width: auto;
+            height: 64px;
+            padding: 5px 6px;
+            border: 1px solid var(--sidebar-border);
+            border-radius: 20px;
+            background: rgba(18, 18, 24, 0.76);
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(32px) saturate(180%);
+            -webkit-backdrop-filter: blur(32px) saturate(180%);
+          }
+
+          [data-theme="light"] .mobile-bottom-dock,
+          :global([data-theme="light"]) .mobile-bottom-dock {
+            background: rgba(250, 250, 252, 0.78);
+            border-color: rgba(0, 0, 0, 0.09);
+            box-shadow: 0 12px 36px rgba(20, 25, 40, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+          }
+
+          .dock-tab-btn {
+            flex: 1;
+            min-width: 0;
+            min-height: 50px;
+            padding: 5px 2px;
+            gap: 3px;
+            border-radius: 14px;
+          }
+
+          .dock-tab-btn.active {
+            background: color-mix(in srgb, var(--primary) 11%, transparent);
+          }
         }
       `}</style>
     </>

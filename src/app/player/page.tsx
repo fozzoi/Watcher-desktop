@@ -1,5 +1,6 @@
 "use client";
 
+import PageLoading from '@/components/PageLoading';
 import React, { useEffect, useState, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
@@ -931,13 +932,5 @@ function PlayerContent() {
 }
 
 export default function PlayerPage() {
-  return (
-    <Suspense fallback={
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#000', height: '100vh', width: '100vw' }}>
-        <div className="gemini-thinking-spinner" />
-      </div>
-    }>
-      <PlayerContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<PageLoading label="Loading player" className="min-h-screen w-full bg-black" />}><PlayerContent /></Suspense>;
 }

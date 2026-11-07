@@ -550,67 +550,6 @@ export const getNostalgicMovies = async (page: number = 1, genreId?: number): Pr
 };
 
 // ==========================================
-// 5. BATCH FETCH WITH ASYNC STORAGE (OFFLINE-FIRST)
-// ==========================================
-
-export const fetchAllDiscoveryContent = async (genreId?: number, forceRefresh = false) => {
-  const gId = genreId === 0 ? undefined : genreId;
-  const cacheKey = `EXPLORE_PAGE_DATA_${gId || 'ALL'}`;
-
-  if (!forceRefresh) {
-      try {
-          const savedData = await AsyncStorage.getItem(cacheKey);
-          if (savedData) {
-              const parsed = JSON.parse(savedData);
-              fetchFreshDiscoveryContent(gId, cacheKey); 
-              return parsed;
-          }
-      } catch (e) {
-          console.log("Failed to load local cache", e);
-      }
-  }
-
-  return await fetchFreshDiscoveryContent(gId, cacheKey);
-};
-
-const fetchFreshDiscoveryContent = async (gId: number | undefined, cacheKey: string) => {
-  try {
-    const priorityResults = await Promise.all([
-      getTrendingMovies(1, gId), getTrendingTV(1, gId), getTopRated(1, gId),
-      getRegionalMovies('IN', 1, gId), getUpcomingMovies(1)
-    ]);
-
-    const secondaryResults = await Promise.all([
-      getLanguageMovies('hi', 1, gId), getLanguageMovies('ml', 1, gId), getLanguageMovies('ta', 1, gId),
-      getLanguageTV('hi', 1, gId), getLanguageTV('ml', 1, gId),
-      getLanguageMovies('ko', 1, gId), getLanguageTV('ko', 1, gId),
-      getLanguageMovies('ja', 1, gId), getLanguageTV('ja', 1, gId),
-      getAnimeContent(1, true, gId), getAnimeContent(1, false, gId), getAnimatedMovies(1, gId),
-      getHiddenGems(1, gId), getNostalgicMovies(1, gId)
-    ]);
-    
-    const finalData = {
-      trendingMovies: priorityResults[0], trendingTV: priorityResults[1], topRated: priorityResults[2], 
-      regional: priorityResults[3], upcoming: priorityResults[4],
-      
-      hindiMovies: secondaryResults[0], malayalamMovies: secondaryResults[1], tamilMovies: secondaryResults[2],
-      hindiTV: secondaryResults[3], malayalamTV: secondaryResults[4],
-      koreanMovies: secondaryResults[5], koreanTV: secondaryResults[6],
-      japaneseMovies: secondaryResults[7], japaneseTV: secondaryResults[8],
-      animeMovies: secondaryResults[9], animeShows: secondaryResults[10], animatedMovies: secondaryResults[11],
-      hiddenGems: secondaryResults[12], nostalgia: secondaryResults[13]
-    };
-
-    AsyncStorage.setItem(cacheKey, JSON.stringify(finalData)).catch(err => console.log(err));
-
-    return finalData;
-  } catch (error) {
-    console.error("Error fetching discovery content:", error);
-    return null;
-  }
-};
-
-// ==========================================
 // 6. DETAILS & OTHERS
 // ==========================================
 
@@ -1130,7 +1069,7 @@ export const fetchExploreHomeContent = async (
   favoriteActors: { id: number; name: string }[] = [],
   forceRefresh = false,
 ) => {
-  const selectedLanguages = (languages || []).filter((language) => language && language !== "en").slice(0, 2);
+  const selectedLanguages = (languages || []).filter((language) => language && language !== "en").slice(0, 1);
   const selectedGenres = genreFilterId ? [] : (preferredGenreIds || []).slice(0, 1);
   const selectedActors = (favoriteActors || []).slice(0, 1);
   const cacheKey = `EXPLORE_HOME_V1_${genreFilterId || "ALL"}_${selectedLanguages.join("_")}_${selectedGenres.join("_")}_${selectedActors.map((actor) => actor.id).join("_")}`;
@@ -1153,7 +1092,8 @@ export const fetchExploreHomeContent = async (
   const onePage = async (endpoint: string, params: Record<string, unknown>, type: "movie" | "tv") => {
     try {
       const data = await fetchWithCache(endpoint, { ...params, page: 1 });
-      return (data.results || []).slice(0, 12).map((item: any) => ({ ...formatBasicItemData(item), media_type: type }));
+      const results = (data.results || []) as Record<string, unknown>[];
+      return results.slice(0, 12).map((item) => ({ ...formatBasicItemData(item), media_type: type }));
     } catch {
       return [];
     }
@@ -1193,7 +1133,7 @@ export const fetchExploreHomeContent = async (
         return {
           actorId: actor.id,
           actorName: actor.name,
-          items: credits.filter((item: any) => item.poster_path).slice(0, 12),
+          items: credits.filter((item: TMDBResult) => item.poster_path).slice(0, 12),
         };
       } catch {
         return null;
@@ -1220,162 +1160,6 @@ export const fetchExploreHomeContent = async (
 
   AsyncStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: result })).catch(() => {});
   return result;
-};
-
-export const fetchPersonalisedDiscoveryContent = async (
-  languages: string[] = ['en'],
-  genreIds: number[] = [],
-  genreFilterId: number = 0,
-  forceRefresh = false,
-  favoriteActors: any[] = []
-) => {
-  const gId = genreFilterId === 0 ? undefined : genreFilterId;
-  const actorsKey = (favoriteActors || []).map((a: any) => a.id).join('_');
-  const cacheKey = `PERSONALISED_PAGE_DATA_${languages.join('_')}_${genreIds.join('_')}_${actorsKey}_${gId || 'ALL'}`;
-
-  if (!forceRefresh) {
-    try {
-      const saved = await AsyncStorage.getItem(cacheKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        fetchFreshPersonalisedContent(languages, genreIds, favoriteActors, gId, cacheKey);
-        return parsed;
-      }
-    } catch {}
-  }
-
-  return fetchFreshPersonalisedContent(languages, genreIds, favoriteActors, gId, cacheKey);
-};
-
-const fetchFreshPersonalisedContent = async (
-  languages: string[],
-  genreIds: number[],
-  favoriteActors: any[],
-  gId: number | undefined,
-  cacheKey: string,
-) => {
-  try {
-    const langSlice = (languages && languages.length > 0) ? languages.slice(0, 15) : ['en'];
-    const langResults = await Promise.all(
-      langSlice.flatMap(lang => [
-        getLanguageMovies(lang, 1, gId),
-        getLanguageTV(lang, 1, gId),
-      ])
-    );
-
-    const langData: Record<string, { movies: any[]; tv: any[] }> = {};
-    langSlice.forEach((lang, i) => {
-      const movies = langResults[i * 2] ?? [];
-      const tv = langResults[i * 2 + 1] ?? [];
-      if (movies.length > 0 || tv.length > 0) {
-        langData[lang] = { movies, tv };
-      }
-    });
-
-    const actorSlice = (favoriteActors || []).slice(0, 4);
-    const actorResults = await Promise.all(
-      actorSlice.map(async (actor: any) => {
-        try {
-          const credits = await getPersonCombinedCredits(actor.id);
-          const topItems = credits
-            .filter((item: any) => item.poster_path && (item.vote_count || 0) > 10)
-            .sort((a: any, b: any) => (b.popularity || 0) - (a.popularity || 0))
-            .slice(0, 15);
-          return {
-            actorId: actor.id,
-            actorName: actor.name,
-            profilePath: actor.profile_path,
-            items: topItems,
-          };
-        } catch {
-          return null;
-        }
-      })
-    );
-    const actorData = actorResults.filter(Boolean);
-
-    const genreSlice = (genreIds || []).slice(0, 3);
-    const genreResults = await Promise.all(
-      genreSlice.map(async (genreId: number) => {
-        try {
-          const movies = await getMoviesByGenre(genreId, 1);
-          return {
-            genreId,
-            items: movies.slice(0, 15),
-          };
-        } catch {
-          return null;
-        }
-      })
-    );
-    const genreData = genreResults.filter(Boolean);
-
-    const base = await Promise.all([
-      getTrendingMovies(1, gId),
-      getTrendingTV(1, gId),
-      getUpcomingMovies(1),
-      getHiddenGems(1, gId),
-      getTopRated(1, gId),
-    ]);
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const twoYearsAgoStr = `${new Date().getFullYear() - 2}-01-01`;
-
-    const releasedTrending = base[0].filter((m: any) => {
-      const relDate = m.release_date || '';
-      return (
-        relDate &&
-        relDate <= todayStr &&
-        relDate >= twoYearsAgoStr &&
-        m.poster_path &&
-        (m.vote_count || 0) >= 20
-      );
-    });
-    const heroMovies = releasedTrending.length >= 5 
-      ? releasedTrending.slice(0, 10) 
-      : base[0].filter((m: any) => m.release_date && m.release_date <= todayStr).slice(0, 10);
-
-    let personalizedTrending = [...base[0]];
-    if (langSlice.length > 0) {
-      const topLangMovies = langSlice.flatMap(l => (langData[l]?.movies || []).slice(0, 3));
-      if (topLangMovies.length > 0) {
-        const seen = new Set<number>();
-        const merged: any[] = [];
-        for (const m of [...base[0], ...topLangMovies]) {
-          if (m && m.id && !seen.has(m.id)) {
-            seen.add(m.id);
-            merged.push(m);
-          }
-        }
-        personalizedTrending = merged;
-      }
-    }
-
-    const [trendingToday, franchiseCollections] = await Promise.all([
-      getTrendingToday('all', 1),
-      getFranchiseCollections(),
-    ]);
-
-    const result = {
-      heroMovies: trendingToday && trendingToday.length > 0 ? trendingToday.slice(0, 10) : heroMovies,
-      trendingToday: trendingToday ? trendingToday.slice(0, 10) : [],
-      trendingMovies: personalizedTrending,
-      trendingTV: base[1],
-      upcoming: base[2],
-      hiddenGems: base[3],
-      topRated: base[4],
-      langData,
-      actorData,
-      genreData,
-      franchiseCollections,
-    };
-
-    AsyncStorage.setItem(cacheKey, JSON.stringify(result)).catch(() => {});
-    return result;
-  } catch (error) {
-    console.error('Error fetching personalised content:', error);
-    return null;
-  }
 };
 
 export const getMoviesByGenre = async (genreId: number, page: number = 1): Promise<TMDBResult[]> => {
