@@ -3,9 +3,9 @@
 // src/components/explore/WorldCinemaHub.tsx
 // Ported from the Watcher Expo app — world cinema hub with language tabs + interleaved movies/TV, adapted for Next.js/web.
 
-import React, { memo, useState, useMemo, useCallback } from 'react';
+import React, { memo, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { getImageUrl } from '@/utils/tmdb';
 import { LANGUAGE_OPTIONS } from '@/utils/userPreferences';
 import QuickAddButton from '@/components/shared/QuickAddButton';
@@ -23,6 +23,18 @@ interface WorldCinemaHubProps {
 
 const WorldCinemaHub = memo(({ langData, savedIds, toggleWatchlist }: WorldCinemaHubProps) => {
   const router = useRouter();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, clientWidth } = scrollContainerRef.current;
+      const scrollAmount = clientWidth * 0.75;
+      scrollContainerRef.current.scrollTo({
+        left: direction === 'left' ? scrollLeft - scrollAmount : scrollLeft + scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   const availableLangs = useMemo(() => {
     if (!langData) return [];
@@ -177,19 +189,47 @@ const WorldCinemaHub = memo(({ langData, savedIds, toggleWatchlist }: WorldCinem
 
   return (
     <div className="world-section">
-      {/* Tappable Header to View All */}
-      <div
-        className="world-header-row"
-        onClick={handleViewAll}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && handleViewAll()}
-      >
-        <div className="world-title-with-icon">
+      {/* Section Header with Navigation Arrows and View All */}
+      <div className="world-header-row">
+        <div
+          className="world-title-with-icon"
+          onClick={handleViewAll}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && handleViewAll()}
+        >
           <h2 className="world-section-title">World Cinema</h2>
           <ChevronRight size={18} strokeWidth={2} />
         </div>
-        <span className="world-lang-counter">{availableLangs.length} Languages</span>
+        <div className="world-header-actions">
+          <div className="header-nav-arrows">
+            <button
+              type="button"
+              className="header-arrow-btn"
+              onClick={() => scroll('left')}
+              aria-label="Scroll world cinema left"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              className="header-arrow-btn"
+              onClick={() => scroll('right')}
+              aria-label="Scroll world cinema right"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          <span
+            className="world-lang-counter"
+            onClick={handleViewAll}
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer' }}
+          >
+            {availableLangs.length} Languages
+          </span>
+        </div>
       </div>
 
       {/* Language Filter Tabs */}
@@ -233,7 +273,7 @@ const WorldCinemaHub = memo(({ langData, savedIds, toggleWatchlist }: WorldCinem
       </div>
 
       {/* Interleaved Movies + TV Rail */}
-      <div className="world-list-content">
+      <div ref={scrollContainerRef} className="world-list-content">
         {activeItems.map((item) => (
           <div key={`world-${item._mediaType}-${item.id}-${activeCode}`} className="world-item-card">
             {renderItem({ item })}

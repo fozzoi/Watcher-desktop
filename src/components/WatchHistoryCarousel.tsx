@@ -126,8 +126,8 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
 
       <style jsx>{`
         .history-section {
-          margin-bottom: 35px;
-          margin-top: 10px;
+          margin-bottom: 36px;
+          margin-top: 0;
           content-visibility: auto;
           contain-intrinsic-size: 0 240px;
         }
@@ -173,8 +173,8 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
         }
 
         .header-arrow-btn {
-          width: 28px;
-          height: 28px;
+          width: 30px;
+          height: 30px;
           border-radius: 50%;
           background: var(--card-bg);
           border: 1px solid var(--card-border);
@@ -213,8 +213,8 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
           overflow-x: auto;
           scroll-snap-type: x mandatory;
           scroll-behavior: smooth;
-          padding: 12px 8px 24px 8px;
-          margin: -12px -8px -24px -8px;
+          padding: 14px 10px 24px 10px;
+          margin: -14px -10px -24px -10px;
           scrollbar-width: none;
           -webkit-overflow-scrolling: touch;
           overscroll-behavior-x: contain;

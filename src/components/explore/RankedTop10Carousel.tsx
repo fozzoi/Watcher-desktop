@@ -3,9 +3,9 @@
 // src/components/explore/RankedTop10Carousel.tsx
 // Ported from the Watcher Expo app — Top 10 today carousel with SVG numeral rankings, adapted for Next.js/web.
 
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Star, Heart, Play } from 'lucide-react';
+import { Star, Heart, Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getImageUrl } from '@/utils/tmdb';
 
 interface RankedTop10CarouselProps {
@@ -128,6 +128,18 @@ const RankedCard = memo(
 const RankedTop10Carousel = memo(
   ({ data, savedIds, toggleWatchlist }: RankedTop10CarouselProps) => {
     const router = useRouter();
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const scroll = (direction: 'left' | 'right') => {
+      if (scrollContainerRef.current) {
+        const { scrollLeft, clientWidth } = scrollContainerRef.current;
+        const scrollAmount = clientWidth * 0.75;
+        scrollContainerRef.current.scrollTo({
+          left: direction === 'left' ? scrollLeft - scrollAmount : scrollLeft + scrollAmount,
+          behavior: 'smooth'
+        });
+      }
+    };
 
     const top10Data = useMemo(() => {
       if (!Array.isArray(data)) return [];
@@ -161,23 +173,18 @@ const RankedTop10Carousel = memo(
     return (
       <div className="ranked-section">
         <div className="ranked-header">
-          <div className="ranked-title-group">
-            <h2 className="ranked-section-title">Top 10 Today</h2>
+          <h2 className="ranked-section-title">Top 10 Today</h2>
+          <div className="header-nav-arrows">
+            <button className="header-arrow-btn" onClick={() => scroll('left')} aria-label="Scroll top 10 left">
+              <ChevronLeft size={16} />
+            </button>
+            <button className="header-arrow-btn" onClick={() => scroll('right')} aria-label="Scroll top 10 right">
+              <ChevronRight size={16} />
+            </button>
           </div>
         </div>
 
-        <div
-          className="ranked-scroll-container"
-          style={{
-            display: 'flex',
-            gap: '12px',
-            overflowX: 'auto',
-            scrollSnapType: 'x mandatory',
-            padding: '12px 16px 22px 16px',
-            margin: '-12px 0 -22px 0',
-            scrollbarWidth: 'none',
-          }}
-        >
+        <div ref={scrollContainerRef} className="ranked-scroll-container">
           {top10Data.map((item, index) => renderItem({ item, index }))}
         </div>
       </div>

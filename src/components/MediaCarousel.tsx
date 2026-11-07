@@ -69,7 +69,7 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
 
       <style jsx>{`
         .carousel-section {
-          margin-bottom: 35px;
+          margin-bottom: 36px;
           position: relative;
           content-visibility: auto;
           contain-intrinsic-size: 0 290px;
@@ -102,8 +102,8 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
         }
 
         .header-arrow-btn {
-          width: 28px;
-          height: 28px;
+          width: 30px;
+          height: 30px;
           border-radius: 50%;
           background: var(--card-bg);
           border: 1px solid var(--card-border);
@@ -146,8 +146,8 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
           overflow-x: auto;
           scroll-snap-type: x mandatory;
           scroll-behavior: smooth;
-          padding: 14px 8px 24px 8px;
-          margin: -14px -8px -24px -8px;
+          padding: 14px 10px 24px 10px;
+          margin: -14px -10px -24px -10px;
           scrollbar-width: none; /* Firefox */
           -webkit-overflow-scrolling: touch;
           overscroll-behavior-x: contain;

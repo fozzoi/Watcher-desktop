@@ -556,6 +556,40 @@ html.is-ambient-page .vibe-skeleton-card {
   }
 }
 
+/* Universal Header Navigation Arrows */
+.header-nav-arrows {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.header-arrow-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--card-border);
+  color: var(--foreground-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+.header-arrow-btn:hover {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: #ffffff !important;
+  transform: scale(1.08);
+  box-shadow: 0 4px 14px var(--primary-glow) !important;
+}
+
 /* On small screens, hide left/right navigation arrows since native touch swiping is used */
 @media (max-width: 768px) {
   .header-nav-arrows,
