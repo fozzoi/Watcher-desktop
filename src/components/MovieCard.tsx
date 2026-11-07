@@ -86,14 +86,14 @@ function MovieCard({
         setPopoutCoords({ top, left, width: popoutWidth });
         setIsPopoutOpen(true);
       }
-    }, 420); // 420ms delay avoids accidental popouts while quickly scanning
+    }, 800); // 800ms intentional hover delay matching streaming platforms
   }, [enablePopout]);
 
   const handleMouseLeave = useCallback(() => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     leaveTimerRef.current = setTimeout(() => {
       setIsPopoutOpen(false);
-    }, 200);
+    }, 260);
   }, []);
 
   const detailUrl = `/detail?id=${item.id}&type=${mediaType}`;
