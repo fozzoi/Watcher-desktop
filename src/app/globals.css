@@ -50,7 +50,7 @@
   --input-border: rgba(0, 0, 0, 0.12);
   --input-focus-bg: #ffffff;
   --scrollbar-thumb: rgba(0, 0, 0, 0.18);
-  --shadow-color: rgba(0, 0, 0, 0.06);
+  --shadow-color: rgba(0, 0, 0, 0.12);
   --badge-bg: rgba(0, 0, 0, 0.04);
   --badge-border: rgba(0, 0, 0, 0.08);
   --glass-blur: blur(28px) saturate(190%);
@@ -108,10 +108,15 @@ body {
 
 /* Ambient solid background override for detail and cast pages */
 :root[style*="--page-ambient-bg"] body,
-:root[style*="--page-ambient-bg"] [data-theme="dark"] body,
-:root[style*="--page-ambient-bg"] [data-theme="light"] body {
+:root[data-theme="dark"][style*="--page-ambient-bg"] body,
+:root[data-theme="light"][style*="--page-ambient-bg"] body,
+html.is-ambient-page body,
+body.is-ambient-page,
+[data-theme="dark"].is-ambient-page body,
+[data-theme="light"].is-ambient-page body {
   background-color: var(--page-ambient-bg) !important;
   background-image: none !important;
+  background: var(--page-ambient-bg) !important;
 }
 
 /* Hide Scrollbar Everywhere while preserving full smooth scrolling */
@@ -1681,10 +1686,20 @@ option {
 
 /* Tab chips: clearer idle state in light mode */
 [data-theme="light"] .world-tab-chip {
-  border-color: var(--card-border);
-  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.05);
+  color: #4b5563;
 }
-[data-theme="light"] .world-tab-chip.active { color: #fff; }
+[data-theme="light"] .world-tab-chip:hover {
+  background: rgba(0, 0, 0, 0.09);
+  color: #111827;
+}
+[data-theme="light"] .world-tab-chip.active {
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 4px 14px rgba(229, 9, 20, 0.35) !important;
+}
 
 /* ============================================================
    Streaming Pop-Out Preview Card (Netflix / Disney+ style)

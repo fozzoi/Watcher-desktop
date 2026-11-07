@@ -62,10 +62,6 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
       </div>
 
       <div className="carousel-wrapper">
-        <button className="nav-btn prev-btn" onClick={() => scroll('left')} aria-label="Scroll left">
-          <ChevronLeft size={24} />
-        </button>
-
         <div className="scroll-container" ref={scrollContainerRef}>
           {history.map((item) => {
             const isTV = item.mediaType === 'tv';
@@ -126,10 +122,6 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
             );
           })}
         </div>
-
-        <button className="nav-btn next-btn" onClick={() => scroll('right')} aria-label="Scroll right">
-          <ChevronRight size={24} />
-        </button>
       </div>
 
       <style jsx>{`
@@ -233,7 +225,8 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
         }
 
         .history-card {
-          flex: 0 0 220px;
+          flex: 0 0 230px;
+          min-width: 230px;
           background: var(--card-bg);
           border-radius: 14px;
           border: 1px solid var(--card-border);
@@ -245,10 +238,21 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
           box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
         }
 
+        :global([data-theme="light"]) .history-card {
+          background: #ffffff !important;
+          border: 1px solid rgba(0, 0, 0, 0.08) !important;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+        }
+
         .history-card:hover {
           border-color: var(--card-hover-border);
           transform: translateY(-4px);
           box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+        }
+
+        :global([data-theme="light"]) .history-card:hover {
+          border-color: rgba(229, 9, 20, 0.35) !important;
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12) !important;
         }
 
         .poster-container {
@@ -263,6 +267,7 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
           width: 100%;
           height: 100%;
           object-fit: cover;
+          object-position: center 25%;
           transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
@@ -407,65 +412,33 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
         }
 
         .episode-badge {
-          background: rgba(255, 255, 255, 0.05);
-          border: 0.5px solid rgba(255, 255, 255, 0.1);
-          border-radius: 4px;
-          padding: 2px 6px;
-          font-size: 10px;
+          background: rgba(229, 9, 20, 0.12);
+          border: 0.5px solid rgba(229, 9, 20, 0.3);
+          border-radius: 5px;
+          padding: 2px 7px;
+          font-size: 10.5px;
           font-weight: 700;
           color: var(--primary);
         }
 
+        :global([data-theme="light"]) .episode-badge {
+          background: rgba(229, 9, 20, 0.1);
+          border: 1px solid rgba(229, 9, 20, 0.25);
+          color: var(--primary);
+        }
+
         .date-text {
-          font-size: 10px;
+          font-size: 10.5px;
           color: var(--foreground-muted);
         }
 
         .progress-label {
-          font-size: 10px;
-          color: rgba(255, 255, 255, 0.3);
+          font-size: 10.5px;
+          color: var(--foreground-muted);
           font-weight: 600;
         }
 
-        .nav-btn {
-          position: absolute;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          background: var(--card-bg);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid var(--card-border);
-          color: var(--foreground);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          opacity: 0.85;
-          box-shadow: 0 4px 18px var(--shadow-color);
-          transition: all 0.2s ease-in-out;
-          z-index: 10;
-        }
-
-        .carousel-wrapper:hover .nav-btn {
-          opacity: 1;
-        }
-
-        .nav-btn:hover {
-          background: var(--primary);
-          border-color: var(--primary);
-          color: #ffffff;
-          box-shadow: 0 0 15px rgba(229, 9, 20, 0.6);
-          transform: translateY(-50%) scale(1.1);
-        }
-
-        .prev-btn { left: 12px; }
-        .next-btn { right: 12px; }
-
         @media (max-width: 768px) {
-          .nav-btn,
           .header-nav-arrows { 
             display: none !important; 
           }

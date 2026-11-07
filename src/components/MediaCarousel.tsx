@@ -53,10 +53,6 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
       </div>
 
       <div className="carousel-wrapper">
-        <button className="nav-btn prev-btn" onClick={() => scroll('left')} aria-label="Scroll left">
-          <ChevronLeft size={24} />
-        </button>
-        
         <div className="scroll-container" ref={scrollContainerRef}>
           {data.map((item, index) => (
             <div key={`${item.id}-${index}`} className="scroll-item">
@@ -69,10 +65,6 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
             </div>
           ))}
         </div>
-
-        <button className="nav-btn next-btn" onClick={() => scroll('right')} aria-label="Scroll right">
-          <ChevronRight size={24} />
-        </button>
       </div>
 
       <style jsx>{`
@@ -213,50 +205,7 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
           }
         }
 
-        .nav-btn {
-          position: absolute;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          background: var(--card-bg);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid var(--card-border);
-          color: var(--foreground);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          opacity: 0.85;
-          box-shadow: 0 4px 18px var(--shadow-color);
-          transition: all 0.2s ease-in-out;
-          z-index: 10;
-        }
-
-        .carousel-wrapper:hover .nav-btn {
-          opacity: 1;
-        }
-
-        .nav-btn:hover {
-          background: var(--primary);
-          border-color: var(--primary);
-          color: #ffffff;
-          box-shadow: 0 0 20px rgba(229, 9, 20, 0.6);
-          transform: translateY(-50%) scale(1.1);
-        }
-
-        .prev-btn {
-          left: 12px;
-        }
-
-        .next-btn {
-          right: 12px;
-        }
-
         @media (max-width: 768px) {
-          .nav-btn,
           .header-nav-arrows {
             display: none !important; /* touch scroll is preferred on small screens */
           }

@@ -291,12 +291,23 @@ function MovieCard({
           border-radius: var(--border-radius-md);
           overflow: hidden;
           background: rgba(255, 255, 255, 0.04);
+          border: 1px solid var(--card-border);
           box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-          transition: box-shadow 0.25s ease;
+          transition: box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+
+        :global([data-theme="light"]) .image-wrapper {
+          border: 1px solid rgba(0, 0, 0, 0.09);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
         }
 
         .movie-card-container:hover .image-wrapper {
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        }
+
+        :global([data-theme="light"]) .movie-card-container:hover .image-wrapper {
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+          border-color: rgba(229, 9, 20, 0.4);
         }
 
         .movie-poster-link {
