@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss" important;
 
 /* ===== Dark Theme (Default) ===== */
 :root,
@@ -971,14 +972,15 @@ option {
 
 /* --- SpotlightCarousel --- */
 .spotlight-section {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .spotlight-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
+  padding: 0 16px;
 }
 
 .spotlight-section-title {
@@ -995,7 +997,8 @@ option {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
-  padding: 6px 16px 16px 16px;
+  padding: 16px 16px 20px;
+  scroll-padding-inline: 16px;
   scrollbar-width: none;
 }
 
@@ -1016,12 +1019,12 @@ option {
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.4);
-  transition: transform 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.24);
+  transition: transform 0.2s ease;
 }
 
 .spotlight-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
 }
 
 .spotlight-card:focus {
@@ -1958,4 +1961,3 @@ option {
   overflow: hidden;
   max-height: 80px;
 }
-

@@ -5,6 +5,14 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/context/AuthContext";
 import { Analytics } from "@vercel/analytics/next"
 
+const websiteStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Watcher",
+  alternateName: "Watcher Movie & TV Watchlist",
+  url: "https://thewatchercom.vercel.app/",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://thewatchercom.vercel.app'),
   title: {
@@ -55,6 +63,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteStructuredData).replace(/</g, "\\u003c"),
+          }}
+        />
         <ThemeProvider>
           <AuthProvider>
             <div className="layout-container">

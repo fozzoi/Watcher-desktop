@@ -69,7 +69,7 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
 
       <style jsx>{`
         .carousel-section {
-          margin-bottom: 36px;
+          margin-bottom: 24px;
           position: relative;
           content-visibility: auto;
           contain-intrinsic-size: 0 290px;
@@ -79,7 +79,8 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
           display: flex;
           justify-content: space-between;
           align-items: flex-end;
-          margin-bottom: 16px;
+          margin-bottom: 8px;
+          padding: 0 16px;
         }
 
         .carousel-title {
@@ -146,8 +147,8 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
           overflow-x: auto;
           scroll-snap-type: x mandatory;
           scroll-behavior: smooth;
-          padding: 14px 10px 24px 10px;
-          margin: -14px -10px -24px -10px;
+          padding: 16px 16px 20px;
+          scroll-padding-inline: 16px;
           scrollbar-width: none; /* Firefox */
           -webkit-overflow-scrolling: touch;
           overscroll-behavior-x: contain;
@@ -181,7 +182,7 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
 
           .scroll-container {
             gap: 12px;
-            padding: 4px 0 14px 0;
+            padding: 16px;
           }
 
           .scroll-item {
@@ -192,7 +193,7 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
           }
 
           .carousel-section {
-            margin-bottom: 28px;
+            margin-bottom: 22px;
             contain-intrinsic-size: 0 240px;
           }
 
@@ -201,7 +202,8 @@ function MediaCarousel({ title, type, data, savedIds, toggleWatchlist }: MediaCa
           }
 
           .carousel-header {
-            margin-bottom: 12px;
+            margin-bottom: 6px;
+            padding: 0 16px;
           }
         }
 

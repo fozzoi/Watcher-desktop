@@ -1122,6 +1122,106 @@ export const getSimilarForHistory = async (history: any[]): Promise<{ sourceTitl
   return results.filter((r): r is { sourceTitle: string; items: any[] } => r !== null && r.items.length > 0);
 };
 
+/** Small, cache-first payload for the Explore landing page. */
+export const fetchExploreHomeContent = async (
+  languages: string[] = ["en"],
+  preferredGenreIds: number[] = [],
+  genreFilterId = 0,
+  favoriteActors: { id: number; name: string }[] = [],
+  forceRefresh = false,
+) => {
+  const selectedLanguages = (languages || []).filter((language) => language && language !== "en").slice(0, 2);
+  const selectedGenres = genreFilterId ? [] : (preferredGenreIds || []).slice(0, 1);
+  const selectedActors = (favoriteActors || []).slice(0, 1);
+  const cacheKey = `EXPLORE_HOME_V1_${genreFilterId || "ALL"}_${selectedLanguages.join("_")}_${selectedGenres.join("_")}_${selectedActors.map((actor) => actor.id).join("_")}`;
+  const cacheLifetime = 1000 * 60 * 20;
+
+  if (!forceRefresh) {
+    try {
+      const stored = await AsyncStorage.getItem(cacheKey);
+      if (stored) {
+        const cached = JSON.parse(stored);
+        if (cached.timestamp && Date.now() - cached.timestamp < cacheLifetime && cached.data) return cached.data;
+      }
+    } catch {}
+  }
+
+  if (forceRefresh) {
+    ["/trending/movie/week", "/trending/tv/week", "/movie/top_rated", "/movie/upcoming", "/discover/movie", "/discover/tv", "/person/"].forEach(clearCache);
+  }
+
+  const onePage = async (endpoint: string, params: Record<string, unknown>, type: "movie" | "tv") => {
+    try {
+      const data = await fetchWithCache(endpoint, { ...params, page: 1 });
+      return (data.results || []).slice(0, 12).map((item: any) => ({ ...formatBasicItemData(item), media_type: type }));
+    } catch {
+      return [];
+    }
+  };
+
+  const genreParams = genreFilterId ? { with_genres: genreFilterId, sort_by: "popularity.desc" } : {};
+  const movieEndpoint = genreFilterId ? "/discover/movie" : "/trending/movie/week";
+  const tvEndpoint = genreFilterId ? "/discover/tv" : "/trending/tv/week";
+  const topEndpoint = genreFilterId ? "/discover/movie" : "/movie/top_rated";
+  const topParams = genreFilterId
+    ? { ...genreParams, sort_by: "vote_average.desc", "vote_count.gte": 300 }
+    : {};
+  const hiddenParams = {
+    "vote_average.gte": 7.5,
+    "vote_count.gte": 100,
+    "vote_count.lte": 3000,
+    sort_by: "vote_average.desc",
+    ...genreParams,
+  };
+
+  const [movies, series, topRated, upcoming, hiddenGems, languageResults, actorResults, genreResults] = await Promise.all([
+    onePage(movieEndpoint, genreParams, "movie"),
+    onePage(tvEndpoint, genreParams, "tv"),
+    onePage(topEndpoint, topParams, "movie"),
+    onePage("/movie/upcoming", { region: "US" }, "movie"),
+    onePage("/discover/movie", hiddenParams, "movie"),
+    Promise.all(selectedLanguages.map(async (language) => {
+      const [languageMovies, languageTV] = await Promise.all([
+        onePage("/discover/movie", { with_original_language: language, sort_by: "popularity.desc" }, "movie"),
+        onePage("/discover/tv", { with_original_language: language, sort_by: "popularity.desc" }, "tv"),
+      ]);
+      return [language, { movies: languageMovies, tv: languageTV }] as const;
+    })),
+    Promise.all(selectedActors.map(async (actor) => {
+      try {
+        const credits = await getPersonCombinedCredits(actor.id);
+        return {
+          actorId: actor.id,
+          actorName: actor.name,
+          items: credits.filter((item: any) => item.poster_path).slice(0, 12),
+        };
+      } catch {
+        return null;
+      }
+    })),
+    Promise.all(selectedGenres.map(async (id) => ({
+      genreId: id,
+      items: await onePage("/discover/movie", { with_genres: id, sort_by: "popularity.desc" }, "movie"),
+    }))),
+  ]);
+
+  const langData = Object.fromEntries(languageResults);
+  const result = {
+    heroMovies: movies.slice(0, 8),
+    trendingMovies: movies,
+    trendingTV: series,
+    topRated,
+    upcoming,
+    hiddenGems,
+    langData,
+    actorData: actorResults.filter(Boolean),
+    genreData: genreResults,
+  };
+
+  AsyncStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: result })).catch(() => {});
+  return result;
+};
+
 export const fetchPersonalisedDiscoveryContent = async (
   languages: string[] = ['en'],
   genreIds: number[] = [],
