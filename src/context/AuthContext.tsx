@@ -46,22 +46,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [googleClientId, setGoogleClientIdState] = useState<string>(DEFAULT_CLIENT_ID);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onAuthExpired = () => {
+      setCloudOnlyStorage(false);
+      setUser(null);
+      setToken(null);
+      setSyncError('Session expired. Please sign in again.');
+    };
+    window.addEventListener('watcher_auth_expired', onAuthExpired);
+    return () => window.removeEventListener('watcher_auth_expired', onAuthExpired);
+  }, []);
+
+  useEffect(() => {
     if (!token || typeof window === 'undefined') return;
+    const activeUserId = user?.userId || 'default';
     const onLocalLibraryChange = (event: Event) => {
-      if (!isApplyingCloudState()) syncManager.queueLocalChange(token, (event as CustomEvent).detail || {}, user?.userId || 'default');
+      if (!isApplyingCloudState()) syncManager.queueLocalChange(token, (event as CustomEvent).detail || {}, activeUserId);
     };
-    const pollCloud = () => {
-      void syncManager.flushOutbox(token, user?.userId || 'default');
-      void syncManager.pullIfChanged(token);
+    const pollCloud = async () => {
+      await syncManager.flushOutbox(token, activeUserId);
+      await syncManager.pullIfChanged(token, activeUserId);
     };
-    void syncManager.flushOutbox(token, user?.userId || 'default');
+    void pollCloud();
     window.addEventListener('watcher_local_library_changed', onLocalLibraryChange);
-    const interval = window.setInterval(pollCloud, 15000);
-    window.addEventListener('focus', pollCloud);
+    const interval = window.setInterval(() => void pollCloud(), 15000);
+    const onFocus = () => void pollCloud();
+    window.addEventListener('focus', onFocus);
     return () => {
       window.removeEventListener('watcher_local_library_changed', onLocalLibraryChange);
       window.clearInterval(interval);
-      window.removeEventListener('focus', pollCloud);
+      window.removeEventListener('focus', onFocus);
     };
   }, [token, user?.userId]);
 
@@ -104,8 +118,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (savedToken && savedUser) {
           setCloudOnlyStorage(true);
           const parsedUser = JSON.parse(savedUser);
-          const hasCachedLibrary = await syncManager.primeCachedLibrary(parsedUser.userId);
-          if (!hasCachedLibrary) await AsyncStorage.removeItem('watcher_cloud_revision');
+          const [existingWatchlist, existingHistory, hasPending] = await Promise.all([
+            AsyncStorage.getItem('watchlist'),
+            AsyncStorage.getItem('history'),
+            syncManager.hasPendingOutbox(parsedUser.userId),
+          ]);
+          const hasLiveLibrary = existingWatchlist !== null || existingHistory !== null;
+          if (!hasLiveLibrary && !hasPending) {
+            const hasCachedLibrary = await syncManager.primeCachedLibrary(parsedUser.userId);
+            if (!hasCachedLibrary) await AsyncStorage.removeItem('watcher_cloud_revision');
+          }
           setUser(parsedUser);
           setToken(savedToken);
 
@@ -117,17 +139,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (res.data?.user) {
               setUser(res.data.user);
               await AsyncStorage.setItem('watcher_auth_user', JSON.stringify(res.data.user));
-              // Trigger silent initial cloud sync on launch
-              syncManager.syncOnStartup(savedToken).then((success) => {
+              // Trigger silent initial cloud sync on launch (flushes outbox first)
+              syncManager.syncOnStartup(savedToken, res.data.user.userId).then((success) => {
                 if (success) {
                   setLastSyncedAt(new Date().toISOString());
                 }
               });
             }
-          }).catch((err) => {
+          }).catch(async (err) => {
             console.warn('Session verification failed or expired:', err?.response?.status);
             if (err?.response?.status === 401) {
-              logout();
+              await AsyncStorage.setItem('watcher_local_library_owner', parsedUser.userId);
+              setCloudOnlyStorage(false);
+              setUser(null);
+              setToken(null);
+              setSyncError('Session expired. Please sign in again.');
+              await Promise.all([
+                AsyncStorage.removeItem('watcher_auth_token'),
+                AsyncStorage.removeItem('watcher_auth_user'),
+              ]);
             }
           });
         }
@@ -282,8 +312,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Logout handler
   const logout = async (): Promise<void> => {
     if (token && user?.userId) {
-      await syncManager.flushOutbox(token, user.userId);
-      await syncManager.pullFromCloud(token);
+      try {
+        await syncManager.flushOutbox(token, user.userId, { ignoreBackoff: true });
+        await syncManager.pullFromCloud(token, user.userId, { ignoreBackoff: true });
+      } catch {
+        // Allow signing out cleanly even if offline.
+      }
       await AsyncStorage.setItem('watcher_local_library_owner', user.userId);
     }
     setCloudOnlyStorage(false);
@@ -306,7 +340,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsSyncing(true);
     setSyncError(null);
 
-    const success = await syncManager.pullFromCloud(token);
+    const success = await syncManager.pullFromCloud(token, user?.userId, { ignoreBackoff: true });
     setIsSyncing(false);
 
     if (success) {
@@ -314,7 +348,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLastSyncedAt(now);
       return true;
     } else {
-      setSyncError('Sync failed');
+      setSyncError('Sync failed. Check your connection and try again.');
       return false;
     }
   };

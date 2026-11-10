@@ -18,7 +18,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import Hls from 'hls.js';
-import { getProgress, saveProgress } from '@/utils/progress';
+import { flushPendingCloudProgressSync, getProgress, saveProgress } from '@/utils/progress';
 import { getPlayerPreferences, savePlayerPreferences } from '@/utils/playerPreferences';
 import type { PlayerServer } from '@/utils/playerPreferences';
 import { findAdjacentEpisode, type SeasonEpisodeCount } from '@/utils/playerEpisodes';
@@ -26,6 +26,8 @@ import { getMediaDetails } from '@/utils/tmdb';
 import { AsyncStorage } from '@/utils/storage';
 
 type StreamServer = PlayerServer;
+
+const EPISODE_NAVIGATION_WINDOW_SECONDS = 90;
 
 function PlayerContent() {
   const router = useRouter();
@@ -51,17 +53,105 @@ function PlayerContent() {
   const [activeProviderName, setActiveProviderName] = useState("Vidy.st");
   const [error, setError] = useState<string | null>(null);
   const [posterPath, setPosterPath] = useState(posterParam);
+  const [streamElapsed, setStreamElapsed] = useState<{ url: string; seconds: number } | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [seasonData, setSeasonData] = useState<{ tmdbId: number; counts: SeasonEpisodeCount[] } | null>(null);
   const seasonCounts = seasonData?.tmdbId === tmdbId ? seasonData.counts : [];
   const previousEpisode = isTv ? findAdjacentEpisode(season, episode, seasonCounts, -1) : undefined;
   const nextEpisode = isTv ? findAdjacentEpisode(season, episode, seasonCounts, 1) : undefined;
+  const episodeKey = `${tmdbId}:${typeStr}:${season}:${episode}`;
   
+  const playerContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const streamElapsedRef = useRef<{ url: string; seconds: number }>({ url: '', seconds: 0 });
   const lastSavedPosRef = useRef(0);
   const lastDurationRef = useRef(0);
   const sessionStartTimeRef = useRef(Date.now());
   const hasTriggeredNextRef = useRef(false);
+  const [playbackProgress, setPlaybackProgress] = useState<{
+    episodeKey: string;
+    position: number | null;
+    duration: number | null;
+    streamElapsedAtUpdate: number;
+  }>({ episodeKey: '', position: null, duration: null, streamElapsedAtUpdate: 0 });
+  const currentPlayback = playbackProgress.episodeKey === episodeKey ? playbackProgress : null;
+  const elapsedForStream = streamElapsed && streamElapsed.url === streamData?.stream_url
+    ? streamElapsed.seconds
+    : 0;
+  const reportedPosition = (currentPlayback?.position ?? 0) + Math.max(
+    0,
+    elapsedForStream - (currentPlayback?.streamElapsedAtUpdate ?? 0),
+  );
+  const showPreviousEpisode = Boolean(
+    !loading &&
+    !error &&
+    streamData &&
+    previousEpisode &&
+    reportedPosition <= EPISODE_NAVIGATION_WINDOW_SECONDS
+  );
+  const showNextEpisode = Boolean(
+    !loading &&
+    !error &&
+    streamData &&
+    nextEpisode &&
+    currentPlayback?.duration &&
+    currentPlayback.position !== null &&
+    reportedPosition / currentPlayback.duration >= 0.8 &&
+    currentPlayback.duration - reportedPosition <= EPISODE_NAVIGATION_WINDOW_SECONDS
+  );
+
+  const updatePlaybackProgress = useCallback((position: number, duration: number) => {
+    if (!Number.isFinite(position) || position < 0) return;
+    lastSavedPosRef.current = position;
+    const validDuration = Number.isFinite(duration) && duration > 0 ? duration : null;
+    if (validDuration !== null) {
+      lastDurationRef.current = duration;
+    }
+    setPlaybackProgress({
+      episodeKey,
+      position,
+      duration: validDuration,
+      streamElapsedAtUpdate: streamElapsedRef.current.seconds,
+    });
+  }, [episodeKey]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getProgress(tmdbId, typeStr as 'movie' | 'tv', season, episode)
+      .then((progress) => {
+        if (!isMounted || !progress) return;
+        updatePlaybackProgress(progress.position || 0, progress.duration || 0);
+      })
+      .catch((error) => console.error('Failed to load episode playback progress:', error));
+
+    return () => { isMounted = false; };
+  }, [tmdbId, typeStr, season, episode, updatePlaybackProgress]);
+
+  useEffect(() => {
+    if (!streamData || streamData.is_m3u8) return;
+
+    const startedAt = Date.now();
+    streamElapsedRef.current = { url: streamData.stream_url, seconds: 0 };
+    const interval = setInterval(() => {
+      const elapsed = {
+        url: streamData.stream_url,
+        seconds: Math.floor((Date.now() - startedAt) / 1000),
+      };
+      streamElapsedRef.current = elapsed;
+      setStreamElapsed(elapsed);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [streamData]);
+
+  useEffect(() => {
+    const updateFullscreenState = () => {
+      setIsFullscreen(document.fullscreenElement === playerContainerRef.current);
+    };
+    document.addEventListener('fullscreenchange', updateFullscreenState);
+    return () => document.removeEventListener('fullscreenchange', updateFullscreenState);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -99,6 +189,8 @@ function PlayerContent() {
 
   useEffect(() => {
     hasTriggeredNextRef.current = false;
+    lastSavedPosRef.current = 0;
+    lastDurationRef.current = 0;
   }, [season, episode]);
 
   const selectServer = (server: StreamServer) => {
@@ -125,22 +217,27 @@ function PlayerContent() {
     fetchPoster();
   }, [tmdbId, posterParam]);
 
-  // Record initial watch session on mount so season & episode are registered
+  // Record initial watch session on mount only if this item/episode has no saved progress yet
   useEffect(() => {
     if (!tmdbId || !serverPreferenceLoaded) return;
-    void saveProgress({
-      tmdbId,
-      mediaType: typeStr as 'movie' | 'tv',
-      title: titleStr,
-      poster: posterPath,
-      lastSeason: season,
-      lastEpisode: episode,
-      position: 0,
-      duration: 0,
-      completed: false,
-      updatedAt: Date.now()
+    let cancelled = false;
+    void getProgress(tmdbId, typeStr as 'movie' | 'tv', season, episode).then((existing) => {
+      if (cancelled || existing) return;
+      void saveProgress({
+        tmdbId,
+        mediaType: typeStr as 'movie' | 'tv',
+        title: titleStr,
+        poster: posterPath,
+        lastSeason: season,
+        lastEpisode: episode,
+        position: 0,
+        duration: 0,
+        completed: false,
+        updatedAt: Date.now()
+      });
     });
-  }, [tmdbId, typeStr, titleStr, posterPath, season, episode]);
+    return () => { cancelled = true; };
+  }, [tmdbId, typeStr, titleStr, posterPath, season, episode, serverPreferenceLoaded]);
 
   // Fetch or construct stream URL based on active server
   useEffect(() => {
@@ -280,6 +377,7 @@ function PlayerContent() {
           if (initialPos > 5) {
             video.currentTime = initialPos;
           }
+          updatePlaybackProgress(initialPos, savedProgress?.duration || 0);
           video.volume = preferences.volume ?? 1;
           video.muted = preferences.muted ?? false;
 
@@ -316,10 +414,11 @@ function PlayerContent() {
         video.src = url;
         video.addEventListener('loadedmetadata', () => {
           if (initialPos > 5) video.currentTime = initialPos;
+          updatePlaybackProgress(initialPos, video.duration);
           video.volume = preferences.volume ?? 1;
           video.muted = preferences.muted ?? false;
           video.play().catch(e => console.log("Autoplay blocked:", e));
-        });
+        }, { once: true });
       } else {
         setError("HLS playback is not supported in this browser environment.");
       }
@@ -333,7 +432,7 @@ function PlayerContent() {
       const dur = video.duration;
       if (!dur || dur <= 0) return;
 
-      lastSavedPosRef.current = pos;
+      updatePlaybackProgress(pos, dur);
 
     };
 
@@ -394,7 +493,7 @@ function PlayerContent() {
       clearInterval(interval);
       if (hlsInstance) hlsInstance.destroy();
     };
-  }, [streamData, tmdbId, typeStr, season, episode, titleStr, posterPath, isTv, nextEpisode]);
+  }, [streamData, tmdbId, typeStr, season, episode, titleStr, posterPath, isTv, nextEpisode, updatePlaybackProgress]);
 
   // Listen to postMessage from embedded players (e.g. VidLink, Vidy, Vimeo, HTML5 embeds)
   useEffect(() => {
@@ -407,15 +506,19 @@ function PlayerContent() {
         let pos = 0;
         let dur = 0;
         let ended = false;
+        let hasPosition = false;
 
         // VidLink / Vidy format: { type: 'MEDIA_DATA', data: { currentTime, duration } } or direct currentTime / position
         if (data.type === 'MEDIA_DATA' && data.data) {
+          hasPosition = data.data.currentTime !== undefined || data.data.position !== undefined;
           pos = Number(data.data.currentTime ?? data.data.position) || 0;
           dur = Number(data.data.duration) || 0;
         } else if (data.currentTime !== undefined || data.position !== undefined) {
+          hasPosition = true;
           pos = Number(data.currentTime ?? data.position) || 0;
           dur = Number(data.duration) || 0;
         } else if (data.data && (data.data.currentTime !== undefined || data.data.position !== undefined)) {
+          hasPosition = true;
           pos = Number(data.data.currentTime ?? data.data.position) || 0;
           dur = Number(data.data.duration) || 0;
         }
@@ -429,8 +532,9 @@ function PlayerContent() {
           }
         }
 
-        if (pos > 0) lastSavedPosRef.current = pos;
-        if (dur > 0) lastDurationRef.current = dur;
+        if (hasPosition) {
+          updatePlaybackProgress(pos, dur || lastDurationRef.current);
+        }
 
         if (dur > 0 && (pos > 0 || ended)) {
           const isDone = ended || pos / dur >= 0.9 || (dur - pos <= 60 && pos >= 30);
@@ -451,7 +555,7 @@ function PlayerContent() {
     };
     window.addEventListener('message', handleWindowMessage);
     return () => window.removeEventListener('message', handleWindowMessage);
-  }, [tmdbId, typeStr, season, episode, titleStr, posterPath, isTv, nextEpisode]);
+  }, [tmdbId, typeStr, season, episode, titleStr, posterPath, isTv, nextEpisode, updatePlaybackProgress]);
 
   const flushProgress = useCallback(async () => {
     const videoPos = videoRef.current?.currentTime;
@@ -472,48 +576,40 @@ function PlayerContent() {
 
     const isDone = dur > 0 && (pos / dur >= 0.85 || (dur - pos <= 90 && pos >= 30) || (elapsed >= (isTv ? 1200 : 3600)));
 
-    await saveProgress({
-      tmdbId,
-      mediaType: typeStr as 'movie' | 'tv',
-      title: titleStr,
-      poster: posterPath,
-      lastSeason: season,
-      lastEpisode: episode,
-      position: pos,
-      duration: dur,
-      completed: isDone,
-      updatedAt: Date.now()
-    });
-
-    // Save to general history list
-    try {
-      const storedHistory = await AsyncStorage.getItem('history');
-      let currentHistory = storedHistory ? JSON.parse(storedHistory) : [];
-      currentHistory = currentHistory.filter((item: any) => item.id !== tmdbId);
-      currentHistory.unshift({
-        id: tmdbId,
+    if (pos > 0 || dur > 0 || isDone) {
+      await saveProgress({
+        tmdbId,
+        mediaType: typeStr as 'movie' | 'tv',
         title: titleStr,
-        media_type: typeStr,
-        poster_path: posterPath,
-        season,
-        episode,
-        timestamp: Date.now()
+        poster: posterPath,
+        lastSeason: season,
+        lastEpisode: episode,
+        position: pos,
+        duration: dur,
+        completed: isDone,
+        updatedAt: Date.now()
       });
-      await AsyncStorage.setItem('history', JSON.stringify(currentHistory.slice(0, 100)));
-    } catch (e) {}
+    }
 
-    // Flush outbox to cloud sync server immediately
-    try {
-      const [token, rawUser] = await Promise.all([
-        AsyncStorage.getItem('watcher_auth_token'),
-        AsyncStorage.getItem('watcher_auth_user'),
-      ]);
-      const userId = rawUser ? JSON.parse(rawUser)?.userId : null;
-      if (token && userId) {
-        const { syncManager } = await import('@/utils/syncManager');
-        void syncManager.flushOutbox(token, userId);
-      }
-    } catch {}
+    // Mark completed movies as watched in general history without prematurely removing active TV shows from watchlist
+    if (isDone && !isTv) {
+      try {
+        const storedHistory = await AsyncStorage.getItem('history');
+        let currentHistory = storedHistory ? JSON.parse(storedHistory) : [];
+        currentHistory = currentHistory.filter((item: any) => !(item.id === tmdbId && (!item.media_type || item.media_type === typeStr)));
+        currentHistory.unshift({
+          id: tmdbId,
+          title: titleStr,
+          media_type: typeStr,
+          poster_path: posterPath,
+          watchedAt: Date.now()
+        });
+        await AsyncStorage.setItem('history', JSON.stringify(currentHistory.slice(0, 100)));
+      } catch (e) {}
+    }
+
+    // Flush throttled progress and outbox to cloud sync server immediately
+    await flushPendingCloudProgressSync();
   }, [tmdbId, typeStr, titleStr, posterPath, season, episode, isTv]);
 
   // Window unload / pagehide listeners to flush progress on browser/Tauri navigation
@@ -533,6 +629,18 @@ function PlayerContent() {
   const handleExit = async () => {
     await flushProgress();
     router.replace(`/detail?id=${tmdbId}&type=${typeStr}`);
+  };
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await playerContainerRef.current?.requestFullscreen();
+      }
+    } catch (error) {
+      console.error('Failed to toggle player fullscreen:', error);
+    }
   };
 
   const navigateEpisode = async (
@@ -572,7 +680,7 @@ function PlayerContent() {
   const goToPreviousEpisode = () => navigateEpisode(previousEpisode, false);
 
   return (
-    <div className="player-fullscreen-container">
+    <div ref={playerContainerRef} className="player-fullscreen-container">
       {/* Top Floating bar */}
       <div className="player-control-header">
         <div className="header-left-actions">
@@ -638,9 +746,21 @@ function PlayerContent() {
           </div>
         </div>
 
-        <div className="media-info">
-          <h3>{titleStr}</h3>
-          {isTv && <span>Season {season}, Episode {episode}</span>}
+        <div className="header-right-actions">
+          <div className="media-info">
+            <h3>{titleStr}</h3>
+            {isTv && <span>Season {season}, Episode {episode}</span>}
+          </div>
+          <button
+            type="button"
+            className="fullscreen-btn"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen (keeps episode controls visible)'}
+            aria-pressed={isFullscreen}
+          >
+            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+          </button>
         </div>
       </div>
 
@@ -683,6 +803,7 @@ function PlayerContent() {
               ref={videoRef}
               className="html5-video-player"
               controls
+              controlsList="nofullscreen"
               autoPlay
               playsInline
             />
@@ -690,14 +811,13 @@ function PlayerContent() {
             <iframe 
               src={streamData.stream_url} 
               className="iframe-video-player"
-              allowFullScreen
               referrerPolicy="origin"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             />
           )
         ) : null}
 
-        {previousEpisode && (
+        {showPreviousEpisode && previousEpisode && (
           <button
             type="button"
             className="episode-navigation-btn previous-episode-floating-btn animate-fade-in-up"
@@ -709,7 +829,7 @@ function PlayerContent() {
           </button>
         )}
 
-        {nextEpisode && isTv && (
+        {showNextEpisode && nextEpisode && isTv && (
           <button
             type="button"
             className="episode-navigation-btn next-episode-floating-btn animate-fade-in-up"
@@ -748,6 +868,12 @@ function PlayerContent() {
           z-index: 9999;
           display: flex;
           flex-direction: column;
+        }
+
+        .player-fullscreen-container:fullscreen {
+          width: 100vw;
+          height: 100vh;
+          background: #000;
         }
 
         .player-control-header {
@@ -903,6 +1029,29 @@ function PlayerContent() {
           color: var(--foreground-muted);
         }
 
+        .header-right-actions {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .fullscreen-btn {
+          width: 40px;
+          height: 40px;
+          display: grid;
+          place-items: center;
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.55);
+          color: #fff;
+          cursor: pointer;
+          transition: var(--transition-smooth);
+        }
+
+        .fullscreen-btn:hover {
+          background: rgba(255, 255, 255, 0.16);
+        }
+
         .video-player-frame {
           flex: 1;
           width: 100%;
@@ -967,6 +1116,12 @@ function PlayerContent() {
         }
 
         @media (max-width: 640px) {
+          .player-control-header { padding: 0 12px; }
+          .header-left-actions { gap: 8px; }
+          .header-right-actions { gap: 8px; }
+          .media-info h3 { font-size: 12px; }
+          .media-info span { font-size: 10px; }
+          .fullscreen-btn { width: 36px; height: 36px; }
           .episode-navigation-btn {
             bottom: 20px;
             padding: 12px 14px;

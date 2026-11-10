@@ -1,6 +1,6 @@
 import { AsyncStorage, clearLocalLibraryStorage, setCloudOnlyStorage } from './storage';
 import axios from 'axios';
-import { setGlobalConfig } from './tmdb';
+import { GLOBAL_CONFIG, setGlobalConfig } from './tmdb';
 
 const SYNC_API_BASE = 'https://watcher-api-rho.vercel.app';
 
@@ -19,20 +19,85 @@ export interface CloudLibrary {
   updatedAt?: string | null;
 }
 
+type FlushResult = { flushed: boolean; remaining: number; error?: string };
+
 let syncTimeout: any = null;
 let applyingCloudState = false;
+let outboxLock: Promise<unknown> = Promise.resolve();
+let inFlightFlushPromise: Promise<FlushResult> | null = null;
+let inFlightPollPromise: Promise<boolean> | null = null;
+let inFlightOperationId: string | null = null;
+let initialMergeInFlight = false;
 let syncInFlight = false;
-let flushingOutbox = false;
 let retryAfter = 0;
 let retryDelay = 1000;
 const outboxKey = (userId: string) => `watcher_sync_outbox_v1:${userId}`;
 const snapshotCacheKey = (userId: string) => `watcher_cloud_snapshot_v1:${userId}`;
 export const isApplyingCloudState = () => applyingCloudState;
 
+function withOutboxLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = outboxLock.then(fn, fn);
+  outboxLock = run.catch(() => undefined);
+  return run;
+}
+
 function makeOperationId() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function normalizeMediaType(item: any): 'movie' | 'tv' | 'collection' {
+  if (item?.media_type === 'tv') return 'tv';
+  if (item?.media_type === 'collection') return 'collection';
+  if (item?.media_type === 'movie') return 'movie';
+  return item?.first_air_date && !item?.release_date ? 'tv' : 'movie';
+}
+
+function libraryItemKey(item: any) {
+  return `${normalizeMediaType(item)}:${String(item?.id ?? item?.media_id ?? '')}`;
+}
+
+function mergeWatchProgressMaps(localProg: Record<string, any>, remoteProg: Record<string, any>) {
+  const merged: Record<string, any> = { ...(localProg || {}) };
+  for (const [k, v] of Object.entries(remoteProg || {})) {
+    if (!v || typeof v !== 'object') continue;
+    const localVal: any = merged[k];
+    const rTime = Number((v as any).updatedAt || (v as any).timestamp || 0);
+    const lTime = Number(localVal?.updatedAt || localVal?.timestamp || 0);
+    if (!localVal || rTime >= lTime) {
+      merged[k] = v;
+    }
+  }
+  return merged;
+}
+
+function removeWatchProgressEntries(localProg: Record<string, any>, mediaId: number) {
+  const next: Record<string, any> = { ...(localProg || {}) };
+  const targetId = Number(mediaId);
+  const idPrefix = String(targetId);
+  for (const [key, val] of Object.entries(next)) {
+    if (
+      key === idPrefix ||
+      key.startsWith(`movie:${idPrefix}`) ||
+      key.startsWith(`tv:${idPrefix}:`) ||
+      Number((val as any)?.tmdbId) === targetId
+    ) {
+      delete next[key];
+    }
+  }
+  return next;
+}
+
+async function resolveUserId(userId?: string): Promise<string | null> {
+  if (userId && userId !== 'default') return userId;
+  try {
+    const rawUser = await AsyncStorage.getItem('watcher_auth_user');
+    const parsed = rawUser ? JSON.parse(rawUser)?.userId : null;
+    return parsed || userId || null;
+  } catch {
+    return userId || null;
+  }
 }
 
 async function readOutbox(userId: string): Promise<any[]> {
@@ -43,57 +108,33 @@ async function readOutbox(userId: string): Promise<any[]> {
   } catch { return []; }
 }
 
-async function saveCloudLibrary(library: CloudLibrary) {
-  setCloudOnlyStorage(true);
-  let saveOps: Promise<void>[] = [];
-  applyingCloudState = true;
-  try {
-    const localRaw = (await AsyncStorage.getItem('@watch_progress')) || (await AsyncStorage.getItem('watch_progress_v1'));
-    let localProg: Record<string, any> = {};
-    try { localProg = localRaw ? JSON.parse(localRaw) : {}; } catch { localProg = {}; }
-    const remoteProg = (library.watchProgress && typeof library.watchProgress === 'object') ? library.watchProgress : {};
-    const mergedProg: Record<string, any> = { ...localProg };
-    for (const [k, v] of Object.entries(remoteProg)) {
-      if (!v) continue;
-      const localVal: any = mergedProg[k];
-      if (!localVal || ((v as any).updatedAt || 0) >= ((localVal as any).updatedAt || 0)) {
-        mergedProg[k] = v;
-      }
-    }
-    const progJson = JSON.stringify(mergedProg);
-
-    saveOps = [
-      AsyncStorage.setItem('watchlist', JSON.stringify(library.watchlist || [])),
-      AsyncStorage.setItem('history', JSON.stringify(library.history || [])),
-      AsyncStorage.setItem('favoriteArtists', JSON.stringify(library.favoriteArtists || [])),
-      AsyncStorage.setItem('savedCollections', JSON.stringify(library.savedCollections || [])),
-      AsyncStorage.setItem('@watch_progress', progJson),
-      AsyncStorage.setItem('watch_progress_v1', progJson),
-    ];
-    if (typeof library.preferences?.nsfwFilterEnabled === 'boolean') {
-      saveOps.push(AsyncStorage.setItem('settings_nsfw', JSON.stringify(library.preferences.nsfwFilterEnabled)));
-    }
-    if (library.aiChatData) {
-      if (Array.isArray(library.aiChatData.conversations)) saveOps.push(AsyncStorage.setItem('watcher.chat.conversations.v1', JSON.stringify(library.aiChatData.conversations)));
-      if (typeof library.aiChatData.userMemory === 'string') saveOps.push(AsyncStorage.setItem('watcher.chat.userMemory.v1', library.aiChatData.userMemory));
-      if (typeof library.aiChatData.aiName === 'string' && library.aiChatData.aiName) saveOps.push(AsyncStorage.setItem('watcher.chat.aiName.v1', library.aiChatData.aiName));
-    }
-  } finally {
-    applyingCloudState = false;
-  }
-  await Promise.all(saveOps);
-  if (typeof library.preferences?.nsfwFilterEnabled === 'boolean') {
-    setGlobalConfig('nsfwFilterEnabled', library.preferences.nsfwFilterEnabled);
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watcher_nsfw_setting_changed', { detail: { value: library.preferences.nsfwFilterEnabled } }));
-  }
-  await persistCloudSnapshot(library);
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watcher_cloud_synced', { detail: library }));
+async function writeOutbox(userId: string, outbox: any[]): Promise<void> {
+  await AsyncStorage.setItem(outboxKey(userId), JSON.stringify(outbox));
 }
 
-async function persistCloudSnapshot(library: Partial<CloudLibrary>) {
+async function handleUnauthorizedSession() {
   try {
     const rawUser = await AsyncStorage.getItem('watcher_auth_user');
-    const userId = rawUser ? JSON.parse(rawUser)?.userId : null;
+    const parsedUserId = rawUser ? JSON.parse(rawUser)?.userId : null;
+    if (parsedUserId) {
+      await AsyncStorage.setItem('watcher_local_library_owner', parsedUserId);
+    }
+  } catch {}
+  setCloudOnlyStorage(false);
+  await Promise.all([
+    AsyncStorage.removeItem('watcher_auth_token'),
+    AsyncStorage.removeItem('watcher_auth_user'),
+  ]);
+  retryAfter = 0;
+  retryDelay = 1000;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('watcher_auth_expired'));
+  }
+}
+
+async function persistCloudSnapshot(library: Partial<CloudLibrary>, explicitUserId?: string) {
+  try {
+    const userId = await resolveUserId(explicitUserId);
     if (!userId) return;
     await AsyncStorage.setItem(snapshotCacheKey(userId), JSON.stringify({
       watchlist: Array.isArray(library.watchlist) ? library.watchlist : [],
@@ -110,6 +151,82 @@ async function persistCloudSnapshot(library: Partial<CloudLibrary>) {
   }
 }
 
+async function persistCurrentSnapshot(explicitUserId?: string) {
+  try {
+    const [wStr, hStr, aStr, cStr, pStr, nsfwStr] = await Promise.all([
+      AsyncStorage.getItem('watchlist'),
+      AsyncStorage.getItem('history'),
+      AsyncStorage.getItem('favoriteArtists'),
+      AsyncStorage.getItem('savedCollections'),
+      AsyncStorage.getItem('@watch_progress').then(res => res || AsyncStorage.getItem('watch_progress_v1')),
+      AsyncStorage.getItem('settings_nsfw'),
+    ]);
+    const preferences: Record<string, any> = {};
+    if (nsfwStr !== null) {
+      try { preferences.nsfwFilterEnabled = JSON.parse(nsfwStr) === true; } catch {}
+    } else {
+      preferences.nsfwFilterEnabled = GLOBAL_CONFIG.nsfwFilterEnabled;
+    }
+    await persistCloudSnapshot({
+      watchlist: wStr ? JSON.parse(wStr) : [],
+      history: hStr ? JSON.parse(hStr) : [],
+      favoriteArtists: aStr ? JSON.parse(aStr) : [],
+      savedCollections: cStr ? JSON.parse(cStr) : [],
+      watchProgress: pStr ? JSON.parse(pStr) : {},
+      preferences,
+    }, explicitUserId);
+  } catch (error) {
+    console.warn('Could not refresh cloud display snapshot:', error);
+  }
+}
+
+async function saveCloudLibrary(library: CloudLibrary, options?: { replaceProgress?: boolean }) {
+  setCloudOnlyStorage(true);
+  applyingCloudState = true;
+  try {
+    let mergedProg: Record<string, any> = {};
+    const remoteProg = (library.watchProgress && typeof library.watchProgress === 'object') ? library.watchProgress : {};
+    if (options?.replaceProgress) {
+      mergedProg = remoteProg;
+    } else {
+      const localRaw = (await AsyncStorage.getItem('@watch_progress')) || (await AsyncStorage.getItem('watch_progress_v1'));
+      let localProg: Record<string, any> = {};
+      try { localProg = localRaw ? JSON.parse(localRaw) : {}; } catch { localProg = {}; }
+      mergedProg = mergeWatchProgressMaps(localProg, remoteProg);
+    }
+    const progJson = JSON.stringify(mergedProg);
+
+    const saveOps: Promise<void>[] = [
+      AsyncStorage.setItem('watchlist', JSON.stringify(library.watchlist || [])),
+      AsyncStorage.setItem('history', JSON.stringify(library.history || [])),
+      AsyncStorage.setItem('favoriteArtists', JSON.stringify(library.favoriteArtists || [])),
+      AsyncStorage.setItem('savedCollections', JSON.stringify(library.savedCollections || [])),
+      AsyncStorage.setItem('@watch_progress', progJson),
+      AsyncStorage.setItem('watch_progress_v1', progJson),
+    ];
+    if (typeof library.preferences?.nsfwFilterEnabled === 'boolean') {
+      saveOps.push(AsyncStorage.setItem('settings_nsfw', JSON.stringify(library.preferences.nsfwFilterEnabled)));
+    }
+    if (library.aiChatData) {
+      if (Array.isArray(library.aiChatData.conversations)) saveOps.push(AsyncStorage.setItem('watcher.chat.conversations.v1', JSON.stringify(library.aiChatData.conversations)));
+      if (typeof library.aiChatData.userMemory === 'string') saveOps.push(AsyncStorage.setItem('watcher.chat.userMemory.v1', library.aiChatData.userMemory));
+      if (typeof library.aiChatData.aiName === 'string' && library.aiChatData.aiName) saveOps.push(AsyncStorage.setItem('watcher.chat.aiName.v1', library.aiChatData.aiName));
+    }
+    await Promise.all(saveOps);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('watcher_watch_progress_changed', { detail: mergedProg }));
+    }
+  } finally {
+    applyingCloudState = false;
+  }
+  if (typeof library.preferences?.nsfwFilterEnabled === 'boolean') {
+    setGlobalConfig('nsfwFilterEnabled', library.preferences.nsfwFilterEnabled);
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watcher_nsfw_setting_changed', { detail: { value: library.preferences.nsfwFilterEnabled } }));
+  }
+  await persistCloudSnapshot(library);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watcher_cloud_synced', { detail: library }));
+}
+
 export const syncManager = {
   async primeCachedLibrary(userId: string) {
     try {
@@ -121,6 +238,13 @@ export const syncManager = {
     } catch { return false; }
   },
 
+  async hasPendingOutbox(userId: string): Promise<boolean> {
+    const resolved = await resolveUserId(userId);
+    if (!resolved) return false;
+    const outbox = await readOutbox(resolved);
+    return outbox.length > 0;
+  },
+
   async prepareLocalLibraryForAccount(userId: string) {
     const owner = await AsyncStorage.getItem('watcher_local_library_owner');
     if (owner && owner !== userId) {
@@ -130,6 +254,7 @@ export const syncManager = {
     }
     await AsyncStorage.setItem('watcher_local_library_owner', userId);
   },
+
   /**
    * Perform full bidirectional sync with the cloud.
    * Merges local and cloud data, saving the result to both.
@@ -138,8 +263,21 @@ export const syncManager = {
     if (!token) {
       return { success: false, error: 'No authorization token available' };
     }
+    if (initialMergeInFlight) {
+      return { success: false, error: 'Library sync is already in progress' };
+    }
+    initialMergeInFlight = true;
 
     try {
+      const resolvedUserId = await resolveUserId();
+      if (mode === 'merge' && resolvedUserId) {
+        await outboxLock;
+        const flushRes = await this.flushOutbox(token, resolvedUserId, { ignoreBackoff: true });
+        if (!flushRes.flushed && flushRes.remaining > 0) {
+          return { success: false, error: flushRes.error || 'Pending edits could not be flushed yet' };
+        }
+      }
+
       if (mode === 'merge') {
         const knownRevision = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
         if (knownRevision > 0) {
@@ -149,7 +287,7 @@ export const syncManager = {
           if (Array.isArray(delta.data?.changes) && delta.data.changes.some((change: any) => change.action === 'clear' && !change.type)) {
             const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 });
             if (snapshot.data?.library) {
-              await saveCloudLibrary(snapshot.data.library);
+              await saveCloudLibrary(snapshot.data.library, { replaceProgress: true });
               await AsyncStorage.setItem('watcher_cloud_revision', String(snapshot.data.revision || delta.data.revision || 0));
               return { success: true, library: snapshot.data.library };
             }
@@ -157,7 +295,7 @@ export const syncManager = {
         }
       }
       // 1. Gather all local data
-      const [wStr, hStr, aStr, cStr, pStr, convStr, memStr, aiNameStr] = await Promise.all([
+      const [wStr, hStr, aStr, cStr, pStr, convStr, memStr, aiNameStr, nsfwStr] = await Promise.all([
         AsyncStorage.getItem('watchlist'),
         AsyncStorage.getItem('history'),
         AsyncStorage.getItem('favoriteArtists'),
@@ -166,9 +304,10 @@ export const syncManager = {
         AsyncStorage.getItem('watcher.chat.conversations.v1'),
         AsyncStorage.getItem('watcher.chat.userMemory.v1'),
         AsyncStorage.getItem('watcher.chat.aiName.v1'),
+        AsyncStorage.getItem('settings_nsfw'),
       ]);
 
-      const localPayload = {
+      const localPayload: Record<string, any> = {
         watchlist: wStr ? JSON.parse(wStr) : [],
         history: hStr ? JSON.parse(hStr) : [],
         favoriteArtists: aStr ? JSON.parse(aStr) : [],
@@ -181,6 +320,11 @@ export const syncManager = {
         },
         mode,
       };
+      if (nsfwStr !== null) {
+        try {
+          localPayload.preferences = { nsfwFilterEnabled: JSON.parse(nsfwStr) === true };
+        } catch {}
+      }
 
       // 2. Push & merge with cloud
       let response: any;
@@ -191,6 +335,10 @@ export const syncManager = {
           });
           break;
         } catch (error: any) {
+          if (error?.response?.status === 401) {
+            await handleUnauthorizedSession();
+            throw error;
+          }
           if (error?.response?.status !== 409 || attempt === 3) throw error;
           await new Promise(resolve => setTimeout(resolve, 150 * (attempt + 1)));
         }
@@ -215,17 +363,19 @@ export const syncManager = {
         success: false,
         error: err?.response?.data?.error || err.message || 'Sync failed',
       };
+    } finally {
+      initialMergeInFlight = false;
     }
   },
 
   /**
-   * Debounced sync trigger. Call this whenever local library items are mutated.
+   * Debounced sync trigger (only for explicit snapshot sync fallback).
    */
   queueSync(token: string, delayMs = 2500) {
     if (!token) return;
     if (syncTimeout) clearTimeout(syncTimeout);
     syncTimeout = setTimeout(() => {
-      if (!applyingCloudState) this.performSync(token, 'merge');
+      if (!applyingCloudState) void this.performSync(token, 'merge');
     }, delayMs);
   },
 
@@ -235,38 +385,82 @@ export const syncManager = {
       watchlist: 'watchlist', history: 'history', favoriteArtists: 'favoriteArtists', savedCollections: 'savedCollections',
     };
     const type = detail?.key ? typeByKey[detail.key] : undefined;
-    if (!type) {
-      this.queueSync(token, 700);
-      return;
-    }
+    // Ignore non-list keys here (progress & chat are handled separately so they never trigger snapshot storms).
+    if (!type) return;
+
     try {
       const before = detail.previousValue ? JSON.parse(detail.previousValue) : [];
       const after = detail.value ? JSON.parse(detail.value) : [];
-      const id = (item: any) => `${item?.media_type === 'tv' ? 'tv' : 'movie'}:${String(item?.id ?? item?.media_id ?? '')}`;
-      const oldMap = new Map((Array.isArray(before) ? before : []).map((item: any) => [id(item), item]));
-      const newMap = new Map((Array.isArray(after) ? after : []).map((item: any) => [id(item), item]));
+      const oldMap = new Map((Array.isArray(before) ? before : []).map((item: any) => [libraryItemKey(item), item]));
+      const newMap = new Map((Array.isArray(after) ? after : []).map((item: any) => [libraryItemKey(item), item]));
       const mutations: any[] = [];
       for (const [key, item] of newMap) {
-        if (!oldMap.has(key) || JSON.stringify(oldMap.get(key)) !== JSON.stringify(item)) mutations.push({ type, action: 'add', item });
+        if (!oldMap.has(key) || JSON.stringify(oldMap.get(key)) !== JSON.stringify(item)) {
+          mutations.push({ type, action: 'add', item });
+        }
       }
-      for (const [key, item] of oldMap) if (!newMap.has(key)) mutations.push({ type, action: 'remove', mediaId: Number((item as any)?.id ?? key.split(':').pop()), mediaType: (item as any)?.media_type === 'tv' ? 'tv' : 'movie' });
-      if (oldMap.size && !newMap.size) mutations.splice(0, mutations.length, { type, action: 'clear' });
+      for (const [key, item] of oldMap) {
+        if (!newMap.has(key)) {
+          const mediaId = Number((item as any)?.id ?? (item as any)?.media_id ?? key.split(':').pop());
+          if (Number.isFinite(mediaId) && mediaId > 0) {
+            mutations.push({
+              type,
+              action: 'remove',
+              mediaId,
+              ...(type === 'watchlist' || type === 'history' ? { mediaType: normalizeMediaType(item) } : {}),
+            });
+          }
+        }
+      }
+      // Only collapse to 'clear' when multiple items were wiped at once; single-item removal must stay 'remove'.
+      if (oldMap.size > 1 && !newMap.size) {
+        mutations.splice(0, mutations.length, { type, action: 'clear' });
+      }
       void this.enqueueMutations(token, userId, mutations);
     } catch (error) {
       console.warn('Could not build cloud library changes:', error);
-      this.queueSync(token, 700);
     }
   },
 
   async enqueueMutations(token: string, userId: string, mutations: any[]) {
     if (!token || !mutations.length || applyingCloudState) return;
-    const outbox = await readOutbox(userId);
-    const now = Date.now();
-    for (const mutation of mutations) {
-      outbox.push({ ...mutation, operationId: makeOperationId(), clientTimestamp: now });
-    }
-    await AsyncStorage.setItem(outboxKey(userId), JSON.stringify(outbox));
-    await this.flushOutbox(token, userId);
+    const resolvedUserId = await resolveUserId(userId);
+    if (!resolvedUserId) return;
+
+    await withOutboxLock(async () => {
+      const outbox = await readOutbox(resolvedUserId);
+      const now = Date.now();
+      for (const mutation of mutations) {
+        if (!mutation || !mutation.type) continue;
+        if (mutation.action === 'set' && (mutation.type === 'watchProgress' || mutation.type === 'preferences')) {
+          const idx = outbox.findIndex(
+            (op: any) =>
+              op &&
+              op.type === mutation.type &&
+              op.action === 'set' &&
+              op.operationId !== inFlightOperationId
+          );
+          if (idx >= 0) {
+            const prev = outbox[idx];
+            const mergedValue = mutation.type === 'watchProgress'
+              ? mergeWatchProgressMaps(prev.value || {}, mutation.value || {})
+              : { ...(prev.value || {}), ...(mutation.value || {}) };
+            outbox[idx] = {
+              ...mutation,
+              value: mergedValue,
+              operationId: makeOperationId(),
+              clientTimestamp: now,
+            };
+            continue;
+          }
+        }
+        outbox.push({ ...mutation, operationId: makeOperationId(), clientTimestamp: now });
+      }
+      await writeOutbox(resolvedUserId, outbox);
+      await persistCurrentSnapshot(resolvedUserId);
+    });
+
+    await this.flushOutbox(token, resolvedUserId);
   },
 
   async queueNsfwSetting(token: string | null, userId: string, enabled: boolean) {
@@ -292,166 +486,336 @@ export const syncManager = {
     }
   },
 
-  async flushOutbox(token: string, userId: string) {
-    if (!token || flushingOutbox || Date.now() < retryAfter) return;
-    flushingOutbox = true;
+  async removeWatchProgress(tmdbId: number) {
     try {
-      let conflicts = 0;
-      while (true) {
-        const outbox = await readOutbox(userId);
-        const operation = outbox[0];
-        if (!operation) { retryAfter = 0; break; }
-        try {
-          await axios.post(`${SYNC_API_BASE}/api/sync`, { action: 'mutate', mutation: operation }, {
-            headers: { Authorization: `Bearer ${token}` }, timeout: 12000,
-          });
-          await AsyncStorage.setItem(outboxKey(userId), JSON.stringify(outbox.slice(1)));
-          retryAfter = 0;
-          retryDelay = 1000;
-          conflicts = 0;
-        } catch (error: any) {
-          const status = error?.response?.status;
-          if (status === 409 && conflicts++ < 4) {
-            await new Promise(resolve => setTimeout(resolve, 150 * conflicts));
-            continue;
-          }
-          retryAfter = Date.now() + retryDelay;
-          retryDelay = Math.min(30000, retryDelay * 2);
-          console.warn('Cloud library edit is queued for retry:', error?.response?.data || error.message);
-          break;
-        }
-      }
-    } finally { flushingOutbox = false; }
-  },
-
-  async pullIfChanged(token: string): Promise<boolean> {
-    if (!token || syncInFlight) return false;
-    syncInFlight = true;
-    try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const savedRevision = await AsyncStorage.getItem('watcher_cloud_revision');
-      if (Number(savedRevision || 0) <= 0) {
-        setCloudOnlyStorage(true);
-        const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
-        if (!snapshot.data?.library) return false;
-        await saveCloudLibrary(snapshot.data.library);
-        await AsyncStorage.setItem('watcher_cloud_revision', String(snapshot.data.revision || 0));
-        return true;
-      }
-      const response = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${Number(savedRevision || 0)}`, { headers, timeout: 15000 });
-      const revision = Number(response.data?.revision || 0);
-      if (!revision || revision === Number(savedRevision || 0)) return false;
-      const changes = response.data?.changes;
-      const previousRevision = Number(savedRevision || 0);
-      const completeDelta = Array.isArray(changes) && changes.length > 0 &&
-        changes.length === revision - previousRevision &&
-        changes.every((change: any, index: number) => change.revision === previousRevision + index + 1 && (
-          (['watchlist', 'history', 'favoriteArtists', 'savedCollections'].includes(change.type) && ['add', 'remove', 'clear'].includes(change.action)) ||
-          (['preferences', 'watchProgress'].includes(change.type) && change.action === 'set')
-        ));
-      if (response.data?.status === 'delta' && completeDelta) {
-        const lists: Record<string, any[]> = {};
-        const listChanges = changes.filter((change: any) => ['watchlist', 'history', 'favoriteArtists', 'savedCollections'].includes(change.type));
-        const itemKey = (item: any) => `${item?.media_type === 'tv' ? 'tv' : 'movie'}:${String(item?.id ?? item?.media_id)}`;
-        for (const type of new Set<string>(listChanges.map((change: any) => String(change.type)))) {
-          lists[type] = JSON.parse((await AsyncStorage.getItem(type)) || '[]');
-        }
-        for (const change of listChanges) {
-          const list = lists[change.type] || [];
-          if (change.action === 'clear') lists[change.type] = [];
-          else if (change.action === 'remove') lists[change.type] = list.filter((item: any) => Number(item?.id ?? item?.media_id) !== Number(change.mediaId) || (change.mediaType && (item?.media_type === 'tv' ? 'tv' : 'movie') !== change.mediaType));
-          else if (change.action === 'add' && change.item) {
-            lists[change.type] = [change.item, ...list.filter((item: any) => itemKey(item) !== itemKey(change.item))];
-            if (change.type === 'history' && change.removesMatchingWatchlistItem) {
-              const watchlist = lists.watchlist || JSON.parse((await AsyncStorage.getItem('watchlist')) || '[]');
-              lists.watchlist = watchlist.filter((item: any) => itemKey(item) !== itemKey(change.item));
-            }
-          }
-          else lists[change.type] = list;
-        }
-        let saveOps: Promise<void>[] = [];
-        applyingCloudState = true;
-        try {
-          saveOps = Object.entries(lists).map(([type, list]) => AsyncStorage.setItem(type, JSON.stringify(list)));
-          saveOps.push(AsyncStorage.setItem('watcher_cloud_revision', String(revision)));
-        } finally { applyingCloudState = false; }
-        await Promise.all(saveOps);
-        for (const change of changes) {
-          if (change.type === 'preferences' && change.action === 'set' && typeof change.value?.nsfwFilterEnabled === 'boolean') {
-            await AsyncStorage.setItem('settings_nsfw', JSON.stringify(change.value.nsfwFilterEnabled));
-            setGlobalConfig('nsfwFilterEnabled', change.value.nsfwFilterEnabled);
-            if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watcher_nsfw_setting_changed', { detail: { value: change.value.nsfwFilterEnabled } }));
-          }
-          if (change.type === 'watchProgress' && change.action === 'set' && change.value && typeof change.value === 'object') {
-            const rawCurrent = (await AsyncStorage.getItem('@watch_progress')) || (await AsyncStorage.getItem('watch_progress_v1'));
-            const currentObj = rawCurrent ? JSON.parse(rawCurrent) : {};
-            const merged = { ...currentObj, ...change.value };
-            const jsonStr = JSON.stringify(merged);
-            await AsyncStorage.setItem('watch_progress_v1', jsonStr);
-            await AsyncStorage.setItem('@watch_progress', jsonStr);
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('watcher_watch_progress_changed', { detail: merged }));
-            }
-          }
-        }
-        const [watchlist, history, favoriteArtists, savedCollections] = await Promise.all([
-          AsyncStorage.getItem('watchlist'), AsyncStorage.getItem('history'), AsyncStorage.getItem('favoriteArtists'), AsyncStorage.getItem('savedCollections'),
-        ]);
-        await persistCloudSnapshot({
-          watchlist: watchlist ? JSON.parse(watchlist) : [],
-          history: history ? JSON.parse(history) : [],
-          favoriteArtists: favoriteArtists ? JSON.parse(favoriteArtists) : [],
-          savedCollections: savedCollections ? JSON.parse(savedCollections) : [],
-          preferences: {},
-        });
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('watcher_cloud_synced', { detail: { revision } }));
-        }
-        return true;
-      }
-      let library = response.data?.library as CloudLibrary | undefined;
-      if (!library) {
-        const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
-        library = snapshot.data?.library as CloudLibrary | undefined;
-      }
-      if (!library) return false;
-      await saveCloudLibrary(library);
-      await AsyncStorage.setItem('watcher_cloud_revision', String(revision));
-      await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
-      return true;
+      const [token, rawUser] = await Promise.all([
+        AsyncStorage.getItem('watcher_auth_token'),
+        AsyncStorage.getItem('watcher_auth_user'),
+      ]);
+      const userId = rawUser ? JSON.parse(rawUser)?.userId : null;
+      if (!token || !userId || !Number.isFinite(Number(tmdbId))) return;
+      await this.enqueueMutations(token, userId, [{
+        type: 'watchProgress', action: 'remove', mediaId: Number(tmdbId),
+      }]);
     } catch (err) {
-      console.warn('Cloud change check failed:', err);
-      return false;
-    } finally {
-      applyingCloudState = false;
-      syncInFlight = false;
+      console.warn('Could not queue watchProgress removal sync:', err);
     }
   },
 
-  async pullFromCloud(token: string): Promise<boolean> {
+  async flushOutbox(token: string, userId: string, options?: { ignoreBackoff?: boolean }): Promise<FlushResult> {
+    if (!token) return { flushed: false, remaining: 0, error: 'No authorization token available' };
+    if (inFlightFlushPromise) return inFlightFlushPromise;
+
+    const resolvedUserId = await resolveUserId(userId);
+    if (!resolvedUserId) return { flushed: false, remaining: 0, error: 'Missing user identity' };
+
+    const ignoreBackoff = options?.ignoreBackoff === true;
+    if (!ignoreBackoff && Date.now() < retryAfter) {
+      const remaining = (await readOutbox(resolvedUserId)).length;
+      return { flushed: remaining === 0, remaining };
+    }
+
+    const run = (async (): Promise<FlushResult> => {
+      let conflicts = 0;
+      try {
+        while (true) {
+          const operation = await withOutboxLock(async () => {
+            const outbox = await readOutbox(resolvedUserId);
+            const sanitized = outbox.filter((op: any) => op && op.type && op.type !== 'tasteTelemetry');
+            if (sanitized.length !== outbox.length) {
+              await writeOutbox(resolvedUserId, sanitized);
+            }
+            return sanitized[0] || null;
+          });
+
+          if (!operation) {
+            retryAfter = 0;
+            retryDelay = 1000;
+            return { flushed: true, remaining: 0 };
+          }
+
+          inFlightOperationId = operation.operationId;
+          try {
+            const response = await axios.post(`${SYNC_API_BASE}/api/sync`, { action: 'mutate', mutation: operation }, {
+              headers: { Authorization: `Bearer ${token}` }, timeout: 12000,
+            });
+            await withOutboxLock(async () => {
+              const current = await readOutbox(resolvedUserId);
+              const next = current.filter((op: any) => op?.operationId !== operation.operationId);
+              await writeOutbox(resolvedUserId, next);
+            });
+
+            const nextRev = Number(response.data?.revision || 0);
+            if (nextRev > 0) {
+              const localRev = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
+              if (nextRev === localRev + 1) {
+                await AsyncStorage.setItem('watcher_cloud_revision', String(nextRev));
+              }
+            }
+
+            retryAfter = 0;
+            retryDelay = 1000;
+            conflicts = 0;
+          } catch (error: any) {
+            const status = error?.response?.status;
+            if (status === 400) {
+              console.warn('Dropping invalid cloud mutation from queue:', operation?.type, error?.response?.data);
+              await withOutboxLock(async () => {
+                const current = await readOutbox(resolvedUserId);
+                const next = current.filter((op: any) => op?.operationId !== operation.operationId);
+                await writeOutbox(resolvedUserId, next);
+              });
+              conflicts = 0;
+              continue;
+            }
+            if (status === 401) {
+              await handleUnauthorizedSession();
+              return { flushed: false, remaining: 0, error: 'Session expired. Please sign in again.' };
+            }
+            if (status === 409 && conflicts++ < 4) {
+              await new Promise(resolve => setTimeout(resolve, 150 * conflicts));
+              continue;
+            }
+            retryAfter = Date.now() + retryDelay;
+            retryDelay = Math.min(30000, retryDelay * 2);
+            const message = error?.response?.data?.error || error.message || 'Cloud sync failed';
+            console.warn('Cloud library edit is queued for retry:', error?.response?.data || error.message);
+            const remaining = await withOutboxLock(async () => (await readOutbox(resolvedUserId)).length);
+            return { flushed: false, remaining, error: message };
+          } finally {
+            inFlightOperationId = null;
+          }
+        }
+      } finally {
+        inFlightOperationId = null;
+        await persistCurrentSnapshot(resolvedUserId);
+      }
+    })();
+
+    inFlightFlushPromise = run;
+    try {
+      return await run;
+    } finally {
+      if (inFlightFlushPromise === run) inFlightFlushPromise = null;
+    }
+  },
+
+  async pullIfChanged(token: string, userId?: string): Promise<boolean> {
+    if (!token || initialMergeInFlight) return false;
+    if (inFlightPollPromise) return inFlightPollPromise;
+
+    const run = (async (): Promise<boolean> => {
+      syncInFlight = true;
+      try {
+        const resolvedUserId = await resolveUserId(userId);
+        if (resolvedUserId) {
+          await outboxLock;
+          const flushRes = await this.flushOutbox(token, resolvedUserId);
+          if (!flushRes.flushed || flushRes.remaining > 0) {
+            // Do not overwrite local unsynced changes with a cloud snapshot while outbox is dirty.
+            return false;
+          }
+        }
+
+        const headers = { Authorization: `Bearer ${token}` };
+        const savedRevision = await AsyncStorage.getItem('watcher_cloud_revision');
+        if (Number(savedRevision || 0) <= 0) {
+          setCloudOnlyStorage(true);
+          const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
+          if (!snapshot.data?.library) return false;
+          await saveCloudLibrary(snapshot.data.library);
+          await AsyncStorage.setItem('watcher_cloud_revision', String(snapshot.data.revision || 0));
+          await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
+          return true;
+        }
+        const previousRevision = Number(savedRevision || 0);
+        const response = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${previousRevision}`, { headers, timeout: 15000 });
+        const revision = Number(response.data?.revision || 0);
+        if (!revision || revision === previousRevision) return false;
+
+        const changes = response.data?.changes;
+        const completeDelta = Array.isArray(changes) && changes.length > 0 &&
+          changes.length === revision - previousRevision &&
+          changes.every((change: any, index: number) => change.revision === previousRevision + index + 1 && (
+            (['watchlist', 'history', 'favoriteArtists', 'savedCollections'].includes(change.type) && ['add', 'remove', 'clear'].includes(change.action)) ||
+            (change.type === 'preferences' && change.action === 'set') ||
+            (change.type === 'watchProgress' && ['set', 'remove'].includes(change.action))
+          ));
+
+        if (response.data?.status === 'delta' && completeDelta) {
+          const lists: Record<string, any[]> = {};
+          const listChanges = changes.filter((change: any) => ['watchlist', 'history', 'favoriteArtists', 'savedCollections'].includes(change.type));
+          for (const type of new Set<string>(listChanges.map((change: any) => String(change.type)))) {
+            lists[type] = JSON.parse((await AsyncStorage.getItem(type)) || '[]');
+          }
+          for (const change of listChanges) {
+            const list = lists[change.type] || [];
+            if (change.action === 'clear') {
+              lists[change.type] = [];
+            } else if (change.action === 'remove') {
+              const targetId = Number(change.mediaId);
+              const isMediaList = change.type === 'watchlist' || change.type === 'history';
+              lists[change.type] = list.filter((item: any) => {
+                if (Number(item?.id ?? item?.media_id) !== targetId) return true;
+                if (!isMediaList || !change.mediaType) return false;
+                return normalizeMediaType(item) !== change.mediaType;
+              });
+            } else if (change.action === 'add' && change.item) {
+              lists[change.type] = [change.item, ...list.filter((item: any) => libraryItemKey(item) !== libraryItemKey(change.item))];
+              if (change.type === 'history' && change.removesMatchingWatchlistItem) {
+                const watchlist = lists.watchlist || JSON.parse((await AsyncStorage.getItem('watchlist')) || '[]');
+                lists.watchlist = watchlist.filter((item: any) => libraryItemKey(item) !== libraryItemKey(change.item));
+              }
+            }
+          }
+
+          let updatedNsfw: boolean | null = null;
+          let updatedProgress: Record<string, any> | null = null;
+          const progressChanges = changes.filter((c: any) => c.type === 'watchProgress');
+          if (progressChanges.length > 0) {
+            const rawCurrent = (await AsyncStorage.getItem('@watch_progress')) || (await AsyncStorage.getItem('watch_progress_v1'));
+            let workingProg: Record<string, any> = rawCurrent ? JSON.parse(rawCurrent) : {};
+            for (const change of progressChanges) {
+              if (change.action === 'set' && change.value && typeof change.value === 'object') {
+                workingProg = mergeWatchProgressMaps(workingProg, change.value);
+              } else if (change.action === 'remove' && Number.isFinite(Number(change.mediaId))) {
+                workingProg = removeWatchProgressEntries(workingProg, Number(change.mediaId));
+              }
+            }
+            updatedProgress = workingProg;
+          }
+
+          for (const change of changes) {
+            if (change.type === 'preferences' && change.action === 'set' && typeof change.value?.nsfwFilterEnabled === 'boolean') {
+              updatedNsfw = change.value.nsfwFilterEnabled;
+            }
+          }
+
+          applyingCloudState = true;
+          try {
+            const saveOps: Promise<void>[] = Object.entries(lists).map(([type, list]) =>
+              AsyncStorage.setItem(type, JSON.stringify(list))
+            );
+            saveOps.push(AsyncStorage.setItem('watcher_cloud_revision', String(revision)));
+            if (updatedNsfw !== null) {
+              saveOps.push(AsyncStorage.setItem('settings_nsfw', JSON.stringify(updatedNsfw)));
+            }
+            if (updatedProgress !== null) {
+              const jsonStr = JSON.stringify(updatedProgress);
+              saveOps.push(AsyncStorage.setItem('watch_progress_v1', jsonStr));
+              saveOps.push(AsyncStorage.setItem('@watch_progress', jsonStr));
+            }
+            await Promise.all(saveOps);
+          } finally {
+            applyingCloudState = false;
+          }
+
+          if (updatedNsfw !== null) {
+            setGlobalConfig('nsfwFilterEnabled', updatedNsfw);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('watcher_nsfw_setting_changed', { detail: { value: updatedNsfw } }));
+            }
+          }
+          if (updatedProgress !== null && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('watcher_watch_progress_changed', { detail: updatedProgress }));
+          }
+
+          await persistCurrentSnapshot(resolvedUserId || undefined);
+          await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('watcher_cloud_synced', { detail: { revision } }));
+          }
+          return true;
+        }
+
+        let library = response.data?.library as CloudLibrary | undefined;
+        let finalRevision = revision;
+        if (!library) {
+          const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
+          library = snapshot.data?.library as CloudLibrary | undefined;
+          finalRevision = Number(snapshot.data?.revision || revision);
+        }
+        if (!library) return false;
+        const isFullReset = Array.isArray(changes) && changes.some((c: any) => c.action === 'clear' && !c.type);
+        await saveCloudLibrary(library, { replaceProgress: isFullReset });
+        await AsyncStorage.setItem('watcher_cloud_revision', String(finalRevision));
+        await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
+        return true;
+      } catch (err: any) {
+        if (err?.response?.status === 401) {
+          await handleUnauthorizedSession();
+        }
+        console.warn('Cloud change check failed:', err);
+        return false;
+      } finally {
+        applyingCloudState = false;
+        syncInFlight = false;
+      }
+    })();
+
+    inFlightPollPromise = run;
+    try {
+      return await run;
+    } finally {
+      if (inFlightPollPromise === run) inFlightPollPromise = null;
+    }
+  },
+
+  async pullFromCloud(token: string, userId?: string, options?: { ignoreBackoff?: boolean }): Promise<boolean> {
     if (!token) return false;
+    const resolvedUserId = await resolveUserId(userId);
+    if (resolvedUserId) {
+      await outboxLock;
+      const flushRes = await this.flushOutbox(token, resolvedUserId, { ignoreBackoff: options?.ignoreBackoff ?? true });
+      if (!flushRes.flushed || flushRes.remaining > 0) {
+        return false;
+      }
+    }
     const knownRevision = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
     if (knownRevision > 0) {
-      await this.pullIfChanged(token);
-      return true;
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+        const preflight = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${knownRevision}`, { headers, timeout: 15000 });
+        const remoteRev = Number(preflight.data?.revision || 0);
+        if (remoteRev === knownRevision) {
+          await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
+          return true;
+        }
+      } catch (err: any) {
+        if (err?.response?.status === 401) await handleUnauthorizedSession();
+        return false;
+      }
+      return this.pullIfChanged(token, resolvedUserId || undefined);
     }
     try {
       const response = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 });
       if (!response.data?.library) return false;
       await saveCloudLibrary(response.data.library);
       await AsyncStorage.setItem('watcher_cloud_revision', String(response.data.revision || 0));
+      await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.response?.status === 401) await handleUnauthorizedSession();
       console.warn('Could not load cloud library:', error);
       return false;
     }
   },
 
-  async syncOnStartup(token: string): Promise<boolean> {
-    if (!token || syncInFlight) return false;
-    const knownRevision = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
-    if (knownRevision > 0) return this.pullIfChanged(token);
+  async syncOnStartup(token: string, userId?: string): Promise<boolean> {
+    if (!token || initialMergeInFlight) return false;
+    const resolvedUserId = await resolveUserId(userId);
+    if (resolvedUserId) {
+      await outboxLock;
+      const flushRes = await this.flushOutbox(token, resolvedUserId);
+      if (!flushRes.flushed && flushRes.remaining > 0) {
+        return false;
+      }
+    }
 
+    const knownRevision = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
+    if (knownRevision > 0) return this.pullIfChanged(token, resolvedUserId || undefined);
+
+    if (syncInFlight) return false;
     syncInFlight = true;
     setCloudOnlyStorage(true);
     try {
@@ -463,7 +827,8 @@ export const syncManager = {
       await AsyncStorage.setItem('watcher_cloud_revision', String(response.data.revision || 0));
       await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.response?.status === 401) await handleUnauthorizedSession();
       console.warn('Could not load the signed-in cloud library on startup:', error);
       return false;
     } finally { syncInFlight = false; }
@@ -492,15 +857,31 @@ export const syncManager = {
   async clearCloudLibrary(token: string): Promise<boolean> {
     if (!token) return false;
     try {
+      const resolvedUserId = await resolveUserId();
+      if (resolvedUserId) {
+        await withOutboxLock(async () => {
+          await writeOutbox(resolvedUserId, []);
+        });
+      }
       const response = await axios.delete(`${SYNC_API_BASE}/api/sync`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      await this.pullFromCloud(token);
+      const rev = Number(response.data?.revision || 0);
+      await saveCloudLibrary({
+        watchlist: [],
+        history: [],
+        favoriteArtists: [],
+        savedCollections: [],
+        watchProgress: {},
+        preferences: {},
+        aiChatData: undefined,
+      }, { replaceProgress: true });
+      await AsyncStorage.setItem('watcher_cloud_revision', String(rev));
       return true;
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.response?.status === 401) await handleUnauthorizedSession();
       console.error('Failed to clear cloud library:', err);
       return false;
     }
   },
 };
-

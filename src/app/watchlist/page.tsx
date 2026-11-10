@@ -135,10 +135,10 @@ export default function WatchListPage() {
       const storedCollections = await AsyncStorage.getItem('savedCollections');
       const storedNsfw = await AsyncStorage.getItem('settings_nsfw');
       
-      if (storedMovies) setWatchlist(JSON.parse(storedMovies));
-      if (storedArtists) setArtists(JSON.parse(storedArtists));
-      if (storedWatched) setHistory(JSON.parse(storedWatched));
-      if (storedCollections) setCollections(JSON.parse(storedCollections));
+      setWatchlist(storedMovies ? JSON.parse(storedMovies) : []);
+      setArtists(storedArtists ? JSON.parse(storedArtists) : []);
+      setHistory(storedWatched ? JSON.parse(storedWatched) : []);
+      setCollections(storedCollections ? JSON.parse(storedCollections) : []);
       if (storedNsfw !== null) {
         const enabled = JSON.parse(storedNsfw) === true;
         setNsfwFilterEnabled(enabled);
@@ -154,13 +154,17 @@ export default function WatchListPage() {
   useEffect(() => {
     loadData();
 
-    const handleCloudSync = () => {
-      loadData();
+    const handleLibraryRefresh = () => {
+      void loadData();
     };
 
     if (typeof window !== 'undefined') {
-      window.addEventListener('watcher_cloud_synced', handleCloudSync);
-      return () => window.removeEventListener('watcher_cloud_synced', handleCloudSync);
+      window.addEventListener('watcher_cloud_synced', handleLibraryRefresh);
+      window.addEventListener('watcher_local_library_changed', handleLibraryRefresh);
+      return () => {
+        window.removeEventListener('watcher_cloud_synced', handleLibraryRefresh);
+        window.removeEventListener('watcher_local_library_changed', handleLibraryRefresh);
+      };
     }
   }, []);
 

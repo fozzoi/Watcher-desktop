@@ -3,6 +3,26 @@
 let cloudOnly = false;
 const cloudMemory = new Map<string, string>();
 
+const LIBRARY_KEYS = new Set([
+  "watchlist",
+  "history",
+  "favoriteArtists",
+  "savedCollections",
+  "@watch_progress",
+  "watch_progress_v1",
+  "watcher.chat.conversations.v1",
+  "watcher.chat.userMemory.v1",
+  "watcher.chat.aiName.v1",
+]);
+
+// Only list keys are diffed by syncManager.queueLocalChange; progress & chat use dedicated handlers.
+const SYNCED_LIST_KEYS = new Set([
+  "watchlist",
+  "history",
+  "favoriteArtists",
+  "savedCollections",
+]);
+
 export function setCloudOnlyStorage(enabled: boolean) {
   if (typeof window === "undefined") return;
   if (enabled === cloudOnly) return;
@@ -46,24 +66,28 @@ export const AsyncStorage = {
   },
   setItem: async (key: string, value: string): Promise<void> => {
     if (typeof window === "undefined") return;
-    const previousValue = window.localStorage.getItem(key);
+    const previousValue = cloudOnly && LIBRARY_KEYS.has(key)
+      ? (cloudMemory.get(key) ?? window.localStorage.getItem(key))
+      : window.localStorage.getItem(key);
     if (cloudOnly && LIBRARY_KEYS.has(key)) {
       cloudMemory.set(key, value);
     }
     // Always persist to localStorage so data survives page refresh/restart
     window.localStorage.setItem(key, value);
-    if (LIBRARY_KEYS.has(key)) {
+    if (SYNCED_LIST_KEYS.has(key)) {
       window.dispatchEvent(new CustomEvent("watcher_local_library_changed", { detail: { key, previousValue, value } }));
     }
   },
   removeItem: async (key: string): Promise<void> => {
     if (typeof window === "undefined") return;
-    const previousValue = window.localStorage.getItem(key);
+    const previousValue = cloudOnly && LIBRARY_KEYS.has(key)
+      ? (cloudMemory.get(key) ?? window.localStorage.getItem(key))
+      : window.localStorage.getItem(key);
     if (cloudOnly && LIBRARY_KEYS.has(key)) {
       cloudMemory.delete(key);
     }
     window.localStorage.removeItem(key);
-    if (LIBRARY_KEYS.has(key)) {
+    if (SYNCED_LIST_KEYS.has(key)) {
       window.dispatchEvent(new CustomEvent("watcher_local_library_changed", { detail: { key, previousValue, value: null } }));
     }
   },
@@ -73,11 +97,5 @@ export const AsyncStorage = {
     window.localStorage.clear();
   }
 };
-
-const LIBRARY_KEYS = new Set([
-  "watchlist", "history", "favoriteArtists", "savedCollections",
-  "@watch_progress", "watch_progress_v1", "watcher.chat.conversations.v1",
-  "watcher.chat.userMemory.v1", "watcher.chat.aiName.v1",
-]);
 
 export default AsyncStorage;

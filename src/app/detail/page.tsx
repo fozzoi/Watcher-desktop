@@ -245,19 +245,26 @@ function DetailContent() {
 
   const loadWatchlistState = useCallback(async () => {
     try {
-      const stored = await AsyncStorage.getItem('watchlist');
+      const [stored, historyStr] = await Promise.all([
+        AsyncStorage.getItem('watchlist'),
+        AsyncStorage.getItem('history'),
+      ]);
       if (stored) {
         const list = JSON.parse(stored);
         setWatchlistIds(new Set(list.map((i: any) => i.id)));
-        setIsInWatchlist(list.some((item: any) => item.id === tmdbId));
+        setIsInWatchlist(list.some((item: any) => item.id === tmdbId && (!item.media_type || item.media_type === typeStr)));
+      } else {
+        setWatchlistIds(new Set());
+        setIsInWatchlist(false);
       }
-      const historyStr = await AsyncStorage.getItem('history');
       if (historyStr) {
         const hList = JSON.parse(historyStr);
-        setIsWatched(hList.some((item: any) => item.id === tmdbId));
+        setIsWatched(hList.some((item: any) => item.id === tmdbId && (!item.media_type || item.media_type === typeStr)));
+      } else {
+        setIsWatched(false);
       }
     } catch (e) {}
-  }, [tmdbId]);
+  }, [tmdbId, typeStr]);
 
   useEffect(() => {
     fetchDetails();
@@ -266,48 +273,47 @@ function DetailContent() {
 
   useEffect(() => {
     const refreshLibraryState = () => { void loadWatchlistState(); };
-    const refreshProgress = () => {
-      if (tmdbId) {
-        AsyncStorage.getItem('watcher_auth_token').then((token) => {
-          if (token) {
-            import('@/utils/syncManager').then(({ syncManager }) => {
-              void syncManager.pullIfChanged(token);
-            }).catch(() => {});
-          }
-        }).catch(() => {});
-
-        void Promise.all([
-          getProgress(tmdbId),
-          AsyncStorage.getItem(`@selected_season:${tmdbId}`)
-        ]).then(([prog, savedSeasonStr]) => {
-          if (prog) setHistoryProgress(prog);
-          const seasonToSelect = prog?.lastSeason || (savedSeasonStr ? parseInt(savedSeasonStr, 10) : null);
-          if (typeStr === 'tv' && seasonToSelect) {
-            setSelectedSeason(seasonToSelect);
-          }
-        });
-        if (typeStr === 'tv') {
-          void getShowEpisodeProgressMap(tmdbId).then((map) => {
-            setEpisodeProgressMap(map);
-          });
+    const refreshProgressState = () => {
+      if (!tmdbId) return;
+      void Promise.all([
+        getProgress(tmdbId),
+        AsyncStorage.getItem(`@selected_season:${tmdbId}`)
+      ]).then(([prog, savedSeasonStr]) => {
+        setHistoryProgress(prog || null);
+        const seasonToSelect = prog?.lastSeason || (savedSeasonStr ? parseInt(savedSeasonStr, 10) : null);
+        if (typeStr === 'tv' && seasonToSelect) {
+          setSelectedSeason(seasonToSelect);
         }
+      });
+      if (typeStr === 'tv') {
+        void getShowEpisodeProgressMap(tmdbId).then((map) => {
+          setEpisodeProgressMap(map);
+        });
       }
     };
+    const pullAndRefresh = () => {
+      refreshProgressState();
+      void AsyncStorage.getItem('watcher_auth_token').then((token) => {
+        if (!token) return;
+        return import('@/utils/syncManager').then(({ syncManager }) => syncManager.pullIfChanged(token));
+      }).catch(() => {});
+    };
+
     window.addEventListener('watcher_cloud_synced', refreshLibraryState);
-    window.addEventListener('watcher_cloud_synced', refreshProgress);
+    window.addEventListener('watcher_cloud_synced', refreshProgressState);
     window.addEventListener('watcher_local_library_changed', refreshLibraryState);
-    window.addEventListener('watcher_watch_progress_changed', refreshProgress);
-    window.addEventListener('focus', refreshProgress);
-    window.addEventListener('pageshow', refreshProgress);
-    window.addEventListener('popstate', refreshProgress);
+    window.addEventListener('watcher_watch_progress_changed', refreshProgressState);
+    window.addEventListener('focus', pullAndRefresh);
+    window.addEventListener('pageshow', pullAndRefresh);
+    window.addEventListener('popstate', pullAndRefresh);
     return () => {
       window.removeEventListener('watcher_cloud_synced', refreshLibraryState);
-      window.removeEventListener('watcher_cloud_synced', refreshProgress);
+      window.removeEventListener('watcher_cloud_synced', refreshProgressState);
       window.removeEventListener('watcher_local_library_changed', refreshLibraryState);
-      window.removeEventListener('watcher_watch_progress_changed', refreshProgress);
-      window.removeEventListener('focus', refreshProgress);
-      window.removeEventListener('pageshow', refreshProgress);
-      window.removeEventListener('popstate', refreshProgress);
+      window.removeEventListener('watcher_watch_progress_changed', refreshProgressState);
+      window.removeEventListener('focus', pullAndRefresh);
+      window.removeEventListener('pageshow', pullAndRefresh);
+      window.removeEventListener('popstate', pullAndRefresh);
     };
   }, [loadWatchlistState, tmdbId, typeStr]);
 
@@ -382,12 +388,21 @@ function DetailContent() {
     try {
       const stored = await AsyncStorage.getItem('history');
       let list = stored ? JSON.parse(stored) : [];
-      if (list.some((i: any) => i.id === movie.id)) {
-        list = list.filter((i: any) => i.id !== movie.id);
+      if (list.some((i: any) => i.id === movie.id && (!i.media_type || i.media_type === typeStr))) {
+        list = list.filter((i: any) => !(i.id === movie.id && (!i.media_type || i.media_type === typeStr)));
         setIsWatched(false);
       } else {
         list.push({ ...movie, media_type: typeStr, watchedAt: Date.now() });
         setIsWatched(true);
+        const wStr = await AsyncStorage.getItem('watchlist');
+        if (wStr) {
+          const wList = JSON.parse(wStr);
+          const filtered = wList.filter((i: any) => !(i.id === movie.id && (!i.media_type || i.media_type === typeStr)));
+          if (filtered.length !== wList.length) {
+            await AsyncStorage.setItem('watchlist', JSON.stringify(filtered));
+            setIsInWatchlist(false);
+          }
+        }
       }
       await AsyncStorage.setItem('history', JSON.stringify(list));
     } catch (e) {
