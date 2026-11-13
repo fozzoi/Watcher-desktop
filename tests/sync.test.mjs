@@ -446,4 +446,51 @@ describe('Watcher-tauri sync manager and storage regressions', () => {
     assert.equal(sentMutations[4].action, 'remove');
     assert.equal(sentMutations[4].mediaId, 777);
   });
+
+  test('pullIfChanged at revision 0 polls delta without pulling snapshot or overwriting local library, and flushOutbox advances non-contiguous revision jumps', async () => {
+    storageMap.clear();
+    axiosState.calls = [];
+    const userId = 'u-rev-test';
+    storageMap.set('watcher_auth_user', JSON.stringify({ userId }));
+    storageMap.set('watcher_cloud_revision', '0');
+
+    // Local library has a movie added
+    const localMovie = { id: 999, media_type: 'movie', title: 'Interstellar' };
+    await AsyncStorage.setItem('watchlist', JSON.stringify([localMovie]));
+
+    let snapshotCalled = false;
+    let deltaQueryReceived = null;
+    axiosState.getImpl = async (url) => {
+      if (url.includes('since_revision=')) {
+        const u = new URL(url, 'http://localhost');
+        deltaQueryReceived = u.searchParams.get('since_revision');
+        return { status: 200, data: { status: 'up_to_date', revision: 0, changes: [] } };
+      }
+      snapshotCalled = true;
+      // Stale empty snapshot on server
+      return { status: 200, data: { status: 'ok', revision: 0, library: { watchlist: [] } } };
+    };
+
+    // When pullIfChanged runs with savedRevision = '0':
+    const pollResult = await syncManager.pullIfChanged('tok-test', userId);
+    // Should NOT call snapshot endpoint and should NOT overwrite local watchlist
+    assert.equal(snapshotCalled, false);
+    assert.equal(deltaQueryReceived, '0');
+    assert.equal(pollResult, false);
+    const storedAfter = JSON.parse(await AsyncStorage.getItem('watchlist'));
+    assert.equal(storedAfter.length, 1);
+    assert.equal(storedAfter[0].id, 999);
+
+    // Non-contiguous revision jump in flushOutbox (e.g. server at revision 8 while local revision was 0)
+    axiosState.postImpl = async () => ({
+      status: 200,
+      data: { status: 'mutated', revision: 8 },
+    });
+    await syncManager.enqueueMutations('tok-test', userId, [
+      { type: 'watchlist', action: 'add', item: localMovie }
+    ]);
+    const flushRes = await syncManager.flushOutbox('tok-test', userId);
+    assert.equal(flushRes.flushed, true);
+    assert.equal(storageMap.get('watcher_cloud_revision'), '8');
+  });
 });

@@ -70,7 +70,7 @@ export default function ExplorePage() {
       ]);
       const titles: { id: number }[] = watchlist ? JSON.parse(watchlist) : [];
       const people: { id: number }[] = artists ? JSON.parse(artists) : [];
-      setSavedIds(new Set([...titles, ...people].map(({ id }) => id)));
+      setSavedIds(new Set([...titles, ...people].map(({ id }) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)));
       setHistory(progress);
       setOnboardingComplete(onboarded);
     } catch (cause) {
@@ -167,15 +167,24 @@ export default function ExplorePage() {
 
   const toggleWatchlist = useCallback(async (item: TMDBResult) => {
     try {
+      const targetId = Number(item.id);
+      if (!Number.isFinite(targetId) || targetId <= 0) return;
       const stored = await AsyncStorage.getItem("watchlist");
       const current: TMDBResult[] = stored ? JSON.parse(stored) : [];
-      const alreadySaved = current.some((saved) => saved.id === item.id);
-      const next = alreadySaved ? current.filter((saved) => saved.id !== item.id) : [...current, item];
+      const alreadySaved = current.some((saved) => Number(saved.id) === targetId);
+      const normalizedItem: TMDBResult = {
+        ...item,
+        id: targetId,
+        media_type: item.media_type || (item.first_air_date && !item.release_date ? "tv" : "movie"),
+      };
+      const next = alreadySaved
+        ? current.filter((saved) => Number(saved.id) !== targetId)
+        : [normalizedItem, ...current];
       await AsyncStorage.setItem("watchlist", JSON.stringify(next));
       setSavedIds((ids) => {
         const updated = new Set(ids);
-        if (alreadySaved) updated.delete(item.id);
-        else updated.add(item.id);
+        if (alreadySaved) updated.delete(targetId);
+        else updated.add(targetId);
         return updated;
       });
     } catch (cause) {

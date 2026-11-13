@@ -548,9 +548,7 @@ export const syncManager = {
             const nextRev = Number(response.data?.revision || 0);
             if (nextRev > 0) {
               const localRev = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
-              if (nextRev === localRev + 1) {
-                await AsyncStorage.setItem('watcher_cloud_revision', String(nextRev));
-              }
+              await AsyncStorage.setItem('watcher_cloud_revision', String(Math.max(localRev, nextRev)));
             }
 
             retryAfter = 0;
@@ -619,7 +617,7 @@ export const syncManager = {
 
         const headers = { Authorization: `Bearer ${token}` };
         const savedRevision = await AsyncStorage.getItem('watcher_cloud_revision');
-        if (Number(savedRevision || 0) <= 0) {
+        if (savedRevision === null) {
           setCloudOnlyStorage(true);
           const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
           if (!snapshot.data?.library) return false;
@@ -631,7 +629,7 @@ export const syncManager = {
         const previousRevision = Number(savedRevision || 0);
         const response = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${previousRevision}`, { headers, timeout: 15000 });
         const revision = Number(response.data?.revision || 0);
-        if (!revision || revision === previousRevision) return false;
+        if (!revision || revision <= previousRevision) return false;
 
         const changes = response.data?.changes;
         const completeDelta = Array.isArray(changes) && changes.length > 0 &&
@@ -771,8 +769,9 @@ export const syncManager = {
         return false;
       }
     }
-    const knownRevision = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
-    if (knownRevision > 0) {
+    const savedRevision = await AsyncStorage.getItem('watcher_cloud_revision');
+    if (savedRevision !== null) {
+      const knownRevision = Number(savedRevision || 0);
       try {
         const headers = { Authorization: `Bearer ${token}` };
         const preflight = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${knownRevision}`, { headers, timeout: 15000 });
@@ -812,8 +811,8 @@ export const syncManager = {
       }
     }
 
-    const knownRevision = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
-    if (knownRevision > 0) return this.pullIfChanged(token, resolvedUserId || undefined);
+    const savedRevision = await AsyncStorage.getItem('watcher_cloud_revision');
+    if (savedRevision !== null) return this.pullIfChanged(token, resolvedUserId || undefined);
 
     if (syncInFlight) return false;
     syncInFlight = true;

@@ -130,7 +130,7 @@ export function ExploreCatalogRow({
       >
         {row.items.map((item, index) => (
           <div key={`${getMediaType(item)}-${item.id}-${index}`} className="snap-start snap-always">
-            <ExplorePosterCard item={item} saved={savedIds.has(item.id)} onToggle={onToggle} />
+            <ExplorePosterCard item={item} saved={savedIds.has(Number(item.id))} onToggle={onToggle} />
           </div>
         ))}
       </div>
@@ -189,7 +189,7 @@ export function ExploreHero({
 
   const mediaType = getMediaType(item);
   const date = item.release_date || item.first_air_date;
-  const saved = savedIds.has(item.id);
+  const saved = savedIds.has(Number(item.id));
 
   const changeSlide = (direction: -1 | 1) => {
     setActiveIndex((index) => ((index % slideCount) + direction + slideCount) % slideCount);
@@ -374,7 +374,7 @@ export function ExploreSearchGrid({
       {loading ? (
         <ExploreLoading label="Searching titles" />
       ) : results.length ? (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-4 sm:gap-x-4 lg:grid-cols-6 xl:grid-cols-7">{results.map((item) => <ExplorePosterCard key={`${getMediaType(item)}-${item.id}`} item={item} saved={savedIds.has(item.id)} onToggle={onToggle} layout="grid" />)}</div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:grid-cols-4 sm:gap-x-4 lg:grid-cols-6 xl:grid-cols-7">{results.map((item) => <ExplorePosterCard key={`${getMediaType(item)}-${item.id}`} item={item} saved={savedIds.has(Number(item.id))} onToggle={onToggle} layout="grid" />)}</div>
       ) : (
         <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-[var(--card-border)] bg-[var(--card-bg)] px-6 text-center"><p className="font-bold text-[var(--foreground)]">No matches found</p><p className="mt-1 text-sm text-[var(--foreground-muted)]">Try another title or check the spelling.</p></div>
       )}
