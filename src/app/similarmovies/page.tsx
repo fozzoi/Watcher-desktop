@@ -72,16 +72,23 @@ function SimilarMoviesContent() {
     try {
       const currentStr = await AsyncStorage.getItem('watchlist');
       let currentList = currentStr ? JSON.parse(currentStr) : [];
-      if (currentList.find((i: any) => i.id === item.id)) {
-        currentList = currentList.filter((i: any) => i.id !== item.id);
+      const targetId = Number(item.id);
+      if (currentList.some((i: any) => Number(i.id) === targetId)) {
+        currentList = currentList.filter((i: any) => Number(i.id) !== targetId);
         setSavedIds(prev => {
           const n = new Set(prev);
-          n.delete(item.id);
+          n.delete(targetId);
           return n;
         });
       } else {
-        currentList.push(item);
-        setSavedIds(prev => new Set(prev).add(item.id));
+        const itemToSave = {
+          ...item,
+          id: targetId,
+          media_type: item.media_type || 'movie',
+          added_at: Date.now(),
+        };
+        currentList = [itemToSave, ...currentList.filter((i: any) => Number(i.id) !== targetId)];
+        setSavedIds(prev => new Set(prev).add(targetId));
       }
       await AsyncStorage.setItem('watchlist', JSON.stringify(currentList));
     } catch (e) {

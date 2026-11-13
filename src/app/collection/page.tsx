@@ -81,22 +81,27 @@ function CollectionDetailContent() {
     try {
       const wStr = await AsyncStorage.getItem('watchlist');
       let currentList = wStr ? JSON.parse(wStr) : [];
-      const currentIds = new Set(currentList.map((i: any) => i.id));
+      const currentIds = new Set(currentList.map((i: any) => Number(i.id)));
       
-      let added = false;
+      const newItems: any[] = [];
+      const now = Date.now();
       for (const part of collection.parts) {
-        if (!currentIds.has(part.id)) {
-          currentList.push({
+        const pId = Number(part.id);
+        if (!currentIds.has(pId)) {
+          newItems.push({
             ...part,
+            id: pId,
             media_type: 'movie',
+            added_at: now,
           });
-          added = true;
+          currentIds.add(pId);
         }
       }
       
-      if (added) {
+      if (newItems.length > 0) {
+        currentList = [...newItems, ...currentList];
         await AsyncStorage.setItem('watchlist', JSON.stringify(currentList));
-        setWatchlistIds(new Set(currentList.map((i: any) => i.id)));
+        setWatchlistIds(new Set(currentList.map((i: any) => Number(i.id))));
       }
     } catch (e) {
       console.error(e);

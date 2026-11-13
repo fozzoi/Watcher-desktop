@@ -176,6 +176,7 @@ export default function ExplorePage() {
         ...item,
         id: targetId,
         media_type: item.media_type || (item.first_air_date && !item.release_date ? "tv" : "movie"),
+        added_at: (item as any).added_at || Date.now(),
       };
       const next = alreadySaved
         ? current.filter((saved) => Number(saved.id) !== targetId)

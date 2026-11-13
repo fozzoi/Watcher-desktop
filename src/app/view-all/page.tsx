@@ -122,17 +122,24 @@ function ViewAllContent() {
       const currentStr = await AsyncStorage.getItem('watchlist');
       let currentList = currentStr ? JSON.parse(currentStr) : [];
       
-      if (currentList.find((i: any) => i.id === item.id)) {
-        currentList = currentList.filter((i: any) => i.id !== item.id);
+      const targetId = Number(item.id);
+      if (currentList.some((i: any) => Number(i.id) === targetId)) {
+        currentList = currentList.filter((i: any) => Number(i.id) !== targetId);
       } else {
-        currentList.push(item);
+        const itemToSave = {
+          ...item,
+          id: targetId,
+          media_type: item.media_type || (item.first_air_date && !item.release_date ? 'tv' : 'movie'),
+          added_at: Date.now(),
+        };
+        currentList = [itemToSave, ...currentList.filter((i: any) => Number(i.id) !== targetId)];
       }
       
       await AsyncStorage.setItem('watchlist', JSON.stringify(currentList));
       setSavedIds(prev => {
         const n = new Set(prev);
-        if (n.has(item.id)) n.delete(item.id);
-        else n.add(item.id);
+        if (n.has(targetId)) n.delete(targetId);
+        else n.add(targetId);
         return n;
       });
     } catch (e) {

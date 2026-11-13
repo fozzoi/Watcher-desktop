@@ -160,6 +160,9 @@ export interface TMDBResult {
    
   production_companies?: TMDBProductionCompany[];
   belongs_to_collection?: TMDBCollection | null;
+  added_at?: number;
+  created_at?: number;
+  watchedAt?: number;
 }
 
 export interface TMDBSeason {

@@ -370,11 +370,18 @@ function DetailContent() {
     try {
       const stored = await AsyncStorage.getItem('watchlist');
       let currentList = stored ? JSON.parse(stored) : [];
-      if (currentList.find((i: any) => i.id === movie.id)) {
-        currentList = currentList.filter((i: any) => i.id !== movie.id);
+      const targetId = Number(movie.id);
+      if (currentList.some((i: any) => Number(i.id) === targetId)) {
+        currentList = currentList.filter((i: any) => Number(i.id) !== targetId);
         setIsInWatchlist(false);
       } else {
-        currentList.push(movie);
+        const itemToSave = {
+          ...movie,
+          id: targetId,
+          media_type: movie.media_type || typeStr || 'movie',
+          added_at: Date.now(),
+        };
+        currentList = [itemToSave, ...currentList.filter((i: any) => Number(i.id) !== targetId)];
         setIsInWatchlist(true);
       }
       await AsyncStorage.setItem('watchlist', JSON.stringify(currentList));
@@ -1161,13 +1168,20 @@ function DetailContent() {
                             e.stopPropagation();
                             const stored = await AsyncStorage.getItem('watchlist');
                             let list = stored ? JSON.parse(stored) : [];
-                            if (list.find((i: any) => i.id === it.id)) {
-                              list = list.filter((i: any) => i.id !== it.id);
+                            const targetId = Number(it.id);
+                            if (list.some((i: any) => Number(i.id) === targetId)) {
+                              list = list.filter((i: any) => Number(i.id) !== targetId);
                             } else {
-                              list.push(it);
+                              const itemToSave = {
+                                ...it,
+                                id: targetId,
+                                media_type: it.media_type || 'movie',
+                                added_at: Date.now(),
+                              };
+                              list = [itemToSave, ...list.filter((i: any) => Number(i.id) !== targetId)];
                             }
                             await AsyncStorage.setItem('watchlist', JSON.stringify(list));
-                            setWatchlistIds(new Set(list.map((i: any) => i.id)));
+                            setWatchlistIds(new Set(list.map((i: any) => Number(i.id))));
                           }}
                           showTitle={true}
                         />
@@ -1431,13 +1445,20 @@ function DetailContent() {
                                         e.stopPropagation();
                                         const stored = await AsyncStorage.getItem('watchlist');
                                         let list = stored ? JSON.parse(stored) : [];
-                                        if (list.find((i: any) => i.id === item.id)) {
-                                          list = list.filter((i: any) => i.id !== item.id);
+                                        const targetId = Number(item.id);
+                                        if (list.some((i: any) => Number(i.id) === targetId)) {
+                                          list = list.filter((i: any) => Number(i.id) !== targetId);
                                         } else {
-                                          list.push(item);
+                                          const itemToSave = {
+                                            ...item,
+                                            id: targetId,
+                                            media_type: item.media_type || (isTv ? 'tv' : 'movie'),
+                                            added_at: Date.now(),
+                                          };
+                                          list = [itemToSave, ...list.filter((i: any) => Number(i.id) !== targetId)];
                                         }
                                         await AsyncStorage.setItem('watchlist', JSON.stringify(list));
-                                        setWatchlistIds(new Set(list.map((i: any) => i.id)));
+                                        setWatchlistIds(new Set(list.map((i: any) => Number(i.id))));
                                       }}
                                     >
                                       <Heart

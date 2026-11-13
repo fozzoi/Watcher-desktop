@@ -399,16 +399,23 @@ function CastDetailContent() {
                 try {
                   const currentStr = await AsyncStorage.getItem('watchlist');
                   let currentList = currentStr ? JSON.parse(currentStr) : [];
-                  if (currentList.find((i: any) => i.id === it.id)) {
-                    currentList = currentList.filter((i: any) => i.id !== it.id);
+                  const targetId = Number(it.id);
+                  if (currentList.some((i: any) => Number(i.id) === targetId)) {
+                    currentList = currentList.filter((i: any) => Number(i.id) !== targetId);
                     setWatchlistIds(prev => {
                       const next = new Set(prev);
-                      next.delete(it.id);
+                      next.delete(targetId);
                       return next;
                     });
                   } else {
-                    currentList.push(it);
-                    setWatchlistIds(prev => new Set(prev).add(it.id));
+                    const itemToSave = {
+                      ...it,
+                      id: targetId,
+                      media_type: it.media_type || 'movie',
+                      added_at: Date.now(),
+                    };
+                    currentList = [itemToSave, ...currentList.filter((i: any) => Number(i.id) !== targetId)];
+                    setWatchlistIds(prev => new Set(prev).add(targetId));
                   }
                   await AsyncStorage.setItem('watchlist', JSON.stringify(currentList));
                 } catch {}

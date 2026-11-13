@@ -252,9 +252,14 @@ export default function WatchListPage() {
         const results = await searchTMDB(titles[i].title);
         const match = results.find(m => m.poster_path);
         if (match) {
-          const exists = currentList.some((item: any) => item.id === match.id);
+          const matchId = Number(match.id);
+          const exists = currentList.some((item: any) => Number(item.id) === matchId);
           if (!exists) {
-            currentList.unshift(match);
+            currentList.unshift({
+              ...match,
+              id: matchId,
+              added_at: Date.now(),
+            });
             addedCount++;
           } else {
             existingCount++;
@@ -492,8 +497,22 @@ export default function WatchListPage() {
         const dB = b.release_date || b.first_air_date || '';
         return sortDirection === 'asc' ? dA.localeCompare(dB) : dB.localeCompare(dA);
       });
-    } else if (sortBy === 'default' && sortDirection === 'asc') {
-      list.reverse();
+    } else if (sortBy === 'default') {
+      const hasTimestamps = list.some(item => Boolean(item.added_at || item.created_at || item.watchedAt));
+      if (hasTimestamps) {
+        list.sort((a, b) => {
+          const tA = Number(a.added_at || a.created_at || a.watchedAt || 0);
+          const tB = Number(b.added_at || b.created_at || b.watchedAt || 0);
+          if (tA && tB && tA !== tB) {
+            return sortDirection === 'asc' ? tA - tB : tB - tA;
+          }
+          if (tA && !tB) return sortDirection === 'asc' ? 1 : -1;
+          if (!tA && tB) return sortDirection === 'asc' ? -1 : 1;
+          return 0;
+        });
+      } else if (sortDirection === 'asc') {
+        list.reverse();
+      }
     }
 
     return list;
