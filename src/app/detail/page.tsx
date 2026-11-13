@@ -395,16 +395,27 @@ function DetailContent() {
     try {
       const stored = await AsyncStorage.getItem('history');
       let list = stored ? JSON.parse(stored) : [];
-      if (list.some((i: any) => i.id === movie.id && (!i.media_type || i.media_type === typeStr))) {
-        list = list.filter((i: any) => !(i.id === movie.id && (!i.media_type || i.media_type === typeStr)));
+      const targetId = Number(movie.id);
+      const isAlreadyWatched = list.some((i: any) => Number(i.id) === targetId && (!i.media_type || i.media_type === typeStr));
+      if (isAlreadyWatched) {
+        list = list.filter((i: any) => !(Number(i.id) === targetId && (!i.media_type || i.media_type === typeStr)));
         setIsWatched(false);
       } else {
-        list.push({ ...movie, media_type: typeStr, watchedAt: Date.now() });
+        const now = Date.now();
+        const itemToSave = {
+          ...movie,
+          id: targetId,
+          media_type: movie.media_type || typeStr || 'movie',
+          added_at: now,
+          created_at: now,
+          watchedAt: now,
+        };
+        list = [itemToSave, ...list.filter((i: any) => !(Number(i.id) === targetId && (!i.media_type || i.media_type === typeStr)))];
         setIsWatched(true);
         const wStr = await AsyncStorage.getItem('watchlist');
         if (wStr) {
           const wList = JSON.parse(wStr);
-          const filtered = wList.filter((i: any) => !(i.id === movie.id && (!i.media_type || i.media_type === typeStr)));
+          const filtered = wList.filter((i: any) => !(Number(i.id) === targetId && (!i.media_type || i.media_type === typeStr)));
           if (filtered.length !== wList.length) {
             await AsyncStorage.setItem('watchlist', JSON.stringify(filtered));
             setIsInWatchlist(false);
