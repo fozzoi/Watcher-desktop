@@ -31,6 +31,7 @@ let initialMergeInFlight = false;
 let syncInFlight = false;
 let retryAfter = 0;
 let retryDelay = 1000;
+let lastSyncError: string | null = null;
 const outboxKey = (userId: string) => `watcher_sync_outbox_v1:${userId}`;
 const snapshotCacheKey = (userId: string) => `watcher_cloud_snapshot_v1:${userId}`;
 const revisionRepairKey = (userId: string) => `watcher_cloud_revision_repaired_v1:${userId}`;
@@ -239,6 +240,10 @@ async function saveCloudLibrary(library: CloudLibrary, options?: { replaceProgre
 }
 
 export const syncManager = {
+  getLastSyncError() {
+    return lastSyncError;
+  },
+
   async primeCachedLibrary(userId: string) {
     try {
       const raw = await AsyncStorage.getItem(snapshotCacheKey(userId));
@@ -620,6 +625,7 @@ export const syncManager = {
           const flushRes = await this.flushOutbox(token, resolvedUserId);
           if (!flushRes.flushed || flushRes.remaining > 0) {
             // Do not overwrite local unsynced changes with a cloud snapshot while outbox is dirty.
+            lastSyncError = flushRes.error || 'Pending local edits could not be uploaded yet.';
             return false;
           }
         }
@@ -754,6 +760,7 @@ export const syncManager = {
         if (err?.response?.status === 401) {
           await handleUnauthorizedSession();
         }
+        lastSyncError = err?.response?.data?.error || err?.message || 'Cloud sync check failed.';
         console.warn('Cloud change check failed:', err);
         return false;
       } finally {
@@ -771,12 +778,17 @@ export const syncManager = {
   },
 
   async pullFromCloud(token: string, userId?: string, options?: { ignoreBackoff?: boolean }): Promise<boolean> {
-    if (!token) return false;
+    lastSyncError = null;
+    if (!token) {
+      lastSyncError = 'Sign in to sync with the cloud.';
+      return false;
+    }
     const resolvedUserId = await resolveUserId(userId);
     if (resolvedUserId) {
       await outboxLock;
       const flushRes = await this.flushOutbox(token, resolvedUserId, { ignoreBackoff: options?.ignoreBackoff ?? true });
       if (!flushRes.flushed || flushRes.remaining > 0) {
+        lastSyncError = flushRes.error || 'Pending local edits could not be uploaded yet.';
         return false;
       }
     }
@@ -794,19 +806,26 @@ export const syncManager = {
         }
       } catch (err: any) {
         if (err?.response?.status === 401) await handleUnauthorizedSession();
+        lastSyncError = err?.response?.data?.error || err?.message || 'Could not check the cloud revision.';
         return false;
       }
-      return this.pullIfChanged(token, resolvedUserId || undefined);
+      const success = await this.pullIfChanged(token, resolvedUserId || undefined);
+      if (!success && !lastSyncError) lastSyncError = 'Cloud changes could not be applied.';
+      return success;
     }
     try {
       const response = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 });
-      if (!response.data?.library) return false;
+      if (!response.data?.library) {
+        lastSyncError = 'The cloud response did not include a library.';
+        return false;
+      }
       await saveCloudLibrary(response.data.library);
       await AsyncStorage.setItem('watcher_cloud_revision', String(response.data.revision || 0));
       await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
       return true;
     } catch (error: any) {
       if (error?.response?.status === 401) await handleUnauthorizedSession();
+      lastSyncError = error?.response?.data?.error || error?.message || 'Could not load the cloud library.';
       console.warn('Could not load cloud library:', error);
       return false;
     }

@@ -340,15 +340,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsSyncing(true);
     setSyncError(null);
 
-    const success = await syncManager.pullFromCloud(token, user?.userId, { ignoreBackoff: true });
-    setIsSyncing(false);
+    let success = false;
+    let caughtError: string | null = null;
+    try {
+      success = await syncManager.pullFromCloud(token, user?.userId, { ignoreBackoff: true });
+    } catch (error: any) {
+      caughtError = error?.message || 'Cloud sync failed.';
+    } finally {
+      setIsSyncing(false);
+    }
 
     if (success) {
       const now = new Date().toISOString();
       setLastSyncedAt(now);
       return true;
     } else {
-      setSyncError('Sync failed. Check your connection and try again.');
+      setSyncError(syncManager.getLastSyncError() || caughtError || 'Sync failed. Check your connection and try again.');
       return false;
     }
   };
