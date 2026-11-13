@@ -33,7 +33,18 @@ let retryAfter = 0;
 let retryDelay = 1000;
 const outboxKey = (userId: string) => `watcher_sync_outbox_v1:${userId}`;
 const snapshotCacheKey = (userId: string) => `watcher_cloud_snapshot_v1:${userId}`;
+const revisionRepairKey = (userId: string) => `watcher_cloud_revision_repaired_v1:${userId}`;
 export const isApplyingCloudState = () => applyingCloudState;
+
+async function repairRevisionCheckpoint(userId: string | null) {
+  if (!userId) return;
+  const repairKey = revisionRepairKey(userId);
+  if (await AsyncStorage.getItem(repairKey) !== null) return;
+  // Older clients advanced this checkpoint after uploads and could skip remote
+  // edits. Clearing it forces one authoritative snapshot for this account.
+  await AsyncStorage.removeItem('watcher_cloud_revision');
+  await AsyncStorage.setItem(repairKey, 'true');
+}
 
 function withOutboxLock<T>(fn: () => Promise<T>): Promise<T> {
   const run = outboxLock.then(fn, fn);
@@ -545,11 +556,9 @@ export const syncManager = {
               await writeOutbox(resolvedUserId, next);
             });
 
-            const nextRev = Number(response.data?.revision || 0);
-            if (nextRev > 0) {
-              const localRev = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
-              await AsyncStorage.setItem('watcher_cloud_revision', String(Math.max(localRev, nextRev)));
-            }
+            // Do not advance the applied revision from a mutation response. Other
+            // devices may have written earlier revisions that this client still
+            // needs to pull and apply, along with any server side effects.
 
             retryAfter = 0;
             retryDelay = 1000;
@@ -614,6 +623,8 @@ export const syncManager = {
             return false;
           }
         }
+
+        await repairRevisionCheckpoint(resolvedUserId);
 
         const headers = { Authorization: `Bearer ${token}` };
         const savedRevision = await AsyncStorage.getItem('watcher_cloud_revision');
@@ -769,6 +780,7 @@ export const syncManager = {
         return false;
       }
     }
+    await repairRevisionCheckpoint(resolvedUserId);
     const savedRevision = await AsyncStorage.getItem('watcher_cloud_revision');
     if (savedRevision !== null) {
       const knownRevision = Number(savedRevision || 0);
@@ -810,6 +822,8 @@ export const syncManager = {
         return false;
       }
     }
+
+    await repairRevisionCheckpoint(resolvedUserId);
 
     const savedRevision = await AsyncStorage.getItem('watcher_cloud_revision');
     if (savedRevision !== null) return this.pullIfChanged(token, resolvedUserId || undefined);
