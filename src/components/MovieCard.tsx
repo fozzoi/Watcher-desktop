@@ -3,8 +3,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { Star, Heart, Play, Info } from 'lucide-react';
+import { Star, Heart, Play, Info, Check } from 'lucide-react';
 import { getImageUrl, buildDetailUrl } from '@/utils/tmdb';
+import { AsyncStorage } from '@/utils/storage';
+import { recordMediaCast } from '@/utils/castIndexer';
 
 interface MovieCardProps {
   item: any;
@@ -12,6 +14,8 @@ interface MovieCardProps {
   toggleWatchlist: (item: any, e: React.MouseEvent) => void;
   showTitle?: boolean;
   enablePopout?: boolean;
+  isWatched?: boolean;
+  onToggleWatched?: (item: any, e: React.MouseEvent) => void;
 }
 
 function MovieCard({
@@ -20,6 +24,8 @@ function MovieCard({
   toggleWatchlist,
   showTitle = false,
   enablePopout = true,
+  isWatched: propIsWatched,
+  onToggleWatched,
 }: MovieCardProps) {
   if (!item?.poster_path) return null;
 
@@ -33,10 +39,105 @@ function MovieCard({
   // Pop-out Preview State & Refs
   const [mounted, setMounted] = useState(false);
   const [isPopoutOpen, setIsPopoutOpen] = useState(false);
+  const [isWatched, setIsWatched] = useState(Boolean(propIsWatched));
   const [popoutCoords, setPopoutCoords] = useState<{ top: number; left: number; width: number } | null>(null);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
   const leaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (propIsWatched !== undefined) {
+      setIsWatched(propIsWatched);
+    }
+  }, [propIsWatched]);
+
+  // Check watched state when popout opens if not explicitly passed as prop
+  useEffect(() => {
+    if (!isPopoutOpen || propIsWatched !== undefined) return;
+    let cancelled = false;
+    const checkWatchedStatus = async () => {
+      try {
+        const hStr = await AsyncStorage.getItem('history');
+        if (hStr && !cancelled) {
+          const list = JSON.parse(hStr);
+          const targetId = Number(item.id);
+          const watched = Array.isArray(list) && list.some(
+            (h: any) => Number(h.id) === targetId && (!h.media_type || h.media_type === mediaType)
+          );
+          setIsWatched(watched);
+        }
+      } catch {}
+    };
+    void checkWatchedStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [isPopoutOpen, propIsWatched, item.id, mediaType]);
+
+  const handleToggleWatched = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (onToggleWatched) {
+      onToggleWatched(item, e);
+      setIsWatched((prev) => !prev);
+      return;
+    }
+
+    try {
+      const targetId = Number(item.id);
+      const stored = await AsyncStorage.getItem('history');
+      let list = stored ? JSON.parse(stored) : [];
+      const isAlreadyWatched = Array.isArray(list) && list.some(
+        (i: any) => Number(i.id) === targetId && (!i.media_type || i.media_type === mediaType)
+      );
+
+      if (isAlreadyWatched) {
+        list = list.filter(
+          (i: any) => !(Number(i.id) === targetId && (!i.media_type || i.media_type === mediaType))
+        );
+        setIsWatched(false);
+      } else {
+        const now = Date.now();
+        const itemToSave = {
+          ...item,
+          id: targetId,
+          media_type: mediaType,
+          added_at: now,
+          created_at: now,
+          watchedAt: now,
+        };
+        const rawCast = item.cast || (item as any).credits?.cast;
+        if (Array.isArray(rawCast) && rawCast.length > 0) {
+          recordMediaCast(targetId, mediaType, rawCast);
+        }
+        list = [itemToSave, ...list.filter(
+          (i: any) => !(Number(i.id) === targetId && (!i.media_type || i.media_type === mediaType))
+        )];
+        setIsWatched(true);
+
+        // Auto remove from watchlist if marking as watched
+        const wStr = await AsyncStorage.getItem('watchlist');
+        if (wStr) {
+          const wList = JSON.parse(wStr);
+          const filtered = wList.filter(
+            (i: any) => !(Number(i.id) === targetId && (!i.media_type || i.media_type === mediaType))
+          );
+          if (filtered.length !== wList.length) {
+            await AsyncStorage.setItem('watchlist', JSON.stringify(filtered));
+          }
+        }
+      }
+
+      await AsyncStorage.setItem('history', JSON.stringify(list));
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('watcher_local_library_changed', { detail: { type: 'history' } }));
+      }
+    } catch (err) {
+      console.error('Failed to quick toggle watched status:', err);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -214,6 +315,21 @@ function MovieCard({
                 <Play size={14} fill="#000000" color="#000000" style={{ marginLeft: 1 }} />
                 <span>Play</span>
               </Link>
+
+              {/* Quick-Mark Watched Button */}
+              <button
+                type="button"
+                className={`popout-icon-btn ${isWatched ? 'watched' : ''}`}
+                onClick={handleToggleWatched}
+                title={isWatched ? 'Mark as unwatched' : 'Mark as watched'}
+                aria-label={isWatched ? 'Mark as unwatched' : 'Mark as watched'}
+              >
+                <Check
+                  size={16}
+                  color={isWatched ? '#30D158' : '#ffffff'}
+                  strokeWidth={isWatched ? 2.6 : 2}
+                />
+              </button>
 
               <button
                 type="button"
@@ -465,7 +581,9 @@ export default React.memo(MovieCard, (prev, next) => {
   return (
     prev.item?.id === next.item?.id &&
     prev.isAdded === next.isAdded &&
+    prev.isWatched === next.isWatched &&
     prev.showTitle === next.showTitle &&
-    prev.toggleWatchlist === next.toggleWatchlist
+    prev.toggleWatchlist === next.toggleWatchlist &&
+    prev.onToggleWatched === next.onToggleWatched
   );
 });

@@ -118,7 +118,7 @@ export function ExploreCatalogRow({
           <Link href={`/view-all?title=${encodeURIComponent(row.title)}&type=${encodeURIComponent(row.type)}`} className="inline-flex items-center gap-1 rounded-sm text-xs font-semibold text-[var(--foreground-muted)] transition hover:text-[var(--primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)] sm:text-sm">
             View all <ArrowRight size={14} />
           </Link>
-          <div className="hidden gap-1 sm:flex">
+          <div className="flex gap-1">
             <button type="button" onClick={() => scroll(-1)} aria-label={`Scroll ${row.title} left`} className="inline-flex size-8 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--foreground-muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]"><ChevronLeft size={17} /></button>
             <button type="button" onClick={() => scroll(1)} aria-label={`Scroll ${row.title} right`} className="inline-flex size-8 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--foreground-muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]"><ChevronRight size={17} /></button>
           </div>
@@ -126,7 +126,7 @@ export function ExploreCatalogRow({
       </div>
       <div
         ref={rail}
-        className="-mx-4 -my-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth scroll-pl-5 px-5 py-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:gap-4 sm:scroll-pl-6 sm:px-6"
+        className="-mx-4 -my-6 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth scroll-pl-5 px-5 pt-4 pb-12 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:gap-4 sm:scroll-pl-6 sm:px-6"
       >
         {row.items.map((item, index) => (
           <div key={`${getMediaType(item)}-${item.id}-${index}`} className="snap-start snap-always">
@@ -302,14 +302,56 @@ export function ExploreContinueWatching({
   history: WatchProgress[];
   onRemove: (id: number) => void;
 }) {
+  const rail = useRef<HTMLDivElement>(null);
+
   if (!history.length) return null;
 
+  const scroll = (direction: -1 | 1) => {
+    if (!rail.current) return;
+    rail.current.scrollBy({ left: direction * Math.max(300, rail.current.clientWidth * 0.75), behavior: "smooth" });
+  };
+
   return (
-    <section className="mb-8" aria-label="Your recent watches">
-      <h2 className="mb-1 text-xl font-bold text-[var(--foreground)] sm:text-2xl">Continue watching</h2>
-      <div className="-mx-4 -my-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth scroll-pl-5 px-5 py-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:scroll-pl-6 sm:px-6">
+    <section className="mb-8 overflow-visible" aria-label="Your recent watches">
+      <div className="mb-2 flex min-h-11 items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-xl font-bold tracking-tight text-[var(--foreground)] sm:text-2xl">
+            Continue watching
+          </h2>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <Link
+            href="/history"
+            className="inline-flex items-center gap-1 rounded-sm text-xs font-semibold text-[var(--foreground-muted)] transition hover:text-[var(--primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)] sm:text-sm"
+          >
+            History <ArrowRight size={14} />
+          </Link>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={() => scroll(-1)}
+              aria-label="Scroll recent watches left"
+              className="inline-flex size-8 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--foreground-muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+            >
+              <ChevronLeft size={17} />
+            </button>
+            <button
+              type="button"
+              onClick={() => scroll(1)}
+              aria-label="Scroll recent watches right"
+              className="inline-flex size-8 items-center justify-center rounded-full border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--foreground-muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+            >
+              <ChevronRight size={17} />
+            </button>
+          </div>
+        </div>
+      </div>
+      <div
+        ref={rail}
+        className="-mx-4 -my-6 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth scroll-pl-5 px-5 pt-4 pb-12 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:scroll-pl-6 sm:px-6"
+      >
         {history.slice(0, 12).map((entry) => (
-          <article key={entry.tmdbId} className="group relative w-64 shrink-0 snap-start snap-always rounded-2xl transition duration-300 hover:-translate-y-1 sm:w-72">
+          <article key={entry.tmdbId} className="group relative w-64 shrink-0 snap-start snap-always rounded-2xl py-1 transition duration-300 hover:-translate-y-1 sm:w-72">
             <div className="relative rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[0_8px_20px_rgba(0,0,0,0.2)] transition group-hover:border-[var(--card-hover-border)] group-hover:shadow-[0_16px_32px_rgba(0,0,0,0.3)]">
               <Link href={`/player?id=${entry.tmdbId}&type=${entry.mediaType}&title=${encodeURIComponent(entry.title)}&poster=${encodeURIComponent(entry.poster)}`} className="flex min-h-[122px] gap-3 rounded-2xl p-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]">
                 <img src={getImageUrl(entry.poster, "w185")} alt="" className="h-24 w-16 shrink-0 rounded-lg object-cover" loading="lazy" />

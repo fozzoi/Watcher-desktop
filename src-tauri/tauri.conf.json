@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Watcher",
-  "version": "3.0.33",
+  "version": "3.0.40",
   "identifier": "com.watcher.app",
   "build": {
     "frontendDist": "../out",
@@ -27,6 +27,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "shortDescription": "Modern Cinema Companion & Media Discovery",
     "longDescription": "Watcher is a cinematic media discovery application featuring curated catalogs, AI companion, smart stats, and multi-device cloud synchronization.",

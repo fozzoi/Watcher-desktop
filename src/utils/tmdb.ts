@@ -207,6 +207,8 @@ export interface TMDBResult {
   poster_path: string | null;
   backdrop_path?: string | null;
   vote_average: number;
+  vote_count?: number;
+  popularity?: number;
   media_type: "movie" | "tv";
   release_date?: string;
   first_air_date?: string;
@@ -759,6 +761,18 @@ export const getMediaDetails = async (id: number, mediaType: "movie" | "tv"): Pr
   }
 };
 
+export const getMediaCredits = async (
+  id: number, 
+  mediaType: "movie" | "tv" = "movie"
+): Promise<TMDBCastMember[]> => {
+  try {
+    const data = await fetchWithCache(`/${mediaType}/${id}/credits`);
+    return Array.isArray(data?.cast) ? data.cast : [];
+  } catch (error) {
+    return [];
+  }
+};
+
 export const getMovieGenres = async (id: number, mediaType: "movie" | "tv" = "movie"): Promise<{ id: number; name: string }[]> => {
   try {
     const data = await fetchWithCache(`/${mediaType}/${id}`);
@@ -791,14 +805,107 @@ export const getPersonDetails = async (personId: number): Promise<TMDBPerson> =>
   return await fetchWithCache(`/person/${personId}`);
 };
 
+export const isTalkOrSelfShow = (item: any): boolean => {
+  if (!item) return false;
+  const genres = Array.isArray(item.genre_ids) ? item.genre_ids : [];
+  const char = String(item.character || '').trim().toLowerCase();
+  const title = String(item.title || item.name || '').trim().toLowerCase();
+  const overview = String(item.overview || '').toLowerCase();
+
+  // 1. TMDB TV genre 10767 = 'Talk' (Talk Show), 10763 = 'News'
+  if (genres.includes(10767) || genres.includes(10763)) {
+    return true;
+  }
+
+  // 2. Any entry where person appears as Self / Guest / Host / Presenter / Interviewee / Panelist
+  const isSelfRole = 
+    char === 'self' ||
+    char.startsWith('self ') ||
+    char.startsWith('self-') ||
+    char.startsWith('self/') ||
+    char.startsWith('self(') ||
+    char.startsWith('self,') ||
+    char.includes('(self)') ||
+    char.includes('self -') ||
+    char === 'himself' ||
+    char.startsWith('himself ') ||
+    char.startsWith('himself-') ||
+    char.startsWith('himself(') ||
+    char === 'herself' ||
+    char.startsWith('herself ') ||
+    char.startsWith('herself-') ||
+    char.startsWith('herself(') ||
+    char === 'themselves' ||
+    char.startsWith('themselves ') ||
+    char.includes('guest') ||
+    char.includes('host') ||
+    char.includes('presenter') ||
+    char.includes('panelist') ||
+    char.includes('interviewee') ||
+    char.includes('musical guest');
+
+  if (isSelfRole) {
+    return true;
+  }
+
+  // 3. Talk / Late Night / Morning / Chat show titles or keywords
+  const isTalkOrChat = 
+    title.includes('talk show') ||
+    title.includes('chat show') ||
+    title.includes('late show') ||
+    title.includes('late night') ||
+    title.includes('tonight show') ||
+    title.endsWith(' show') ||
+    title.includes(' show starring') ||
+    title.includes(' show with') ||
+    title.includes('the daily show') ||
+    title.includes('the view') ||
+    title.includes('the one show') ||
+    title.includes('today') ||
+    title.includes('saturday night takeaway') ||
+    title.includes('saturday night live') ||
+    title.includes('finding your roots') ||
+    title.includes('watch what happens live') ||
+    title.includes('jimmy kimmel live') ||
+    overview.includes('chat show') ||
+    overview.includes('talk show') ||
+    overview.includes('late-night');
+
+  if (isTalkOrChat) {
+    return true;
+  }
+
+  // 4. Award ceremonies / galas / specials
+  const isAwardOrSpecial = 
+    title.includes('awards') ||
+    title.includes('oscars') ||
+    title.includes('academy award') ||
+    title.includes('golden globe') ||
+    title.includes('grammy') ||
+    title.includes('bafta') ||
+    title.includes('tony award') ||
+    title.includes('emmy') ||
+    title.includes('kamera') ||
+    title.includes('made in hollywood');
+
+  if (isAwardOrSpecial) {
+    return true;
+  }
+
+  return false;
+};
+
 export const getPersonCombinedCredits = async (personId: number): Promise<TMDBResult[]> => {
   const data = await fetchWithCache(`/person/${personId}/combined_credits`);
-  const castItems = (data.cast || []).map((item: any) => ({
-    ...formatBasicItemData(item),
-    media_type: item.media_type || (item.title ? "movie" : "tv"),
-    character: item.character || null,
-    credit_type: 'cast'
-  }));
+  const rawCast = Array.isArray(data?.cast) ? data.cast : [];
+  const castItems = rawCast
+    .filter((item: any) => !isTalkOrSelfShow(item))
+    .map((item: any) => ({
+      ...formatBasicItemData(item),
+      media_type: item.media_type || (item.title ? "movie" : "tv"),
+      character: item.character || null,
+      credit_type: 'cast'
+    }));
 
   const crewItems = (data.crew || []).map((item: any) => ({
     ...formatBasicItemData(item),

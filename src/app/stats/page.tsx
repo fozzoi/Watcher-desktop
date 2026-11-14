@@ -1,13 +1,20 @@
 "use client";
 
 import PageLoading from '@/components/PageLoading';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   BarChart3, Film, Tv, Clock, Award, Flame, Bookmark, 
-  Sparkles, CheckCircle2, TrendingUp, ArrowLeft 
+  Sparkles, CheckCircle2, TrendingUp, ArrowLeft, User, ChevronRight
 } from 'lucide-react';
 import { AsyncStorage } from '@/utils/storage';
+import { 
+  getStoredCastIndex, 
+  calculateTopStarsFromHistory, 
+  indexMissingHistoryCredits, 
+  ActorStat 
+} from '@/utils/castIndexer';
 
 interface StatData {
   totalMovies: number;
@@ -15,7 +22,7 @@ interface StatData {
   totalRuntimeHours: number;
   topGenre: string;
   topGenresList: { name: string; count: number; percent: number }[];
-  topActorsList: { name: string; count: number }[];
+  topActorsList: ActorStat[];
   watchlistSize: number;
   historySize: number;
   completionRate: number;
@@ -25,26 +32,33 @@ export default function StatsPage() {
   const router = useRouter();
   const [stats, setStats] = useState<StatData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [indexingProgress, setIndexingProgress] = useState<{ indexed: number; total: number } | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
     loadStats();
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   const loadStats = async () => {
     try {
-      const [hStr, wStr] = await Promise.all([
+      const [hStr, wStr, aStr] = await Promise.all([
         AsyncStorage.getItem('history'),
         AsyncStorage.getItem('watchlist'),
+        AsyncStorage.getItem('favoriteArtists'),
       ]);
 
       const history: any[] = hStr ? JSON.parse(hStr) : [];
       const watchlist: any[] = wStr ? JSON.parse(wStr) : [];
+      const favoriteArtists: any[] = aStr ? JSON.parse(aStr) : [];
 
       let totalMovies = 0;
       let totalTv = 0;
       let totalRuntimeMinutes = 0;
       const genres: Record<string, number> = {};
-      const actors: Record<string, number> = {};
 
       for (const item of history) {
         const isTv = item.media_type === 'tv' || item.first_air_date || item.lastSeason !== undefined;
@@ -61,12 +75,6 @@ export default function StatsPage() {
             if (name) genres[name] = (genres[name] || 0) + 1;
           });
         }
-
-        if (item.cast && Array.isArray(item.cast)) {
-          item.cast.slice(0, 3).forEach((actor: any) => {
-            if (actor?.name) actors[actor.name] = (actors[actor.name] || 0) + 1;
-          });
-        }
       }
 
       const sortedGenres = Object.entries(genres).sort((a, b) => b[1] - a[1]);
@@ -79,13 +87,14 @@ export default function StatsPage() {
         percent: Math.round((count / totalGenreEntries) * 100),
       }));
 
-      const topActorsList = Object.entries(actors)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, count]) => ({ name, count }));
+      // Immediate client-side calculation from local cache
+      const castIndex = getStoredCastIndex();
+      const { topActorsList: initialTopActors, missingItems } = calculateTopStarsFromHistory(history, castIndex, favoriteArtists);
 
       const totalItems = history.length + watchlist.length;
       const completionRate = totalItems > 0 ? Math.round((history.length / totalItems) * 100) : 0;
+
+      if (!isMountedRef.current) return;
 
       setStats({
         totalMovies,
@@ -93,15 +102,40 @@ export default function StatsPage() {
         totalRuntimeHours: Math.round(totalRuntimeMinutes / 60),
         topGenre,
         topGenresList,
-        topActorsList,
+        topActorsList: initialTopActors,
         watchlistSize: watchlist.length,
         historySize: history.length,
         completionRate,
       });
+      setLoading(false);
+
+      // If any titles lack cast in local cache, resolve them progressively on client
+      if (missingItems.length > 0) {
+        const alreadyIndexed = history.length - missingItems.length;
+        setIndexingProgress({ indexed: alreadyIndexed, total: history.length });
+
+        indexMissingHistoryCredits(
+          missingItems,
+          history,
+          (processed, totalMissing, updatedTopStars) => {
+            if (!isMountedRef.current) return;
+            setIndexingProgress({ indexed: alreadyIndexed + processed, total: history.length });
+            setStats((prev) => prev ? { ...prev, topActorsList: updatedTopStars } : prev);
+          },
+          () => !isMountedRef.current,
+          favoriteArtists
+        ).then((finalTopStars) => {
+          if (!isMountedRef.current) return;
+          setIndexingProgress(null);
+          setStats((prev) => prev ? { ...prev, topActorsList: finalTopStars } : prev);
+        }).catch((err) => {
+          console.warn('[Stats] Background credit resolution paused:', err);
+          if (isMountedRef.current) setIndexingProgress(null);
+        });
+      }
     } catch (e) {
       console.error('Failed to load stats', e);
-    } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   };
 
@@ -200,23 +234,71 @@ export default function StatsPage() {
 
             {/* Top Actors */}
             <div className="breakdown-panel glass-premium">
-              <div className="panel-title-row">
-                <Award size={20} className="panel-icon" />
-                <h3>Most Watched Stars</h3>
+              <div className="panel-title-row flex items-center justify-between gap-3">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Award size={20} className="panel-icon" />
+                  <h3 className="text-lg font-bold">Most Watched Stars</h3>
+                </div>
+                {indexingProgress && (
+                  <span className="indexing-badge">
+                    <Sparkles size={12} className="indexing-sparkle" />
+                    <span>Analyzing {indexingProgress.indexed} / {indexingProgress.total}</span>
+                  </span>
+                )}
               </div>
 
               {stats.topActorsList.length > 0 ? (
-                <div className="actors-list">
-                  {stats.topActorsList.map((a, i) => (
-                    <div key={a.name} className="actor-rank-item glass">
-                      <span className="rank-num">#{i + 1}</span>
-                      <span className="actor-rank-name">{a.name}</span>
-                      <span className="actor-rank-count">{a.count} films</span>
-                    </div>
-                  ))}
+                <div className="actors-list flex flex-col gap-2.5">
+                  {stats.topActorsList.map((a, i) => {
+                    const href = a.id ? `/cast?id=${a.id}&name=${encodeURIComponent(a.name)}` : '#';
+                    return (
+                      <Link 
+                        key={a.name} 
+                        href={href} 
+                        className="actor-rank-item glass group flex flex-row items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 hover:translate-x-1"
+                      >
+                        <span className={`rank-num shrink-0 w-7 text-center font-bold text-xs sm:text-sm ${
+                          i === 0 ? 'text-amber-500 font-extrabold' :
+                          i === 1 ? 'text-slate-400 font-extrabold' :
+                          i === 2 ? 'text-amber-700 font-extrabold' :
+                          'text-[var(--primary)]'
+                        }`}>
+                          #{i + 1}
+                        </span>
+
+                        {a.profile_path ? (
+                          <img 
+                            src={`https://image.tmdb.org/t/p/w185${a.profile_path}`} 
+                            alt={a.name} 
+                            className="actor-avatar w-10 h-10 rounded-full object-cover shrink-0 border border-[var(--card-border)] shadow-sm group-hover:scale-105 transition-transform" 
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="actor-avatar-placeholder w-10 h-10 rounded-full bg-[var(--badge-bg)] border border-[var(--card-border)] flex items-center justify-center text-[var(--foreground-muted)] shrink-0">
+                            <User size={16} />
+                          </div>
+                        )}
+
+                        <span className="actor-rank-name flex-1 min-w-0 font-semibold text-sm sm:text-base text-[var(--foreground)] truncate group-hover:text-[var(--primary)] transition-colors">
+                          {a.name}
+                        </span>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="actor-rank-count shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-[var(--badge-bg)] border border-[var(--badge-border)] text-[var(--foreground-muted)] group-hover:text-[var(--primary)] group-hover:border-[var(--primary)]/40 group-hover:bg-[var(--primary)]/10 transition-all">
+                            {a.count} {a.count === 1 ? 'title' : 'titles'}
+                          </span>
+                          <ChevronRight size={15} className="text-[var(--foreground-muted)] group-hover:text-[var(--primary)] group-hover:translate-x-0.5 transition-all shrink-0" />
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               ) : (
-                <p className="empty-text">Detailed star tracking activates as your library expands.</p>
+                <p className="empty-text">
+                  {indexingProgress 
+                    ? `Scanning library credits (${indexingProgress.indexed}/${indexingProgress.total})...` 
+                    : 'Detailed star tracking activates as your library expands.'}
+                </p>
               )}
             </div>
           </div>
@@ -353,6 +435,26 @@ export default function StatsPage() {
           border-radius: 4px;
           transition: width 0.6s ease;
         }
+        .indexing-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: 9999px;
+          background: rgba(var(--primary-rgb, 229, 9, 20), 0.12);
+          color: var(--primary);
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: 0.2px;
+          border: 1px solid rgba(var(--primary-rgb, 229, 9, 20), 0.2);
+        }
+        .indexing-sparkle {
+          animation: pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 0.6; transform: scale(0.92); }
+          50% { opacity: 1; transform: scale(1.08); }
+        }
         .actors-list {
           display: flex;
           flex-direction: column;
@@ -361,24 +463,58 @@ export default function StatsPage() {
         .actor-rank-item {
           display: flex;
           align-items: center;
-          gap: 14px;
-          padding: 12px 16px;
+          gap: 12px;
+          padding: 10px 14px;
           border-radius: 12px;
+          text-decoration: none;
+          color: inherit;
+          transition: transform 0.2s ease, background 0.2s ease;
+        }
+        .actor-rank-item:hover {
+          transform: translateX(4px);
+          background: rgba(255, 255, 255, 0.08);
+        }
+        .actor-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          object-fit: cover;
+          flex-shrink: 0;
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          background: rgba(255, 255, 255, 0.04);
+        }
+        .actor-avatar-placeholder {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.06);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--foreground-muted);
+          flex-shrink: 0;
+          border: 1px solid rgba(255, 255, 255, 0.08);
         }
         .rank-num {
           font-weight: 700;
           color: var(--primary);
-          font-size: 14px;
-          width: 24px;
+          font-size: 13px;
+          width: 22px;
+          flex-shrink: 0;
         }
         .actor-rank-name {
           flex: 1;
           font-weight: 600;
           font-size: 14px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .actor-rank-count {
           color: var(--foreground-muted);
           font-size: 12px;
+          font-weight: 500;
+          flex-shrink: 0;
         }
         .empty-text {
           color: var(--foreground-muted);

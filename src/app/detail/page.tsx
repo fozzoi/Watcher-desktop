@@ -18,6 +18,7 @@ import {
 import { searchTorrents, TorrentResult } from '@/utils/Scraper';
 import { getProgress, getShowEpisodeProgressMap, isEpisodeCompleted, WatchProgress } from '@/utils/progress';
 import { AsyncStorage } from '@/utils/storage';
+import { recordMediaCast } from '@/utils/castIndexer';
 import { useImagePalette, warmPaletteForMedia, AMBIENT_PENDING_BG } from '@/utils/colorExtractor';
 import MovieCard from '@/components/MovieCard';
 import PageLoading from '@/components/PageLoading';
@@ -265,6 +266,10 @@ function DetailContent() {
     try {
       const details = await getMediaDetails(tmdbId, typeStr);
       setMovie((prev) => ({ ...(prev || {}), ...details }));
+      const castList = details.cast || (details as any).credits?.cast;
+      if (castList) {
+        recordMediaCast(tmdbId, typeStr, castList);
+      }
       setCastLimit(15);
       requestAnimationFrame(() => {
         if (castScrollRef.current) {
@@ -478,6 +483,10 @@ function DetailContent() {
           created_at: now,
           watchedAt: now,
         };
+        const watchedCast = movie.cast || (movie as any).credits?.cast;
+        if (watchedCast) {
+          recordMediaCast(targetId, typeStr, watchedCast);
+        }
         list = [itemToSave, ...list.filter((i: any) => !(Number(i.id) === targetId && (!i.media_type || i.media_type === typeStr)))];
         setIsWatched(true);
         const wStr = await AsyncStorage.getItem('watchlist');

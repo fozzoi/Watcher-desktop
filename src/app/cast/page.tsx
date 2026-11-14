@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { 
   ArrowLeft, Star, Heart, Calendar, MapPin, Film, Tv, 
   Sparkles, ExternalLink, ChevronDown, ChevronUp, User,
-  ChevronLeft, ChevronRight, X, ZoomIn
+  ChevronLeft, ChevronRight, X, ZoomIn, Flame, CheckCircle2
 } from 'lucide-react';
 import { 
   getPersonDetails, 
@@ -36,7 +36,9 @@ function CastDetailContent() {
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'movie' | 'tv'>('all');
+  const [sortBy, setSortBy] = useState<'popular' | 'rating' | 'latest' | 'watched'>('popular');
   const [watchlistIds, setWatchlistIds] = useState<Set<number>>(new Set());
+  const [watchedIds, setWatchedIds] = useState<Set<number>>(new Set());
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const galleryScrollRef = useRef<HTMLDivElement>(null);
@@ -151,10 +153,8 @@ function CastDetailContent() {
           getPersonImages(personId),
         ]);
         setPerson(details);
-        // Filter credits with poster and sort by popularity
-        const validCredits = rawCredits
-          .filter((c) => c.poster_path)
-          .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+        // Keep valid credits with poster
+        const validCredits = rawCredits.filter((c) => c.poster_path);
         setCredits(validCredits);
         setPersonImages(images);
       } catch (err) {
@@ -163,8 +163,25 @@ function CastDetailContent() {
         setLoading(false);
       }
     };
+
+    const loadSavedLists = async () => {
+      try {
+        const [wStr, hStr] = await Promise.all([
+          AsyncStorage.getItem('watchlist'),
+          AsyncStorage.getItem('history'),
+        ]);
+        const wList = wStr ? JSON.parse(wStr) : [];
+        const hList = hStr ? JSON.parse(hStr) : [];
+        setWatchlistIds(new Set(wList.map((i: any) => Number(i.id || i.media_id))));
+        setWatchedIds(new Set(hList.map((i: any) => Number(i.id || i.media_id))));
+      } catch (e) {
+        console.warn('Failed to load watchlist/history for cast page:', e);
+      }
+    };
+
     fetchAll();
     loadFavoriteStatus();
+    loadSavedLists();
   }, [personId, loadFavoriteStatus]);
 
   const toggleFavorite = async () => {
@@ -172,16 +189,23 @@ function CastDetailContent() {
     try {
       const stored = await AsyncStorage.getItem('favoriteArtists');
       let list = stored ? JSON.parse(stored) : [];
+      const personId = Number(person.id);
       if (isFavorite) {
-        list = list.filter((i: any) => i.id !== person.id);
+        list = list.filter((i: any) => Number(i.id) !== personId);
         setIsFavorite(false);
       } else {
-        list.push({
-          id: person.id,
+        const now = Date.now();
+        const artistItem = {
+          id: personId,
           name: person.name,
-          profile_path: person.profile_path,
-          known_for_department: person.known_for_department,
-        });
+          profile_path: person.profile_path || null,
+          known_for_department: person.known_for_department || null,
+          popularity: person.popularity || 0,
+          added_at: now,
+          created_at: now,
+        };
+        // Prepend to the top of the list so newly favorited stars appear first
+        list = [artistItem, ...list.filter((i: any) => Number(i.id) !== personId)];
         setIsFavorite(true);
       }
       await AsyncStorage.setItem('favoriteArtists', JSON.stringify(list));
@@ -198,10 +222,46 @@ function CastDetailContent() {
     return m < 0 || (m === 0 && end.getDate() < start.getDate()) ? age - 1 : age;
   };
 
-  const filteredCredits = credits.filter((item) => {
-    if (activeTab === 'all') return true;
-    return item.media_type === activeTab;
-  });
+  const watchedCount = React.useMemo(() => {
+    return credits.filter((c) => watchedIds.has(c.id)).length;
+  }, [credits, watchedIds]);
+
+  const filteredAndSortedCredits = React.useMemo(() => {
+    let list = credits.filter((item) => {
+      if (activeTab === 'all') return true;
+      return item.media_type === activeTab;
+    });
+
+    if (sortBy === 'watched') {
+      return list
+        .filter((item) => watchedIds.has(item.id))
+        .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+    }
+
+    if (sortBy === 'popular') {
+      return list.sort((a, b) => {
+        const popA = (a.popularity || 0) || ((a.vote_count || 0) * (a.vote_average || 0));
+        const popB = (b.popularity || 0) || ((b.vote_count || 0) * (b.vote_average || 0));
+        return popB - popA;
+      });
+    }
+
+    if (sortBy === 'rating') {
+      return list.sort((a, b) => {
+        return (b.vote_average || 0) - (a.vote_average || 0) || ((b.vote_count || 0) - (a.vote_count || 0));
+      });
+    }
+
+    if (sortBy === 'latest') {
+      return list.sort((a, b) => {
+        const dateA = a.release_date || a.first_air_date || '';
+        const dateB = b.release_date || b.first_air_date || '';
+        return dateB.localeCompare(dateA);
+      });
+    }
+
+    return list;
+  }, [credits, activeTab, sortBy, watchedIds]);
 
   if (loading) {
     return <PageLoading label="Loading cast details" />;
@@ -363,66 +423,113 @@ function CastDetailContent() {
       {/* Filmography Section */}
       <div className="cast-filmography-section">
         <div className="filmography-header">
-          <h2>Filmography ({filteredCredits.length})</h2>
-          
-          <div className="tab-pills glass">
+          <div className="filmography-title-row">
+            <h2>Filmography ({filteredAndSortedCredits.length})</h2>
+            
+            {/* Media Type Tabs: All, Movies, Shows */}
+            <div className="tab-pills glass">
+              <button 
+                className={`tab-pill ${activeTab === 'all' ? 'active' : ''}`}
+                onClick={() => setActiveTab('all')}
+              >
+                All ({credits.length})
+              </button>
+              <button 
+                className={`tab-pill ${activeTab === 'movie' ? 'active' : ''}`}
+                onClick={() => setActiveTab('movie')}
+              >
+                <Film size={14} /> Movies ({credits.filter(c => c.media_type === 'movie').length})
+              </button>
+              <button 
+                className={`tab-pill ${activeTab === 'tv' ? 'active' : ''}`}
+                onClick={() => setActiveTab('tv')}
+              >
+                <Tv size={14} /> Shows ({credits.filter(c => c.media_type === 'tv').length})
+              </button>
+            </div>
+          </div>
+
+          {/* Sorting & Filter Tabs: Popular, Top Rated, Latest, Watched */}
+          <div className="sort-pills glass">
             <button 
-              className={`tab-pill ${activeTab === 'all' ? 'active' : ''}`}
-              onClick={() => setActiveTab('all')}
+              className={`sort-pill ${sortBy === 'popular' ? 'active' : ''}`}
+              onClick={() => setSortBy('popular')}
             >
-              All ({credits.length})
+              <Flame size={14} />
+              <span>Popular</span>
             </button>
             <button 
-              className={`tab-pill ${activeTab === 'movie' ? 'active' : ''}`}
-              onClick={() => setActiveTab('movie')}
+              className={`sort-pill ${sortBy === 'rating' ? 'active' : ''}`}
+              onClick={() => setSortBy('rating')}
             >
-              <Film size={14} /> Movies ({credits.filter(c => c.media_type === 'movie').length})
+              <Star size={14} />
+              <span>Top Rated</span>
             </button>
             <button 
-              className={`tab-pill ${activeTab === 'tv' ? 'active' : ''}`}
-              onClick={() => setActiveTab('tv')}
+              className={`sort-pill ${sortBy === 'latest' ? 'active' : ''}`}
+              onClick={() => setSortBy('latest')}
             >
-              <Tv size={14} /> Shows ({credits.filter(c => c.media_type === 'tv').length})
+              <Calendar size={14} />
+              <span>Latest</span>
+            </button>
+            <button 
+              className={`sort-pill ${sortBy === 'watched' ? 'active' : ''}`}
+              onClick={() => setSortBy('watched')}
+            >
+              <CheckCircle2 size={14} />
+              <span>Watched {watchedCount > 0 ? `(${watchedCount})` : ''}</span>
             </button>
           </div>
         </div>
 
-        <div className="media-grid">
-          {filteredCredits.map((item) => (
-            <MovieCard
-              key={`${item.media_type}-${item.id}`}
-              item={item}
-              isAdded={watchlistIds.has(item.id)}
-              toggleWatchlist={async (it, e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                try {
-                  const currentStr = await AsyncStorage.getItem('watchlist');
-                  let currentList = currentStr ? JSON.parse(currentStr) : [];
-                  const targetId = Number(it.id);
-                  if (currentList.some((i: any) => Number(i.id) === targetId)) {
-                    currentList = currentList.filter((i: any) => Number(i.id) !== targetId);
-                    setWatchlistIds(prev => {
-                      const next = new Set(prev);
-                      next.delete(targetId);
-                      return next;
-                    });
-                  } else {
-                    const itemToSave = {
-                      ...it,
-                      id: targetId,
-                      media_type: it.media_type || 'movie',
-                      added_at: Date.now(),
-                    };
-                    currentList = [itemToSave, ...currentList.filter((i: any) => Number(i.id) !== targetId)];
-                    setWatchlistIds(prev => new Set(prev).add(targetId));
-                  }
-                  await AsyncStorage.setItem('watchlist', JSON.stringify(currentList));
-                } catch {}
-              }}
-            />
-          ))}
-        </div>
+        {filteredAndSortedCredits.length === 0 ? (
+          <div className="empty-filmography-state glass">
+            <CheckCircle2 size={36} className="empty-icon" />
+            <p>
+              {sortBy === 'watched'
+                ? `You haven't watched any titles starring ${person.name} yet.`
+                : 'No titles found for this category.'}
+            </p>
+          </div>
+        ) : (
+          <div className="media-grid">
+            {filteredAndSortedCredits.map((item) => (
+              <MovieCard
+                key={`${item.media_type}-${item.id}`}
+                item={item}
+                isAdded={watchlistIds.has(item.id)}
+                isWatched={watchedIds.has(item.id)}
+                toggleWatchlist={async (it, e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  try {
+                    const currentStr = await AsyncStorage.getItem('watchlist');
+                    let currentList = currentStr ? JSON.parse(currentStr) : [];
+                    const targetId = Number(it.id);
+                    if (currentList.some((i: any) => Number(i.id) === targetId)) {
+                      currentList = currentList.filter((i: any) => Number(i.id) !== targetId);
+                      setWatchlistIds(prev => {
+                        const next = new Set(prev);
+                        next.delete(targetId);
+                        return next;
+                      });
+                    } else {
+                      const itemToSave = {
+                        ...it,
+                        id: targetId,
+                        media_type: it.media_type || 'movie',
+                        added_at: Date.now(),
+                      };
+                      currentList = [itemToSave, ...currentList.filter((i: any) => Number(i.id) !== targetId)];
+                      setWatchlistIds(prev => new Set(prev).add(targetId));
+                    }
+                    await AsyncStorage.setItem('watchlist', JSON.stringify(currentList));
+                  } catch {}
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Lightbox / Enlarged Photo Modal */}
@@ -949,6 +1056,11 @@ function CastDetailContent() {
         }
         .filmography-header {
           display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .filmography-title-row {
+          display: flex;
           justify-content: space-between;
           align-items: center;
           flex-wrap: wrap;
@@ -977,6 +1089,52 @@ function CastDetailContent() {
           background: var(--primary);
           color: #fff;
           font-weight: 600;
+        }
+        .sort-pills {
+          display: inline-flex;
+          align-items: center;
+          padding: 4px;
+          border-radius: 12px;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .sort-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 14px;
+          border-radius: 8px;
+          background: transparent;
+          border: none;
+          color: var(--foreground-muted);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: var(--transition-fast);
+        }
+        .sort-pill:hover {
+          color: var(--foreground);
+          background: rgba(255, 255, 255, 0.06);
+        }
+        .sort-pill.active {
+          background: var(--cast-ambient-accent, var(--primary));
+          color: #fff;
+          font-weight: 600;
+        }
+        .empty-filmography-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 24px;
+          border-radius: 16px;
+          gap: 12px;
+          color: var(--foreground-muted);
+          text-align: center;
+        }
+        .empty-icon {
+          color: var(--foreground-muted);
+          opacity: 0.6;
         }
       `}</style>
     </div>
