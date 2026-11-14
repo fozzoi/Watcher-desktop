@@ -1,6 +1,6 @@
 {
   "name": "watcher-tauri",
-  "version": "3.0.33",
+  "version": "3.0.40",
   "private": true,
   "scripts": {
     "dev": "next dev",
