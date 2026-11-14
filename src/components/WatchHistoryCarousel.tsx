@@ -3,7 +3,7 @@
 import React, { useRef } from 'react';
 import Link from 'next/link';
 import { Play, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getImageUrl } from '@/utils/tmdb';
+import { getImageUrl, buildDetailUrl } from '@/utils/tmdb';
 import { WatchProgress } from '@/utils/progress';
 
 interface WatchHistoryCarouselProps {
@@ -108,7 +108,7 @@ function WatchHistoryCarousel({ history, onRemove }: WatchHistoryCarouselProps) 
                 </div>
 
                 {/* Description info */}
-                <Link href={`/detail?id=${item.tmdbId}&type=${item.mediaType}`} className="card-info">
+                <Link href={buildDetailUrl({ id: item.tmdbId, media_type: item.mediaType, title: item.title, poster_path: item.poster })} className="card-info">
                   <h3 className="card-title" title={item.title}>{item.title}</h3>
                   <div className="card-meta">
                     <div className="episode-badge">

@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     void pollCloud();
     window.addEventListener('watcher_local_library_changed', onLocalLibraryChange);
-    const interval = window.setInterval(() => void pollCloud(), 15000);
+    const interval = window.setInterval(() => void pollCloud(), 60000);
     const onFocus = () => void pollCloud();
     window.addEventListener('focus', onFocus);
     return () => {

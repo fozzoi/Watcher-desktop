@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import type { WatchProgress } from "@/utils/progress";
-import { getImageUrl, type TMDBResult } from "@/utils/tmdb";
+import { getImageUrl, buildDetailUrl, type TMDBResult } from "@/utils/tmdb";
 import { GENRE_DATA } from "./ExploreConstants";
 import PageLoading from "@/components/PageLoading";
 
@@ -53,7 +53,7 @@ export function ExplorePosterCard({
     <article className={layout === "grid" ? "group w-full max-w-[180px]" : "group w-[148px] shrink-0 sm:w-[170px]"}>
       <div className="relative rounded-2xl transition duration-300 group-hover:-translate-y-1">
         <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[0_8px_20px_rgba(0,0,0,0.24)] transition duration-300 group-hover:border-[var(--card-hover-border)] group-hover:shadow-[0_16px_34px_rgba(0,0,0,0.34)]">
-          <Link href={`/detail?id=${item.id}&type=${mediaType}`} aria-label={`View ${title}`} className="absolute inset-0">
+          <Link href={buildDetailUrl(item)} aria-label={`View ${title}`} className="absolute inset-0">
             <img
               src={getImageUrl(item.poster_path, "w342")}
               srcSet={`${getImageUrl(item.poster_path, "w185")} 185w, ${getImageUrl(item.poster_path, "w342")} 342w`}
@@ -83,7 +83,7 @@ export function ExplorePosterCard({
           </button>
         </div>
       </div>
-      <Link href={`/detail?id=${item.id}&type=${mediaType}`} className="mt-2 block min-w-0 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]">
+      <Link href={buildDetailUrl(item)} className="mt-2 block min-w-0 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--primary)]">
         <h3 className="truncate text-sm font-semibold text-[var(--foreground)] transition group-hover:text-[var(--primary)]">{title}</h3>
         <p className="mt-0.5 text-xs text-[var(--foreground-muted)]">{mediaType === "tv" ? "Series" : "Movie"}{year ? ` · ${year}` : ""}</p>
       </Link>
@@ -237,7 +237,7 @@ export function ExploreHero({
           {item.vote_average > 0 && <><span aria-hidden="true">·</span><span className="inline-flex items-center gap-1"><Star size={14} fill="#fbbf24" stroke="#fbbf24" />{item.vote_average.toFixed(1)}</span></>}
         </div>
         <div className="mt-5 flex flex-wrap gap-3">
-          <Link href={`/detail?id=${item.id}&type=${mediaType}`} className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition hover:bg-white/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><CirclePlay size={18} /> Explore title</Link>
+          <Link href={buildDetailUrl(item)} className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition hover:bg-white/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><CirclePlay size={18} /> Explore title</Link>
           <button type="button" onClick={() => onToggle(item)} className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/20 bg-black/25 px-5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">{saved ? <Check size={17} /> : <BookmarkPlus size={17} />}{saved ? "In watchlist" : "Add to watchlist"}</button>
         </div>
       </div>

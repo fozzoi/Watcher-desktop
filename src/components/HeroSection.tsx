@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Star, Play, Heart } from 'lucide-react';
-import { getImageUrl, TMDBResult } from '@/utils/tmdb';
+import { getImageUrl, buildDetailUrl, TMDBResult } from '@/utils/tmdb';
 
 interface HeroSectionProps {
   heroList: TMDBResult[];
@@ -71,7 +71,7 @@ function HeroSection({ heroList, savedIds, toggleWatchlist }: HeroSectionProps) 
           <button
             type="button"
             className="btn-primary"
-            onClick={() => router.push(`/detail?id=${currentHeroMovie.id}&type=${mediaType}`)}
+            onClick={() => router.push(buildDetailUrl(currentHeroMovie))}
           >
             <Play size={18} fill="white" />
             <span>View Details</span>

@@ -41,7 +41,7 @@ tmdbApi.interceptors.response.use(
 );
 
 // --- CACHE SETUP WITH TTL (Time-To-Live) ---
-const CACHE_TTL_MS = 1000 * 60 * 60 * 4; // 4 Hours
+const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 Hours
 const AI_CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 Hours
 
 interface CacheEntry<T> {
@@ -51,14 +51,84 @@ interface CacheEntry<T> {
 
 const requestCache = new Map<string, CacheEntry<any>>();
 const aiCache = new Map<string, CacheEntry<TMDBResult[]>>();
+const STORAGE_CACHE_PREFIX = 'tmdb_resp_cache_v1:';
+
+function getPersistentCache(key: string): any | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_CACHE_PREFIX + key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    if (entry && (Date.now() - entry.timestamp) < CACHE_TTL_MS) {
+      return entry.data;
+    }
+    window.localStorage.removeItem(STORAGE_CACHE_PREFIX + key);
+  } catch {}
+  return null;
+}
+
+function setPersistentCache(key: string, data: any) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      STORAGE_CACHE_PREFIX + key,
+      JSON.stringify({ data, timestamp: Date.now() })
+    );
+  } catch (e) {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith(STORAGE_CACHE_PREFIX)) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.slice(0, Math.ceil(keysToRemove.length / 2)).forEach((k) => window.localStorage.removeItem(k));
+    } catch {}
+  }
+}
+
+export const getTmdbCacheSync = (endpoint: string, params: Record<string, any> = {}): any | null => {
+  const cacheKey = createCacheKey(endpoint, params);
+  const memCached = requestCache.get(cacheKey);
+  if (memCached && (Date.now() - memCached.timestamp) < CACHE_TTL_MS) {
+    return memCached.data;
+  }
+  const diskCached = getPersistentCache(cacheKey);
+  if (diskCached) {
+    requestCache.set(cacheKey, { data: diskCached, timestamp: Date.now() });
+    return diskCached;
+  }
+  return null;
+};
 
 export const clearCache = (keyPrefix: string = "") => {
   if (keyPrefix === "") {
     requestCache.clear();
     aiCache.clear();
+    if (typeof window !== 'undefined') {
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (k && k.startsWith(STORAGE_CACHE_PREFIX)) keysToRemove.push(k);
+        }
+        keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+      } catch {}
+    }
   } else {
     for (const key of requestCache.keys()) {
       if (key.startsWith(keyPrefix)) requestCache.delete(key);
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (k && k.startsWith(STORAGE_CACHE_PREFIX + keyPrefix)) keysToRemove.push(k);
+        }
+        keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+      } catch {}
     }
   }
 };
@@ -160,6 +230,7 @@ export interface TMDBResult {
    
   production_companies?: TMDBProductionCompany[];
   belongs_to_collection?: TMDBCollection | null;
+  recommendations?: TMDBResult[];
   added_at?: number;
   created_at?: number;
   watchedAt?: number;
@@ -233,7 +304,34 @@ const createCacheKey = (endpoint: string, params: Record<string, any> = {}) => {
 };
 
 const inFlightRequests = new Map<string, Promise<any>>();
-const MAX_REQUEST_CACHE_ENTRIES = 120;
+const MAX_REQUEST_CACHE_ENTRIES = 300;
+
+export const buildDetailUrl = (item: any): string => {
+  if (!item) return '/';
+  const id = item.id ?? item.tmdbId ?? item.media_id;
+  if (!id) return '/';
+  const isTv = item.media_type === 'tv' || Boolean(item.first_air_date && !item.release_date);
+  const mediaType = item.media_type || (isTv ? 'tv' : 'movie');
+  const params = new URLSearchParams();
+  params.set('id', String(id));
+  params.set('type', mediaType);
+
+  const title = item.title || item.name;
+  if (title) params.set('title', title);
+  const poster = item.poster_path || item.posterPath || item.poster;
+  if (poster) params.set('poster_path', poster);
+  const backdrop = item.backdrop_path || item.backdropPath;
+  if (backdrop) params.set('backdrop_path', backdrop);
+  if (item.overview) params.set('overview', item.overview);
+  const rating = item.vote_average ?? item.voteAverage;
+  if (typeof rating === 'number' && rating > 0) {
+    params.set('vote_average', rating.toFixed(1));
+  }
+  const date = item.release_date || item.first_air_date || item.releaseDate;
+  if (date) params.set('release_date', date);
+
+  return `/detail?${params.toString()}`;
+};
 
 const fetchWithCache = async (endpoint: string, params: Record<string, any> = {}) => {
   if (GLOBAL_CONFIG.nsfwFilterEnabled) {
@@ -259,6 +357,12 @@ const fetchWithCache = async (endpoint: string, params: Record<string, any> = {}
     if (!isExpired) {
       return cached.data;
     }
+  } else {
+    const persistent = getPersistentCache(cacheKey);
+    if (persistent) {
+      requestCache.set(cacheKey, { data: persistent, timestamp: Date.now() });
+      return persistent;
+    }
   }
 
   // Deduplicate concurrent identical in-flight requests
@@ -279,6 +383,14 @@ const fetchWithCache = async (endpoint: string, params: Record<string, any> = {}
           if (oldestKey) requestCache.delete(oldestKey);
         }
         requestCache.set(cacheKey, { data: response.data, timestamp: Date.now() });
+        if (
+          endpoint.startsWith('/movie') ||
+          endpoint.startsWith('/tv') ||
+          endpoint.startsWith('/discover') ||
+          endpoint.startsWith('/trending')
+        ) {
+          setPersistentCache(cacheKey, response.data);
+        }
         return response.data;
       } catch (error: any) {
         lastError = error;
@@ -557,12 +669,25 @@ export const getNostalgicMovies = async (page: number = 1, genreId?: number): Pr
 // ==========================================
 
 export const getFullDetails = async (item: TMDBResult): Promise<TMDBResult> => {
+  let resolvedMediaType: "movie" | "tv" = item.media_type || (item.first_air_date ? "tv" : "movie");
   try {
-    const append = "credits,release_dates,content_ratings,external_ids,videos";
-    const data = await fetchWithCache(`/${item.media_type}/${item.id}`, { append_to_response: append });
+    const append = "credits,release_dates,content_ratings,external_ids,videos,recommendations";
+    let data: any;
+    try {
+      data = await fetchWithCache(`/${resolvedMediaType}/${item.id}`, { append_to_response: append });
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 404) {
+        const fallbackType: "movie" | "tv" = resolvedMediaType === "tv" ? "movie" : "tv";
+        data = await fetchWithCache(`/${fallbackType}/${item.id}`, { append_to_response: append });
+        resolvedMediaType = fallbackType;
+      } else {
+        throw err;
+      }
+    }
 
     let certification = null;
-    if (item.media_type === "movie") {
+    if (resolvedMediaType === "movie") {
       const usRelease = data.release_dates?.results?.find((r: any) => r.iso_3166_1 === "US");
       certification = usRelease?.release_dates?.[0]?.certification || null;
     } else {
@@ -598,13 +723,21 @@ export const getFullDetails = async (item: TMDBResult): Promise<TMDBResult> => {
     }
 
     let seasonsData = [];
-    if (item.media_type === "tv") {
+    if (resolvedMediaType === "tv") {
       seasonsData = data.seasons || []; 
     }
 
+    const recommendations = (data.recommendations?.results || []).map((r: any) => ({
+      ...formatBasicItemData(r),
+      media_type: resolvedMediaType,
+    }));
+
+    const baseFormatted = formatBasicItemData(data);
+    baseFormatted.media_type = resolvedMediaType;
+
     return {
       ...item,
-      ...formatBasicItemData(data), 
+      ...baseFormatted, 
       certification,
       cast,
       director,
@@ -613,6 +746,7 @@ export const getFullDetails = async (item: TMDBResult): Promise<TMDBResult> => {
       videos: data.videos?.results || [],
       production_companies: data.production_companies || [],
       belongs_to_collection: data.belongs_to_collection || null,
+      recommendations,
     };
   } catch (error) { return item; }
 };

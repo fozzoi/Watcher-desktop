@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Star, Heart, Play, Info } from 'lucide-react';
-import { getImageUrl } from '@/utils/tmdb';
+import { getImageUrl, buildDetailUrl } from '@/utils/tmdb';
 
 interface MovieCardProps {
   item: any;
@@ -96,7 +96,7 @@ function MovieCard({
     }, 260);
   }, []);
 
-  const detailUrl = `/detail?id=${item.id}&type=${mediaType}`;
+  const detailUrl = buildDetailUrl(item);
   const playerUrl = `/player?id=${item.id}&type=${mediaType}&title=${encodeURIComponent(titleText)}&poster=${encodeURIComponent(item.poster_path || '')}`;
   const backdropUrl = getImageUrl(item.backdrop_path || item.poster_path, 'w500');
 

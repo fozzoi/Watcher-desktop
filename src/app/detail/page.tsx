@@ -12,6 +12,7 @@ import {
 import {
   getImageUrl, getMediaDetails, getMovieImages, getExternalIds, getSimilarMedia, getSeasonEpisodes,
   getGeminiMoviesSimilarTo, getGeminiLensInsight, getTrailers, getCollectionDetails, GLOBAL_CONFIG,
+  getTmdbCacheSync, buildDetailUrl,
   TMDBResult, TMDBSeason, TMDBEpisode, TMDBVideo, TMDBImage, TMDBCollectionDetails
 } from '@/utils/tmdb';
 import { searchTorrents, TorrentResult } from '@/utils/Scraper';
@@ -36,12 +37,59 @@ function DetailContent() {
   const searchParams = useSearchParams();
   const idStr = searchParams.get('id');
   const typeStr = (searchParams.get('type') as 'movie' | 'tv') || 'movie';
+  const tmdbId = Number(idStr);
 
-  const [movie, setMovie] = useState<TMDBResult | null>(null);
+  const getInitialSeed = useCallback((): TMDBResult | null => {
+    if (!tmdbId) return null;
+    // 1. Memory / persistent disk cache
+    if (typeof window !== 'undefined') {
+      const cached = getTmdbCacheSync(`/${typeStr}/${tmdbId}`);
+      if (cached) return cached;
+    }
+    // 2. Query params from card navigation
+    const title = searchParams.get('title') || searchParams.get('name');
+    const poster_path = searchParams.get('poster_path');
+    const backdrop_path = searchParams.get('backdrop_path');
+    const overview = searchParams.get('overview');
+    const vote_average = searchParams.get('vote_average');
+    const release_date = searchParams.get('release_date') || searchParams.get('first_air_date');
+    if (title || poster_path || backdrop_path) {
+      return {
+        id: tmdbId,
+        media_type: typeStr,
+        title: title || '',
+        name: title || '',
+        poster_path: poster_path || null,
+        backdrop_path: backdrop_path || null,
+        overview: overview || '',
+        vote_average: vote_average ? Number(vote_average) : 0,
+        release_date: release_date || undefined,
+        first_air_date: release_date || undefined,
+      } as TMDBResult;
+    }
+    // 3. Saved library from localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const rawWatchlist = window.localStorage.getItem('watchlist');
+        const rawHistory = window.localStorage.getItem('history');
+        const list = [
+          ...(rawWatchlist ? JSON.parse(rawWatchlist) : []),
+          ...(rawHistory ? JSON.parse(rawHistory) : []),
+        ];
+        const match = list.find((item: any) => Number(item?.id ?? item?.media_id) === tmdbId);
+        if (match) return match;
+      } catch {}
+    }
+    return null;
+  }, [tmdbId, typeStr, searchParams]);
+
+  const [movie, setMovie] = useState<TMDBResult | null>(() => getInitialSeed());
+  const movieRef = useRef(movie);
+  movieRef.current = movie;
   const [galleryImages, setGalleryImages] = useState<TMDBImage[]>([]);
   const [selectedGalleryIndex, setSelectedGalleryIndex] = useState<number | null>(null);
   const [isGalleryMounted, setIsGalleryMounted] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(() => movie === null);
   const [watchlistIds, setWatchlistIds] = useState<Set<number>>(new Set());
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [isWatched, setIsWatched] = useState(false);
@@ -194,16 +242,29 @@ function DetailContent() {
     }
   }, [movie?.belongs_to_collection?.id]);
 
-  const tmdbId = Number(idStr);
+  useEffect(() => {
+    if (!tmdbId) return;
+    if (movieRef.current?.id !== tmdbId) {
+      const seed = getInitialSeed();
+      if (seed) {
+        setMovie(seed);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+    }
+  }, [tmdbId, getInitialSeed]);
 
   const fetchDetails = useCallback(async () => {
     if (!tmdbId || !typeStr) return;
-    setLoading(true);
+    if (!movieRef.current) {
+      setLoading(true);
+    }
     setGalleryImages([]);
     setSelectedGalleryIndex(null);
     try {
       const details = await getMediaDetails(tmdbId, typeStr);
-      setMovie(details);
+      setMovie((prev) => ({ ...(prev || {}), ...details }));
       setCastLimit(15);
       requestAnimationFrame(() => {
         if (castScrollRef.current) {
@@ -211,24 +272,35 @@ function DetailContent() {
         }
       });
       setLoading(false);
-      void getMovieImages(tmdbId, typeStr).then(setGalleryImages);
 
-      const similar = await getSimilarMedia(tmdbId, typeStr);
-      setSimilarMedia(similar.slice(0, 10));
+      // Gallery images: background fetch
+      void getMovieImages(tmdbId, typeStr).then(setGalleryImages).catch(() => {});
 
-      const progress = await getProgress(tmdbId);
-      if (progress) setHistoryProgress(progress);
-
-      if (typeStr === 'tv') {
-        const epMap = await getShowEpisodeProgressMap(tmdbId);
-        setEpisodeProgressMap(epMap);
+      // Trailers: use details.videos if already present, or fetch on demand
+      if (details.videos && details.videos.length > 0) {
+        setTrailers(details.videos);
+      } else {
+        void getTrailers(tmdbId, typeStr).then(setTrailers).catch(() => {});
       }
 
-      const trailerList = await getTrailers(tmdbId, typeStr);
-      setTrailers(trailerList);
+      // Similar: use details.recommendations if already present, or fetch on demand
+      if (details.recommendations && details.recommendations.length > 0) {
+        setSimilarMedia(details.recommendations.slice(0, 10));
+      } else {
+        void getSimilarMedia(tmdbId, typeStr).then((sim) => setSimilarMedia(sim.slice(0, 10))).catch(() => {});
+      }
+
+      // Parallelize progress and TV season loading
+      const [progress, epMap, storedSeasonStr] = await Promise.all([
+        getProgress(tmdbId),
+        typeStr === 'tv' ? getShowEpisodeProgressMap(tmdbId) : Promise.resolve(null),
+        typeStr === 'tv' ? AsyncStorage.getItem(`@selected_season:${tmdbId}`) : Promise.resolve(null),
+      ]);
+
+      if (progress) setHistoryProgress(progress);
+      if (epMap) setEpisodeProgressMap(epMap);
 
       if (typeStr === 'tv' && details.seasons && details.seasons.length > 0) {
-        const storedSeasonStr = await AsyncStorage.getItem(`@selected_season:${tmdbId}`);
         const storedSeason = storedSeasonStr ? parseInt(storedSeasonStr, 10) : null;
         const savedSeason = progress?.lastSeason || storedSeason;
         const validSavedSeason =
@@ -291,29 +363,25 @@ function DetailContent() {
         });
       }
     };
-    const pullAndRefresh = () => {
+    const onWindowActive = () => {
       refreshProgressState();
-      void AsyncStorage.getItem('watcher_auth_token').then((token) => {
-        if (!token) return;
-        return import('@/utils/syncManager').then(({ syncManager }) => syncManager.pullIfChanged(token));
-      }).catch(() => {});
     };
 
     window.addEventListener('watcher_cloud_synced', refreshLibraryState);
     window.addEventListener('watcher_cloud_synced', refreshProgressState);
     window.addEventListener('watcher_local_library_changed', refreshLibraryState);
     window.addEventListener('watcher_watch_progress_changed', refreshProgressState);
-    window.addEventListener('focus', pullAndRefresh);
-    window.addEventListener('pageshow', pullAndRefresh);
-    window.addEventListener('popstate', pullAndRefresh);
+    window.addEventListener('focus', onWindowActive);
+    window.addEventListener('pageshow', onWindowActive);
+    window.addEventListener('popstate', onWindowActive);
     return () => {
       window.removeEventListener('watcher_cloud_synced', refreshLibraryState);
       window.removeEventListener('watcher_cloud_synced', refreshProgressState);
       window.removeEventListener('watcher_local_library_changed', refreshLibraryState);
       window.removeEventListener('watcher_watch_progress_changed', refreshProgressState);
-      window.removeEventListener('focus', pullAndRefresh);
-      window.removeEventListener('pageshow', pullAndRefresh);
-      window.removeEventListener('popstate', pullAndRefresh);
+      window.removeEventListener('focus', onWindowActive);
+      window.removeEventListener('pageshow', onWindowActive);
+      window.removeEventListener('popstate', onWindowActive);
     };
   }, [loadWatchlistState, tmdbId, typeStr]);
 
@@ -1418,7 +1486,7 @@ function DetailContent() {
                                 className="vibe-vertical-card"
                               >
                                 <Link
-                                  href={`/detail?id=${item.id}&type=${mediaTypeParam}`}
+                                  href={buildDetailUrl(item)}
                                   className="vibe-card-poster-link"
                                   title={`View details for ${itemTitle}`}
                                 >
@@ -1441,7 +1509,7 @@ function DetailContent() {
                                 <div className="vibe-card-content">
                                   <div className="vibe-card-header">
                                     <Link
-                                      href={`/detail?id=${item.id}&type=${mediaTypeParam}`}
+                                      href={buildDetailUrl(item)}
                                       className="vibe-title-link"
                                       title={itemTitle}
                                     >

@@ -24,7 +24,7 @@ import {
   Cloud
 } from 'lucide-react';
 import { AsyncStorage } from '@/utils/storage';
-import { getImageUrl, searchTMDB, GLOBAL_CONFIG, setGlobalConfig } from '@/utils/tmdb';
+import { getImageUrl, searchTMDB, GLOBAL_CONFIG, setGlobalConfig, buildDetailUrl } from '@/utils/tmdb';
 import { isAdultContent } from '@/utils/contentSafety';
 import { GENRE_OPTIONS } from '@/utils/userPreferences';
 import { useAuth } from '@/context/AuthContext';
@@ -825,7 +825,7 @@ export default function WatchListPage() {
                 : (item.poster_path || item.backdrop_path);
               
               // Link destination
-              let targetHref = `/detail?id=${item.id}&type=${mediaType}`;
+              let targetHref = buildDetailUrl(item);
               if (isArtist) targetHref = `/cast?id=${item.id}`;
               else if (isCollection) targetHref = `/collection?id=${item.id}&name=${encodeURIComponent(titleText)}`;
 

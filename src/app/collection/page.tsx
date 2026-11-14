@@ -11,6 +11,7 @@ import {
 import { 
   getCollectionDetails, 
   getImageUrl, 
+  buildDetailUrl,
   TMDBCollectionDetails, 
   TMDBResult 
 } from '@/utils/tmdb';
@@ -234,7 +235,7 @@ function CollectionDetailContent() {
               return (
                 <Link 
                   key={movie.id} 
-                  href={`/detail?id=${movie.id}&type=movie`}
+                  href={buildDetailUrl({ ...movie, media_type: 'movie' })}
                   className="part-card glass"
                 >
                   <div className="part-index">#{index + 1}</div>

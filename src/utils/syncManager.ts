@@ -32,6 +32,8 @@ let syncInFlight = false;
 let retryAfter = 0;
 let retryDelay = 1000;
 let lastSyncError: string | null = null;
+let lastPollAt = 0;
+const MIN_POLL_INTERVAL_MS = 20000;
 const outboxKey = (userId: string) => `watcher_sync_outbox_v1:${userId}`;
 const snapshotCacheKey = (userId: string) => `watcher_cloud_snapshot_v1:${userId}`;
 const revisionRepairKey = (userId: string) => `watcher_cloud_revision_repaired_v1:${userId}`;
@@ -64,6 +66,26 @@ function normalizeMediaType(item: any): 'movie' | 'tv' | 'collection' {
   if (item?.media_type === 'collection') return 'collection';
   if (item?.media_type === 'movie') return 'movie';
   return item?.first_air_date && !item?.release_date ? 'tv' : 'movie';
+}
+
+function compactMediaItemForSync(item: any): any {
+  if (!item || typeof item !== 'object') return item;
+  if (item.media_type === 'collection' || item.profile_path !== undefined) {
+    return item;
+  }
+  const {
+    cast,
+    directors,
+    crew,
+    videos,
+    images,
+    seasons,
+    similar,
+    recommendations,
+    production_companies,
+    ...rest
+  } = item;
+  return rest;
 }
 
 function libraryItemKey(item: any) {
@@ -412,7 +434,7 @@ export const syncManager = {
       const mutations: any[] = [];
       for (const [key, item] of newMap) {
         if (!oldMap.has(key) || JSON.stringify(oldMap.get(key)) !== JSON.stringify(item)) {
-          mutations.push({ type, action: 'add', item });
+          mutations.push({ type, action: 'add', item: compactMediaItemForSync(item) });
         }
       }
       for (const [key, item] of oldMap) {
@@ -448,6 +470,9 @@ export const syncManager = {
       const now = Date.now();
       for (const mutation of mutations) {
         if (!mutation || !mutation.type) continue;
+        if (mutation.item) {
+          mutation.item = compactMediaItemForSync(mutation.item);
+        }
         if (mutation.action === 'set' && (mutation.type === 'watchProgress' || mutation.type === 'preferences')) {
           const idx = outbox.findIndex(
             (op: any) =>
@@ -550,6 +575,10 @@ export const syncManager = {
             return { flushed: true, remaining: 0 };
           }
 
+          if (operation.item) {
+            operation.item = compactMediaItemForSync(operation.item);
+          }
+
           inFlightOperationId = operation.operationId;
           try {
             const response = await axios.post(`${SYNC_API_BASE}/api/sync`, { action: 'mutate', mutation: operation }, {
@@ -588,6 +617,22 @@ export const syncManager = {
               await new Promise(resolve => setTimeout(resolve, 150 * conflicts));
               continue;
             }
+
+            await withOutboxLock(async () => {
+              const current = await readOutbox(resolvedUserId);
+              const target = current.find((op: any) => op?.operationId === operation.operationId);
+              if (target) {
+                target.attempts = (target.attempts || 0) + 1;
+                if (target.attempts >= 4) {
+                  console.warn(`Mutation ${operation.operationId} (${operation.type}:${operation.action}) failed 4 times; dropping from outbox to unblock sync queue.`);
+                  const next = current.filter((op: any) => op?.operationId !== operation.operationId);
+                  await writeOutbox(resolvedUserId, next);
+                } else {
+                  await writeOutbox(resolvedUserId, current);
+                }
+              }
+            });
+
             retryAfter = Date.now() + retryDelay;
             retryDelay = Math.min(30000, retryDelay * 2);
             const message = error?.response?.data?.error || error.message || 'Cloud sync failed';
@@ -612,11 +657,15 @@ export const syncManager = {
     }
   },
 
-  async pullIfChanged(token: string, userId?: string): Promise<boolean> {
+  async pullIfChanged(token: string, userId?: string, options?: { force?: boolean }): Promise<boolean> {
     if (!token || initialMergeInFlight) return false;
+    if (!options?.force && Date.now() - lastPollAt < MIN_POLL_INTERVAL_MS) {
+      return false;
+    }
     if (inFlightPollPromise) return inFlightPollPromise;
 
     const run = (async (): Promise<boolean> => {
+      lastPollAt = Date.now();
       syncInFlight = true;
       try {
         const resolvedUserId = await resolveUserId(userId);

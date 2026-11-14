@@ -14,6 +14,7 @@ import {
   searchTMDB, 
   searchPeople, 
   getImageUrl, 
+  buildDetailUrl,
   TMDBResult, 
   TMDBPerson 
 } from '@/utils/tmdb';
@@ -564,7 +565,7 @@ export default function AiChatPage() {
                           {msg.movies.map((m) => (
                             <Link 
                               key={m.id} 
-                              href={`/detail?id=${m.id}&type=${m.media_type || 'movie'}`}
+                              href={buildDetailUrl(m)}
                               className="chat-movie-card"
                             >
                               <div className="card-poster-wrapper">
