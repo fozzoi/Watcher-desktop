@@ -417,10 +417,10 @@ export const syncManager = {
         const knownRevision = Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0);
         if (knownRevision > 0) {
           const delta = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${knownRevision}`, {
-            headers: { Authorization: `Bearer ${token}` }, timeout: 12000,
+            headers: { Authorization: `Bearer ${token}` }, timeout: 30000,
           });
           if (Array.isArray(delta.data?.changes) && delta.data.changes.some((change: any) => change.action === 'clear' && !change.type)) {
-            const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 });
+            const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 });
             if (snapshot.data?.library) {
               await saveCloudLibrary(snapshot.data.library, { replaceProgress: true });
               await AsyncStorage.setItem('watcher_cloud_revision', String(snapshot.data.revision || delta.data.revision || 0));
@@ -467,7 +467,7 @@ export const syncManager = {
       for (let attempt = 0; attempt < 4; attempt++) {
         try {
           response = await axios.post(`${SYNC_API_BASE}/api/sync`, { ...localPayload, mode: mode === 'replace' ? 'replace' : 'merge' }, {
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, timeout: 30000,
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, timeout: 45000,
           });
           break;
         } catch (error: any) {
@@ -685,7 +685,7 @@ export const syncManager = {
           inFlightOperationId = operation.operationId;
           try {
             const response = await axios.post(`${SYNC_API_BASE}/api/sync`, { action: 'mutate', mutation: operation }, {
-              headers: { Authorization: `Bearer ${token}` }, timeout: 12000,
+              headers: { Authorization: `Bearer ${token}` }, timeout: 45000,
             });
             await withOutboxLock(async () => {
               const current = await readOutbox(resolvedUserId);
@@ -795,7 +795,7 @@ export const syncManager = {
             return false;
           }
           setCloudOnlyStorage(true);
-          const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
+          const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 30000 });
           if (!snapshot.data?.library) return false;
           await saveCloudLibrary(snapshot.data.library);
           await AsyncStorage.setItem('watcher_cloud_revision', String(snapshot.data.revision || 0));
@@ -804,7 +804,7 @@ export const syncManager = {
           return true;
         }
         const previousRevision = Number(savedRevision || 0);
-        const response = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${previousRevision}`, { headers, timeout: 15000 });
+        const response = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${previousRevision}`, { headers, timeout: 30000 });
         const revision = Number(response.data?.revision || 0);
         if (!revision || revision <= previousRevision) {
           markPollSucceeded();
@@ -910,7 +910,7 @@ export const syncManager = {
         let library = response.data?.library as CloudLibrary | undefined;
         let finalRevision = revision;
         if (!library) {
-          const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
+          const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 30000 });
           library = snapshot.data?.library as CloudLibrary | undefined;
           finalRevision = Number(snapshot.data?.revision || revision);
         }
@@ -977,7 +977,7 @@ export const syncManager = {
       const knownRevision = Number(savedRevision || 0);
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const preflight = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${knownRevision}`, { headers, timeout: 15000 });
+        const preflight = await axios.get(`${SYNC_API_BASE}/api/sync?since_revision=${knownRevision}`, { headers, timeout: 30000 });
         const remoteRev = Number(preflight.data?.revision || 0);
         if (remoteRev === knownRevision) {
           await AsyncStorage.setItem('last_cloud_sync', new Date().toISOString());
@@ -994,7 +994,7 @@ export const syncManager = {
       return success;
     }
     try {
-      const response = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 });
+      const response = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 });
       if (!response.data?.library) {
         lastSyncError = 'The cloud response did not include a library.';
         return false;
@@ -1033,7 +1033,7 @@ export const syncManager = {
     setCloudOnlyStorage(true);
     try {
       const response = await axios.get(`${SYNC_API_BASE}/api/sync`, {
-        headers: { Authorization: `Bearer ${token}` }, timeout: 20000,
+        headers: { Authorization: `Bearer ${token}` }, timeout: 30000,
       });
       if (!response.data?.library) return false;
       await saveCloudLibrary(response.data.library);
