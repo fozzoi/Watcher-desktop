@@ -36,7 +36,7 @@ let pollRetryDelay = 5000;
 let lastSyncError: string | null = null;
 let lastPollAt = 0;
 let cloudSyncAutoFlushPaused = false;
-const MIN_POLL_INTERVAL_MS = 5 * 60 * 1000;
+const MIN_POLL_INTERVAL_MS = 15 * 1000;
 const MAX_OUTBOX_OPERATIONS = 5000;
 const MAX_OUTBOX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 const outboxKey = (userId: string) => `watcher_sync_outbox_v1:${userId}`;
@@ -454,6 +454,7 @@ export const syncManager = {
           aiName: aiNameStr || 'Cine',
         },
         mode,
+        baseRevision: Number((await AsyncStorage.getItem('watcher_cloud_revision')) || 0),
       };
       if (nsfwStr !== null) {
         try {

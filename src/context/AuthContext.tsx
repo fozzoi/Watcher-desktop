@@ -88,7 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     syncManager.setCloudSyncAutoFlushPaused(pathname === '/player');
     if (!token || typeof window === 'undefined') return;
     const activeUserId = user?.userId || 'default';
-    const isWatchlistRoute = pathname === '/watchlist';
     const onLocalLibraryChange = (event: Event) => {
       if (!isApplyingCloudState()) syncManager.queueLocalChange(token, (event as CustomEvent).detail || {}, activeUserId);
     };
@@ -98,24 +97,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await syncManager.flushOutbox(token, activeUserId, { ignoreBackoff: options?.ignoreBackoff });
       await syncManager.pullIfChanged(token, activeUserId, options);
     };
-    if (isWatchlistRoute) void pollCloud();
+    void pollCloud();
     window.addEventListener('watcher_local_library_changed', onLocalLibraryChange);
-    const interval = isWatchlistRoute ? window.setInterval(() => void pollCloud(), 5 * 60 * 1000) : null;
+    const interval = window.setInterval(() => void pollCloud(), 15 * 1000);
     const onFocus = () => {
-      if (isWatchlistRoute) void pollCloud();
+      void pollCloud();
     };
     const onOnline = () => {
-      if (isWatchlistRoute) void pollCloud();
+      void pollCloud();
     };
     const onVisibilityChange = () => {
-      if (isWatchlistRoute && document.visibilityState === 'visible') void pollCloud();
+      if (document.visibilityState === 'visible') void pollCloud();
     };
     window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       window.removeEventListener('watcher_local_library_changed', onLocalLibraryChange);
-      if (interval !== null) window.clearInterval(interval);
+      window.clearInterval(interval);
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisibilityChange);
