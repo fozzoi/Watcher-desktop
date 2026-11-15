@@ -369,6 +369,35 @@ describe('Watcher-tauri sync manager and storage regressions', () => {
     assert.equal(await AsyncStorage.getItem('watcher_auth_token'), null);
   });
 
+  test('keeps mutations queued through repeated network failures and flushes them after recovery', async () => {
+    const userId = 'u-retry';
+    await AsyncStorage.setItem('watcher_auth_token', 'tok-retry');
+    await AsyncStorage.setItem('watcher_auth_user', JSON.stringify({ userId }));
+    await AsyncStorage.setItem(`watcher_sync_outbox_v1:${userId}`, JSON.stringify([{
+      type: 'favoriteArtists',
+      action: 'remove',
+      mediaId: 1231,
+      operationId: 'offline-remove',
+      clientTimestamp: 1,
+    }]));
+    axiosState.postImpl = async () => {
+      throw new Error('Network offline');
+    };
+
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const result = await syncManager.flushOutbox('tok-retry', userId, { ignoreBackoff: true });
+      assert.equal(result.flushed, false);
+      assert.equal(JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`)).length, 1);
+    }
+
+    axiosState.postImpl = async () => ({ status: 200, data: { success: true, revision: 2 } });
+    const recovered = await syncManager.flushOutbox('tok-retry', userId, { ignoreBackoff: true });
+
+    assert.deepEqual(recovered, { flushed: true, remaining: 0 });
+    assert.equal(axiosState.calls.filter((call) => call.method === 'POST').length, 5);
+    assert.deepEqual(JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`)), []);
+  });
+
   test('queueLocalChange preserves collection mediaType, emits remove (not clear) for single-item delete, and throttled progress flushes', async () => {
     const userId = 'u-coll';
     await AsyncStorage.setItem('watcher_auth_token', 'tok-coll');

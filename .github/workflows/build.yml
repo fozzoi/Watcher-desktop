@@ -1,127 +1,127 @@
-name: Build & Release Watcher
+# name: Build & Release Watcher
 
-on:
-  push:
-    tags:
-      - 'v*.*.*'
-    branches: [ "main", "master", "tauri" ]
-  workflow_dispatch:
+# on:
+#   push:
+#     tags:
+#       - 'v*.*.*'
+#     branches: [ "main", "master", "tauri" ]
+#   workflow_dispatch:
 
-jobs:
-  build-tauri:
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: 'windows-latest'
-            name: 'windows'
-          - platform: 'ubuntu-22.04'
-            name: 'linux'
+# jobs:
+#   build-tauri:
+#     permissions:
+#       contents: write
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         include:
+#           - platform: 'windows-latest'
+#             name: 'windows'
+#           - platform: 'ubuntu-22.04'
+#             name: 'linux'
 
-    runs-on: ${{ matrix.platform }}
+#     runs-on: ${{ matrix.platform }}
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'npm'
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 22
+#           cache: 'npm'
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'ubuntu-22.04' && 'x86_64-unknown-linux-gnu' || '' }}
+#       - name: Install Rust stable
+#         uses: dtolnay/rust-toolchain@stable
+#         with:
+#           targets: ${{ matrix.platform == 'ubuntu-22.04' && 'x86_64-unknown-linux-gnu' || '' }}
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
+#       - name: Cache Rust dependencies
+#         uses: Swatinem/rust-cache@v2
+#         with:
+#           workspaces: './src-tauri -> target'
 
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl wget file \
-            libxdo-dev \
-            libssl-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev
+#       - name: Install Linux dependencies
+#         if: matrix.platform == 'ubuntu-22.04'
+#         run: |
+#           sudo apt-get update
+#           sudo apt-get install -y \
+#             libwebkit2gtk-4.1-dev \
+#             build-essential \
+#             curl wget file \
+#             libxdo-dev \
+#             libssl-dev \
+#             libayatana-appindicator3-dev \
+#             librsvg2-dev
 
-      - name: Install frontend dependencies
-        run: npm ci
+#       - name: Install frontend dependencies
+#         run: npm ci
 
-      - name: Build Next.js frontend
-        run: npm run build
-        env:
-          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '36298979840-vdgsir6fd1kkaj28m24r6mmdq7p1fdg7.apps.googleusercontent.com' }}
+#       - name: Build Next.js frontend
+#         run: npm run build
+#         env:
+#           NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '36298979840-vdgsir6fd1kkaj28m24r6mmdq7p1fdg7.apps.googleusercontent.com' }}
 
-      - name: Build & sign Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '36298979840-vdgsir6fd1kkaj28m24r6mmdq7p1fdg7.apps.googleusercontent.com' }}
-        with:
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'watcher-v__VERSION__' }}
-          releaseName: Watcher App ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v__VERSION__' }}
-          releaseBody: |
-            ## Watcher Desktop — Auto-Updater Build
+#       - name: Build & sign Tauri app
+#         uses: tauri-apps/tauri-action@v0
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+#           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+#           NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '36298979840-vdgsir6fd1kkaj28m24r6mmdq7p1fdg7.apps.googleusercontent.com' }}
+#         with:
+#           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'watcher-v__VERSION__' }}
+#           releaseName: Watcher App ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v__VERSION__' }}
+#           releaseBody: |
+#             ## Watcher Desktop — Auto-Updater Build
 
-            This release includes signed binaries for the built-in auto-updater.
-            The app will automatically detect and prompt you to install this update.
+#             This release includes signed binaries for the built-in auto-updater.
+#             The app will automatically detect and prompt you to install this update.
 
-            ### What's New
-            - Auto-update support via Tauri Updater
-            - Director/Creator display on detail pages
-            - AI Chat history now included in cloud sync
-            - Preferences sync across Web, Desktop, and Android
+#             ### What's New
+#             - Auto-update support via Tauri Updater
+#             - Director/Creator display on detail pages
+#             - AI Chat history now included in cloud sync
+#             - Preferences sync across Web, Desktop, and Android
 
-            ### Downloads
-            - **Windows**: `.exe` (NSIS installer) or `.msi`
-            - **Linux**: `.deb` (Debian/Ubuntu) or `.AppImage` (Universal)
+#             ### Downloads
+#             - **Windows**: `.exe` (NSIS installer) or `.msi`
+#             - **Linux**: `.deb` (Debian/Ubuntu) or `.AppImage` (Universal)
 
-            > [!NOTE]
-            > All binaries are signed. The app verifies signatures before installing updates.
-          releaseDraft: false
-          prerelease: false
+#             > [!NOTE]
+#             > All binaries are signed. The app verifies signatures before installing updates.
+#           releaseDraft: false
+#           prerelease: false
 
-      - name: Upload Windows Installer to Actions
-        if: matrix.platform == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Watcher-Windows-Installer
-          path: src-tauri/target/release/bundle/nsis/*.exe
-          retention-days: 14
+#       - name: Upload Windows Installer to Actions
+#         if: matrix.platform == 'windows-latest'
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: Watcher-Windows-Installer
+#           path: src-tauri/target/release/bundle/nsis/*.exe
+#           retention-days: 14
 
-      - name: Upload Windows MSI to Actions
-        if: matrix.platform == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Watcher-Windows-MSI
-          path: src-tauri/target/release/bundle/msi/*.msi
-          retention-days: 14
+#       - name: Upload Windows MSI to Actions
+#         if: matrix.platform == 'windows-latest'
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: Watcher-Windows-MSI
+#           path: src-tauri/target/release/bundle/msi/*.msi
+#           retention-days: 14
 
-      - name: Upload Linux DEB to Actions
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Watcher-Linux-DEB
-          path: src-tauri/target/release/bundle/deb/*.deb
-          retention-days: 14
+#       - name: Upload Linux DEB to Actions
+#         if: matrix.platform == 'ubuntu-22.04'
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: Watcher-Linux-DEB
+#           path: src-tauri/target/release/bundle/deb/*.deb
+#           retention-days: 14
 
-      - name: Upload Linux AppImage to Actions
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Watcher-Linux-AppImage
-          path: src-tauri/target/release/bundle/appimage/*.AppImage
-          retention-days: 14
+#       - name: Upload Linux AppImage to Actions
+#         if: matrix.platform == 'ubuntu-22.04'
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: Watcher-Linux-AppImage
+#           path: src-tauri/target/release/bundle/appimage/*.AppImage
+#           retention-days: 14

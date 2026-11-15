@@ -618,25 +618,20 @@ export const syncManager = {
               continue;
             }
 
+            const attemptCount = (operation.attempts || 0) + 1;
             await withOutboxLock(async () => {
               const current = await readOutbox(resolvedUserId);
               const target = current.find((op: any) => op?.operationId === operation.operationId);
               if (target) {
-                target.attempts = (target.attempts || 0) + 1;
-                if (target.attempts >= 4) {
-                  console.warn(`Mutation ${operation.operationId} (${operation.type}:${operation.action}) failed 4 times; dropping from outbox to unblock sync queue.`);
-                  const next = current.filter((op: any) => op?.operationId !== operation.operationId);
-                  await writeOutbox(resolvedUserId, next);
-                } else {
-                  await writeOutbox(resolvedUserId, current);
-                }
+                target.attempts = attemptCount;
+                await writeOutbox(resolvedUserId, current);
               }
             });
 
             retryAfter = Date.now() + retryDelay;
             retryDelay = Math.min(30000, retryDelay * 2);
             const message = error?.response?.data?.error || error.message || 'Cloud sync failed';
-            console.warn('Cloud library edit is queued for retry:', error?.response?.data || error.message);
+            console.warn(`Cloud library edit remains queued after ${attemptCount} attempt(s):`, error?.response?.data || error.message);
             const remaining = await withOutboxLock(async () => (await readOutbox(resolvedUserId)).length);
             return { flushed: false, remaining, error: message };
           } finally {
