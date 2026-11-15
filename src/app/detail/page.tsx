@@ -278,8 +278,19 @@ function DetailContent() {
       });
       setLoading(false);
 
-      // Gallery images: background fetch
-      void getMovieImages(tmdbId, typeStr).then(setGalleryImages).catch(() => {});
+      // Gallery images: use details.images if available, else background fetch
+      const prePosters: TMDBImage[] = (details as any).posters || [];
+      const preBackdrops: TMDBImage[] = (details as any).images || [];
+      if (prePosters.length > 0 || preBackdrops.length > 0) {
+        const initialGallery: TMDBImage[] = [];
+        for (let i = 0; i < Math.max(prePosters.length, preBackdrops.length) && initialGallery.length < 30; i += 1) {
+          if (preBackdrops[i]) initialGallery.push(preBackdrops[i]);
+          if (prePosters[i] && initialGallery.length < 30) initialGallery.push(prePosters[i]);
+        }
+        setGalleryImages(initialGallery);
+      } else {
+        void getMovieImages(tmdbId, typeStr).then(setGalleryImages).catch(() => {});
+      }
 
       // Trailers: use details.videos if already present, or fetch on demand
       if (details.videos && details.videos.length > 0) {

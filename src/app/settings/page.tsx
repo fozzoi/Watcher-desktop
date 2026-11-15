@@ -96,6 +96,7 @@ export default function SettingsPage() {
     isSyncing, 
     lastSyncedAt, 
     syncError, 
+    syncWarning,
     syncNow, 
     logout, 
     clearCloudData 
@@ -563,6 +564,12 @@ export default function SettingsPage() {
               <div className="sync-error-banner">
                 <AlertTriangle size={15} color="#E50914" />
                 <span>{syncError}</span>
+              </div>
+            )}
+            {syncWarning && (
+              <div className="sync-error-banner">
+                <AlertTriangle size={15} color="#E50914" />
+                <span>{syncWarning}</span>
               </div>
             )}
 

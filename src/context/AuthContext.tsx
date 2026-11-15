@@ -24,6 +24,7 @@ interface AuthContextType {
   isSyncing: boolean;
   lastSyncedAt: string | null;
   syncError: string | null;
+  syncWarning: string | null;
   googleClientId: string;
   setGoogleClientId: (id: string) => void;
   loginWithGoogle: (idToken?: string, accessToken?: string) => Promise<boolean>;
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncWarning, setSyncWarning] = useState<string | null>(null);
   const [googleClientId, setGoogleClientIdState] = useState<string>(DEFAULT_CLIENT_ID);
 
   useEffect(() => {
@@ -58,24 +60,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !user?.userId) {
+      setSyncWarning(null);
+      return;
+    }
+
+    let active = true;
+    const warningKey = `watcher_sync_outbox_warning_v1:${user.userId}`;
+    AsyncStorage.getItem(warningKey)
+      .then((warning) => {
+        if (active) setSyncWarning(warning);
+      })
+      .catch((error) => console.warn('Could not load cloud sync warning:', error));
+    const onSyncWarning = (event: Event) => {
+      setSyncWarning((event as CustomEvent<string | null>).detail || null);
+    };
+    window.addEventListener('watcher_cloud_sync_warning', onSyncWarning);
+    return () => {
+      active = false;
+      window.removeEventListener('watcher_cloud_sync_warning', onSyncWarning);
+    };
+  }, [user?.userId]);
+
+  useEffect(() => {
     if (!token || typeof window === 'undefined') return;
     const activeUserId = user?.userId || 'default';
     const onLocalLibraryChange = (event: Event) => {
       if (!isApplyingCloudState()) syncManager.queueLocalChange(token, (event as CustomEvent).detail || {}, activeUserId);
     };
-    const pollCloud = async () => {
-      await syncManager.flushOutbox(token, activeUserId);
-      await syncManager.pullIfChanged(token, activeUserId);
+    const pollCloud = async (options?: { force?: boolean; ignoreBackoff?: boolean }) => {
+      if (document.visibilityState !== 'visible' && !options?.force) return;
+      if (navigator.onLine === false) return;
+      await syncManager.flushOutbox(token, activeUserId, { ignoreBackoff: options?.ignoreBackoff });
+      await syncManager.pullIfChanged(token, activeUserId, options);
     };
-    void pollCloud();
+    void pollCloud({ force: true });
     window.addEventListener('watcher_local_library_changed', onLocalLibraryChange);
-    const interval = window.setInterval(() => void pollCloud(), 60000);
-    const onFocus = () => void pollCloud();
+    const interval = window.setInterval(() => void pollCloud(), 10000);
+    const onFocus = () => void pollCloud({ force: true });
+    const onOnline = () => void pollCloud({ force: true });
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void pollCloud({ force: true });
+    };
     window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       window.removeEventListener('watcher_local_library_changed', onLocalLibraryChange);
       window.clearInterval(interval);
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [token, user?.userId]);
 
@@ -381,6 +416,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isSyncing,
         lastSyncedAt,
         syncError,
+        syncWarning,
         googleClientId,
         setGoogleClientId,
         loginWithGoogle,

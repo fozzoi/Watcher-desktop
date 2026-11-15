@@ -229,6 +229,8 @@ export interface TMDBResult {
   seasons?: TMDBSeason[];
   external_ids?: TMDBExternalIds; 
   videos?: TMDBVideo[]; 
+  images?: TMDBImage[];
+  posters?: TMDBImage[]; 
    
   production_companies?: TMDBProductionCompany[];
   belongs_to_collection?: TMDBCollection | null;
@@ -673,15 +675,15 @@ export const getNostalgicMovies = async (page: number = 1, genreId?: number): Pr
 export const getFullDetails = async (item: TMDBResult): Promise<TMDBResult> => {
   let resolvedMediaType: "movie" | "tv" = item.media_type || (item.first_air_date ? "tv" : "movie");
   try {
-    const append = "credits,release_dates,content_ratings,external_ids,videos,recommendations";
+    const append = "credits,release_dates,content_ratings,external_ids,videos,recommendations,images";
     let data: any;
     try {
-      data = await fetchWithCache(`/${resolvedMediaType}/${item.id}`, { append_to_response: append });
+      data = await fetchWithCache(`/${resolvedMediaType}/${item.id}`, { append_to_response: append, include_image_language: 'en,null' });
     } catch (err: any) {
       const status = err?.response?.status;
       if (status === 404) {
         const fallbackType: "movie" | "tv" = resolvedMediaType === "tv" ? "movie" : "tv";
-        data = await fetchWithCache(`/${fallbackType}/${item.id}`, { append_to_response: append });
+        data = await fetchWithCache(`/${fallbackType}/${item.id}`, { append_to_response: append, include_image_language: 'en,null' });
         resolvedMediaType = fallbackType;
       } else {
         throw err;
@@ -746,6 +748,8 @@ export const getFullDetails = async (item: TMDBResult): Promise<TMDBResult> => {
       seasons: seasonsData,
       external_ids: data.external_ids, 
       videos: data.videos?.results || [],
+      images: data.images?.backdrops || data.backdrops || [],
+      posters: data.images?.posters || data.posters || [],
       production_companies: data.production_companies || [],
       belongs_to_collection: data.belongs_to_collection || null,
       recommendations,
@@ -955,14 +959,14 @@ export const getPersonImages = async (personId: number): Promise<TMDBImage[]> =>
 
 export const getMovieImages = async (movieId: number, mediaType: "movie" | "tv"): Promise<TMDBImage[]> => {
   try {
-    const data = await fetchWithCache(`/${mediaType}/${movieId}/images`);
+    const data = await fetchWithCache(`/${mediaType}/${movieId}/images`, { include_image_language: 'en,null' });
     const posters: TMDBImage[] = data.posters || [];
     const backdrops: TMDBImage[] = data.backdrops || [];
     const images: TMDBImage[] = [];
 
-    for (let index = 0; index < Math.max(posters.length, backdrops.length) && images.length < 20; index += 1) {
+    for (let index = 0; index < Math.max(posters.length, backdrops.length) && images.length < 30; index += 1) {
       if (backdrops[index]) images.push(backdrops[index]);
-      if (posters[index] && images.length < 20) images.push(posters[index]);
+      if (posters[index] && images.length < 30) images.push(posters[index]);
     }
 
     return images;

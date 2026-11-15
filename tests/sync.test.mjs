@@ -398,6 +398,133 @@ describe('Watcher-tauri sync manager and storage regressions', () => {
     assert.deepEqual(JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`)), []);
   });
 
+  test('honors the server retry hint without dropping a rate-limited edit', async () => {
+    const userId = 'u-rate-limit';
+    await AsyncStorage.setItem('watcher_auth_token', 'tok-rate-limit');
+    await AsyncStorage.setItem('watcher_auth_user', JSON.stringify({ userId }));
+    await AsyncStorage.setItem(`watcher_sync_outbox_v1:${userId}`, JSON.stringify([{
+      type: 'favoriteArtists',
+      action: 'remove',
+      mediaId: 1231,
+      operationId: 'rate-limited-remove',
+      clientTimestamp: 1,
+    }]));
+    axiosState.postImpl = async () => {
+      const error = new Error('Rate limited');
+      error.response = { status: 429, headers: { 'retry-after': '30' }, data: { error: 'Rate limited' } };
+      throw error;
+    };
+
+    await syncManager.flushOutbox('tok-rate-limit', userId, { ignoreBackoff: true });
+    const callsAfterLimit = axiosState.calls.filter((call) => call.method === 'POST').length;
+    const skipped = await syncManager.flushOutbox('tok-rate-limit', userId);
+    assert.equal(skipped.remaining, 1);
+    assert.equal(axiosState.calls.filter((call) => call.method === 'POST').length, callsAfterLimit);
+
+    axiosState.postImpl = async () => ({ status: 200, data: { success: true, revision: 1 } });
+    await syncManager.flushOutbox('tok-rate-limit', userId, { ignoreBackoff: true });
+    assert.deepEqual(JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`)), []);
+  });
+
+  test('preserves pending edits when clearing the cloud library fails', async () => {
+    const userId = 'u-clear-failure';
+    await AsyncStorage.setItem('watcher_auth_user', JSON.stringify({ userId }));
+    await AsyncStorage.setItem(`watcher_sync_outbox_v1:${userId}`, JSON.stringify([{
+      type: 'favoriteArtists',
+      action: 'remove',
+      mediaId: 1231,
+      operationId: 'preserve-on-clear-failure',
+      clientTimestamp: 1,
+    }]));
+    axiosState.deleteImpl = async () => {
+      const error = new Error('Network unreachable');
+      error.code = 'ERR_NETWORK';
+      throw error;
+    };
+
+    assert.equal(await syncManager.clearCloudLibrary('tok-clear-failure'), false);
+    assert.equal(
+      JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`))[0].operationId,
+      'preserve-on-clear-failure',
+    );
+
+    axiosState.deleteImpl = async () => ({ status: 200, data: { success: true, revision: 3 } });
+    assert.equal(await syncManager.clearCloudLibrary('tok-clear-failure'), true);
+    assert.deepEqual(JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`)), []);
+  });
+
+  test('compacts superseded list edits without crossing a clear boundary', async () => {
+    const userId = 'u-compact';
+    await AsyncStorage.setItem('watcher_auth_token', 'tok-compact');
+    await AsyncStorage.setItem('watcher_auth_user', JSON.stringify({ userId }));
+    await AsyncStorage.setItem(`watcher_sync_outbox_v1:${userId}`, JSON.stringify([
+      { type: 'watchlist', action: 'add', item: { id: 11, media_type: 'movie' }, operationId: 'old-11', clientTimestamp: 1 },
+      { type: 'watchlist', action: 'add', item: { id: 12, media_type: 'movie' }, operationId: 'old-12', clientTimestamp: 2 },
+      { type: 'watchlist', action: 'clear', operationId: 'clear-list', clientTimestamp: 3 },
+      { type: 'watchlist', action: 'add', item: { id: 13, media_type: 'movie' }, operationId: 'new-13', clientTimestamp: 4 },
+    ]));
+
+    let releaseFirstPost;
+    let firstPost = true;
+    const firstPostBarrier = new Promise((resolve) => {
+      releaseFirstPost = resolve;
+    });
+    axiosState.postImpl = async () => {
+      if (firstPost) {
+        firstPost = false;
+        await firstPostBarrier;
+      }
+      return { status: 200, data: { success: true, revision: 1 } };
+    };
+
+    const enqueuePromise = syncManager.enqueueMutations('tok-compact', userId, [
+      { type: 'history', action: 'add', item: { id: 21, media_type: 'movie' } },
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const compacted = JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`));
+    assert.deepEqual(compacted.map((operation) => operation.type), ['watchlist', 'watchlist', 'history']);
+    assert.deepEqual(compacted.map((operation) => operation.action), ['clear', 'add', 'add']);
+    assert.deepEqual(compacted.slice(0, 2).map((operation) => operation.operationId), ['clear-list', 'new-13']);
+    assert.equal(compacted[2].item.id, 21);
+    releaseFirstPost();
+    await enqueuePromise;
+    assert.deepEqual(JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`)), []);
+  });
+
+  test('preserves and warns about pending edits beyond the configured outbox bounds', async () => {
+    const userId = 'u-bounds';
+    await AsyncStorage.setItem('watcher_auth_token', 'tok-bounds');
+    await AsyncStorage.setItem('watcher_auth_user', JSON.stringify({ userId }));
+    const agedAt = Date.now() - 91 * 24 * 60 * 60 * 1000;
+    await AsyncStorage.setItem(`watcher_sync_outbox_v1:${userId}`, JSON.stringify(
+      Array.from({ length: 5000 }, (_, index) => ({
+        type: 'watchlist',
+        action: 'add',
+        item: { id: 10000 + index, media_type: 'movie' },
+        operationId: `seed-${index}`,
+        clientTimestamp: agedAt,
+      }))
+    ));
+    axiosState.postImpl = async () => {
+      throw new Error('Network offline');
+    };
+
+    await syncManager.enqueueMutations('tok-bounds', userId, [
+      { type: 'watchlist', action: 'add', item: { id: 99999, media_type: 'movie' } },
+    ]);
+
+    const outbox = JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`));
+    const warning = await AsyncStorage.getItem(`watcher_sync_outbox_warning_v1:${userId}`);
+    assert.equal(outbox.length, 5001);
+    assert.match(warning, /5001 pending edits/);
+    assert.match(warning, /oldest edit is 91 days old/);
+
+    await AsyncStorage.setItem(`watcher_sync_outbox_v1:${userId}`, '[]');
+    axiosState.postImpl = async () => ({ status: 200, data: { success: true, revision: 1 } });
+    await syncManager.flushOutbox('tok-bounds', userId, { ignoreBackoff: true });
+  });
+
   test('queueLocalChange preserves collection mediaType, emits remove (not clear) for single-item delete, and throttled progress flushes', async () => {
     const userId = 'u-coll';
     await AsyncStorage.setItem('watcher_auth_token', 'tok-coll');
