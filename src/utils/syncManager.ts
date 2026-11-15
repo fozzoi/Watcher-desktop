@@ -772,14 +772,16 @@ export const syncManager = {
       syncInFlight = true;
       try {
         const resolvedUserId = await resolveUserId(userId);
+        let outboxFlushPromise: Promise<FlushResult> | null = null;
         if (resolvedUserId) {
           await outboxLock;
-          const flushRes = await this.flushOutbox(token, resolvedUserId);
-          if (!flushRes.flushed || flushRes.remaining > 0) {
-            // Do not overwrite local unsynced changes with a cloud snapshot while outbox is dirty.
-            lastSyncError = flushRes.error || 'Pending local edits could not be uploaded yet.';
-            return false;
-          }
+          // Do not let slow/retrying uploads starve delta pulls. Snapshot
+          // fallback below still waits for the outbox to drain.
+          outboxFlushPromise = this.flushOutbox(token, resolvedUserId).catch((error: any) => ({
+            flushed: false,
+            remaining: -1,
+            error: error?.message || 'Pending local edits could not be uploaded yet.',
+          }));
         }
 
         await repairRevisionCheckpoint(resolvedUserId);
@@ -787,6 +789,11 @@ export const syncManager = {
         const headers = { Authorization: `Bearer ${token}` };
         const savedRevision = await AsyncStorage.getItem('watcher_cloud_revision');
         if (savedRevision === null) {
+          const flushRes = outboxFlushPromise ? await outboxFlushPromise : { flushed: true, remaining: 0 };
+          if (!flushRes.flushed || flushRes.remaining > 0) {
+            lastSyncError = flushRes.error || 'Pending local edits could not be uploaded before the first cloud snapshot.';
+            return false;
+          }
           setCloudOnlyStorage(true);
           const snapshot = await axios.get(`${SYNC_API_BASE}/api/sync`, { headers, timeout: 20000 });
           if (!snapshot.data?.library) return false;
@@ -908,6 +915,13 @@ export const syncManager = {
           finalRevision = Number(snapshot.data?.revision || revision);
         }
         if (!library) return false;
+        const flushRes = outboxFlushPromise ? await outboxFlushPromise : { flushed: true, remaining: 0 };
+        if (!flushRes.flushed || flushRes.remaining > 0) {
+          // The delta window was incomplete, and a snapshot could overwrite
+          // local edits. Keep the cursor and retry after the outbox drains.
+          lastSyncError = flushRes.error || 'Pending local edits could not be uploaded before the cloud snapshot.';
+          return false;
+        }
         const isFullReset = Array.isArray(changes) && changes.some((c: any) => c.action === 'clear' && !c.type);
         await saveCloudLibrary(library, { replaceProgress: isFullReset });
         await AsyncStorage.setItem('watcher_cloud_revision', String(finalRevision));

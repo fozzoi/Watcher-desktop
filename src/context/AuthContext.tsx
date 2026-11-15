@@ -94,7 +94,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const pollCloud = async (options?: { force?: boolean; ignoreBackoff?: boolean }) => {
       if (document.visibilityState !== 'visible' && !options?.force) return;
       if (navigator.onLine === false) return;
-      await syncManager.flushOutbox(token, activeUserId, { ignoreBackoff: options?.ignoreBackoff });
       await syncManager.pullIfChanged(token, activeUserId, options);
     };
     void pollCloud();
