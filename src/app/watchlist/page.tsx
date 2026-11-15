@@ -24,7 +24,7 @@ import {
   Cloud
 } from 'lucide-react';
 import { AsyncStorage } from '@/utils/storage';
-import { getImageUrl, searchTMDB, GLOBAL_CONFIG, setGlobalConfig, buildDetailUrl } from '@/utils/tmdb';
+import { getImageUrl, getPersonDetails, getPersonImages, searchTMDB, GLOBAL_CONFIG, setGlobalConfig, buildDetailUrl } from '@/utils/tmdb';
 import { isAdultContent } from '@/utils/contentSafety';
 import { GENRE_OPTIONS } from '@/utils/userPreferences';
 import { useAuth } from '@/context/AuthContext';
@@ -43,6 +43,7 @@ export default function WatchListPage() {
   const [watchlist, setWatchlist] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [artists, setArtists] = useState<any[]>([]);
+  const attemptedArtistImageLookups = useRef(new Set<number>());
   const [collections, setCollections] = useState<any[]>([]);
   const [nsfwFilterEnabled, setNsfwFilterEnabled] = useState(GLOBAL_CONFIG.nsfwFilterEnabled);
   
@@ -226,6 +227,84 @@ export default function WatchListPage() {
   useEffect(() => {
     setVisibleCount(24);
   }, [activeTab, searchQuery, selectedMediaType, selectedGenreIds, sortBy, sortDirection]);
+
+  useEffect(() => {
+    if (activeTab !== 'artists') return;
+
+    const pending = artists.slice(0, visibleCount).filter((artist) => {
+      const id = Number(artist?.id);
+      if (artist?.profile_path || !Number.isInteger(id) || id <= 0 || attemptedArtistImageLookups.current.has(id)) {
+        return false;
+      }
+      attemptedArtistImageLookups.current.add(id);
+      return true;
+    });
+    if (pending.length === 0) return;
+
+    const profilePaths = new Map<number, string>();
+    let nextIndex = 0;
+    const resolveImages = async () => {
+      while (nextIndex < pending.length) {
+        const artist = pending[nextIndex++];
+        const id = Number(artist.id);
+        let profilePath: string | null = null;
+        let detailsError: unknown;
+
+        try {
+          profilePath = (await getPersonDetails(id)).profile_path;
+        } catch (error) {
+          detailsError = error;
+        }
+
+        if (!profilePath) {
+          try {
+            const images = await getPersonImages(id);
+            profilePath = images.find((image) => image.file_path)?.file_path || null;
+          } catch (error) {
+            console.warn(`[Watchlist] Failed to load TMDB profile image for person ${id}:`, error);
+            attemptedArtistImageLookups.current.delete(id);
+            continue;
+          }
+        }
+
+        if (profilePath) {
+          profilePaths.set(id, profilePath);
+        } else if (detailsError) {
+          console.warn(`[Watchlist] Could not resolve TMDB profile image for person ${id}:`, detailsError);
+          attemptedArtistImageLookups.current.delete(id);
+        }
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(3, pending.length) }, () => resolveImages());
+    void Promise.all(workers).then(async () => {
+      if (profilePaths.size === 0) return;
+
+      const storedArtists = await AsyncStorage.getItem('favoriteArtists');
+      if (!storedArtists) return;
+
+      let currentArtists: any[];
+      try {
+        currentArtists = JSON.parse(storedArtists);
+      } catch (error) {
+        console.warn('[Watchlist] Could not parse favorite artists while saving TMDB images:', error);
+        return;
+      }
+      if (!Array.isArray(currentArtists)) return;
+
+      let changed = false;
+      const updatedArtists = currentArtists.map((artist) => {
+        const profilePath = profilePaths.get(Number(artist?.id));
+        if (!profilePath || artist.profile_path) return artist;
+        changed = true;
+        return { ...artist, profile_path: profilePath };
+      });
+
+      if (changed) {
+        await AsyncStorage.setItem('favoriteArtists', JSON.stringify(updatedArtists));
+      }
+    }).catch((error) => console.warn('[Watchlist] Failed to save TMDB artist images:', error));
+  }, [activeTab, artists, visibleCount]);
 
   const handleRemove = async (id: number, type: TabType) => {
     try {

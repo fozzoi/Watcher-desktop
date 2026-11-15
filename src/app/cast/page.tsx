@@ -157,6 +157,22 @@ function CastDetailContent() {
         const validCredits = rawCredits.filter((c) => c.poster_path);
         setCredits(validCredits);
         setPersonImages(images);
+
+        const favoriteProfilePath = details.profile_path || images.find((image: any) => image.file_path)?.file_path;
+        if (favoriteProfilePath) {
+          const storedArtists = await AsyncStorage.getItem('favoriteArtists');
+          const artists = storedArtists ? JSON.parse(storedArtists) : [];
+          if (Array.isArray(artists)) {
+            const savedArtist = artists.find((artist: any) => Number(artist.id) === Number(details.id));
+            if (savedArtist && !savedArtist.profile_path) {
+              await AsyncStorage.setItem('favoriteArtists', JSON.stringify(
+                artists.map((artist: any) => Number(artist.id) === Number(details.id)
+                  ? { ...artist, profile_path: favoriteProfilePath }
+                  : artist)
+              ));
+            }
+          }
+        }
       } catch (err) {
         console.error('Failed to load person details:', err);
       } finally {
@@ -198,7 +214,7 @@ function CastDetailContent() {
         const artistItem = {
           id: personId,
           name: person.name,
-          profile_path: person.profile_path || null,
+          profile_path: person.profile_path || personImages.find((image: any) => image.file_path)?.file_path || null,
           known_for_department: person.known_for_department || null,
           popularity: person.popularity || 0,
           added_at: now,

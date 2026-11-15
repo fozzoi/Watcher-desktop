@@ -145,6 +145,7 @@ function resetTestState() {
   setItemHook = null;
   dispatchEventHook = null;
   setCloudOnlyStorage(false);
+  syncManager.setCloudSyncAutoFlushPaused(false);
   axiosState.calls = [];
   axiosState.postImpl = async () => ({ status: 200, data: { success: true, revision: 0 } });
   axiosState.getImpl = async () => ({ status: 200, data: { revision: 0, changes: [], hasMore: false } });
@@ -395,6 +396,25 @@ describe('Watcher-tauri sync manager and storage regressions', () => {
 
     assert.deepEqual(recovered, { flushed: true, remaining: 0 });
     assert.equal(axiosState.calls.filter((call) => call.method === 'POST').length, 5);
+    assert.deepEqual(JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`)), []);
+  });
+
+  test('keeps edits queued without network requests while player sync is paused', async () => {
+    const userId = 'u-player-paused';
+    await AsyncStorage.setItem('watcher_auth_token', 'tok-player');
+    await AsyncStorage.setItem('watcher_auth_user', JSON.stringify({ userId }));
+    syncManager.setCloudSyncAutoFlushPaused(true);
+
+    await syncManager.enqueueMutations('tok-player', userId, [
+      { type: 'watchProgress', action: 'set', value: { '777': { position: 120, updatedAt: 1 } } },
+    ]);
+
+    assert.equal(axiosState.calls.filter((call) => call.method === 'POST').length, 0);
+    assert.equal(JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`)).length, 1);
+
+    syncManager.setCloudSyncAutoFlushPaused(false);
+    await syncManager.flushOutbox('tok-player', userId, { ignoreBackoff: true });
+    assert.equal(axiosState.calls.filter((call) => call.method === 'POST').length, 1);
     assert.deepEqual(JSON.parse(await AsyncStorage.getItem(`watcher_sync_outbox_v1:${userId}`)), []);
   });
 

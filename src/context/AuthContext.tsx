@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { usePathname } from 'next/navigation';
 import { AsyncStorage, setCloudOnlyStorage } from '@/utils/storage';
 import { syncManager, isApplyingCloudState } from '@/utils/syncManager';
 
@@ -38,6 +39,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,8 +85,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.userId]);
 
   useEffect(() => {
+    syncManager.setCloudSyncAutoFlushPaused(pathname === '/player');
     if (!token || typeof window === 'undefined') return;
     const activeUserId = user?.userId || 'default';
+    const isWatchlistRoute = pathname === '/watchlist';
     const onLocalLibraryChange = (event: Event) => {
       if (!isApplyingCloudState()) syncManager.queueLocalChange(token, (event as CustomEvent).detail || {}, activeUserId);
     };
@@ -94,25 +98,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await syncManager.flushOutbox(token, activeUserId, { ignoreBackoff: options?.ignoreBackoff });
       await syncManager.pullIfChanged(token, activeUserId, options);
     };
-    void pollCloud({ force: true });
+    if (isWatchlistRoute) void pollCloud();
     window.addEventListener('watcher_local_library_changed', onLocalLibraryChange);
-    const interval = window.setInterval(() => void pollCloud(), 10000);
-    const onFocus = () => void pollCloud({ force: true });
-    const onOnline = () => void pollCloud({ force: true });
+    const interval = isWatchlistRoute ? window.setInterval(() => void pollCloud(), 5 * 60 * 1000) : null;
+    const onFocus = () => {
+      if (isWatchlistRoute) void pollCloud();
+    };
+    const onOnline = () => {
+      if (isWatchlistRoute) void pollCloud();
+    };
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') void pollCloud({ force: true });
+      if (isWatchlistRoute && document.visibilityState === 'visible') void pollCloud();
     };
     window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       window.removeEventListener('watcher_local_library_changed', onLocalLibraryChange);
-      window.clearInterval(interval);
+      if (interval !== null) window.clearInterval(interval);
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [token, user?.userId]);
+  }, [pathname, token, user?.userId]);
 
   // Load custom client id if stored
   const setGoogleClientId = useCallback((id: string) => {

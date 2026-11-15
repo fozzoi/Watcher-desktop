@@ -35,7 +35,8 @@ let pollRetryAfter = 0;
 let pollRetryDelay = 5000;
 let lastSyncError: string | null = null;
 let lastPollAt = 0;
-const MIN_POLL_INTERVAL_MS = 9000;
+let cloudSyncAutoFlushPaused = false;
+const MIN_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const MAX_OUTBOX_OPERATIONS = 5000;
 const MAX_OUTBOX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 const outboxKey = (userId: string) => `watcher_sync_outbox_v1:${userId}`;
@@ -358,6 +359,10 @@ export const syncManager = {
     return lastSyncError;
   },
 
+  setCloudSyncAutoFlushPaused(paused: boolean) {
+    cloudSyncAutoFlushPaused = paused;
+  },
+
   async primeCachedLibrary(userId: string) {
     try {
       const raw = await AsyncStorage.getItem(snapshotCacheKey(userId));
@@ -593,7 +598,7 @@ export const syncManager = {
       await persistCurrentSnapshot(resolvedUserId);
     });
 
-    await this.flushOutbox(token, resolvedUserId);
+    if (!cloudSyncAutoFlushPaused) await this.flushOutbox(token, resolvedUserId);
   },
 
   async queueNsfwSetting(token: string | null, userId: string, enabled: boolean) {
@@ -652,6 +657,11 @@ export const syncManager = {
       let conflicts = 0;
       try {
         while (true) {
+          if (cloudSyncAutoFlushPaused) {
+            const remaining = await withOutboxLock(async () => (await readOutbox(resolvedUserId)).length);
+            return { flushed: remaining === 0, remaining };
+          }
+
           const operation = await withOutboxLock(async () => {
             const outbox = await readOutbox(resolvedUserId);
             const sanitized = outbox.filter((op: any) => op && op.type && op.type !== 'tasteTelemetry');
