@@ -337,7 +337,11 @@ export const buildDetailUrl = (item: any): string => {
   return `/detail?${params.toString()}`;
 };
 
-const fetchWithCache = async (endpoint: string, params: Record<string, any> = {}) => {
+const fetchWithCache = async (
+  endpoint: string,
+  params: Record<string, any> = {},
+  options?: { forceRefresh?: boolean },
+) => {
   if (GLOBAL_CONFIG.nsfwFilterEnabled) {
     params.include_adult = false;
     if (endpoint.includes('discover')) {
@@ -356,12 +360,12 @@ const fetchWithCache = async (endpoint: string, params: Record<string, any> = {}
   const cacheKey = createCacheKey(endpoint, params);
   const cached = requestCache.get(cacheKey);
 
-  if (cached) {
+  if (!options?.forceRefresh && cached) {
     const isExpired = (Date.now() - cached.timestamp) > CACHE_TTL_MS;
     if (!isExpired) {
       return cached.data;
     }
-  } else {
+  } else if (!options?.forceRefresh) {
     const persistent = getPersistentCache(cacheKey);
     if (persistent) {
       requestCache.set(cacheKey, { data: persistent, timestamp: Date.now() });
@@ -805,8 +809,8 @@ export const getSimilarMedia = async (id: number, mediaType: "movie" | "tv", pag
   } catch (error) { return []; }
 };
 
-export const getPersonDetails = async (personId: number): Promise<TMDBPerson> => {
-  return await fetchWithCache(`/person/${personId}`);
+export const getPersonDetails = async (personId: number, options?: { forceRefresh?: boolean }): Promise<TMDBPerson> => {
+  return await fetchWithCache(`/person/${personId}`, {}, options);
 };
 
 export const isTalkOrSelfShow = (item: any): boolean => {
@@ -950,9 +954,9 @@ export const getPersonCombinedCredits = async (personId: number): Promise<TMDBRe
   return Array.from(combinedMap.values());
 };
 
-export const getPersonImages = async (personId: number): Promise<TMDBImage[]> => {
+export const getPersonImages = async (personId: number, options?: { forceRefresh?: boolean }): Promise<TMDBImage[]> => {
   try {
-    const data = await fetchWithCache(`/person/${personId}/images`);
+    const data = await fetchWithCache(`/person/${personId}/images`, {}, options);
     return data.profiles || [];
   } catch (error) { return []; }
 };

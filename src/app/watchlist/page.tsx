@@ -251,14 +251,14 @@ export default function WatchListPage() {
         let detailsError: unknown;
 
         try {
-          profilePath = (await getPersonDetails(id)).profile_path;
+          profilePath = (await getPersonDetails(id, { forceRefresh: true })).profile_path;
         } catch (error) {
           detailsError = error;
         }
 
         if (!profilePath) {
           try {
-            const images = await getPersonImages(id);
+            const images = await getPersonImages(id, { forceRefresh: true });
             profilePath = images.find((image) => image.file_path)?.file_path || null;
           } catch (error) {
             console.warn(`[Watchlist] Failed to load TMDB profile image for person ${id}:`, error);
