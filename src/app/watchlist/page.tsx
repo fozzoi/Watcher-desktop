@@ -135,10 +135,55 @@ export default function WatchListPage() {
       const storedCollections = await AsyncStorage.getItem('savedCollections');
       const storedNsfw = await AsyncStorage.getItem('settings_nsfw');
       
-      setWatchlist(storedMovies ? JSON.parse(storedMovies) : []);
-      setArtists(storedArtists ? JSON.parse(storedArtists) : []);
-      setHistory(storedWatched ? JSON.parse(storedWatched) : []);
-      setCollections(storedCollections ? JSON.parse(storedCollections) : []);
+      const parsedWatchlist: any[] = storedMovies ? JSON.parse(storedMovies) : [];
+      const parsedArtists: any[] = storedArtists ? JSON.parse(storedArtists) : [];
+      const parsedHistory: any[] = storedWatched ? JSON.parse(storedWatched) : [];
+      const parsedCollections: any[] = storedCollections ? JSON.parse(storedCollections) : [];
+
+      // Build unified collections map from both savedCollections AND watchlist
+      const collectionMap = new Map<number, any>();
+      parsedCollections.forEach((c: any) => {
+        if (c?.id) {
+          const colId = Number(c.id);
+          collectionMap.set(colId, {
+            ...c,
+            id: colId,
+            media_type: 'collection',
+            name: c.name || c.title || 'Franchise',
+            title: c.title || c.name || 'Franchise',
+          });
+        }
+      });
+      parsedWatchlist.forEach((w: any) => {
+        if (w?.media_type === 'collection' && w?.id) {
+          const colId = Number(w.id);
+          if (!collectionMap.has(colId)) {
+            collectionMap.set(colId, {
+              id: colId,
+              name: w.name || w.title || 'Franchise',
+              title: w.title || w.name || 'Franchise',
+              poster_path: w.poster_path,
+              backdrop_path: w.backdrop_path,
+              overview: w.overview,
+              parts_count: w.parts_count || w.parts?.length,
+              media_type: 'collection',
+              added_at: w.added_at,
+            });
+          }
+        }
+      });
+      const unifiedCollections = Array.from(collectionMap.values());
+
+      setWatchlist(parsedWatchlist);
+      setArtists(parsedArtists);
+      setHistory(parsedHistory);
+      setCollections(unifiedCollections);
+
+      // Keep savedCollections in sync if any collections were stored in watchlist
+      if (unifiedCollections.length !== parsedCollections.length) {
+        AsyncStorage.setItem('savedCollections', JSON.stringify(unifiedCollections)).catch(() => {});
+      }
+
       if (storedNsfw !== null) {
         const enabled = JSON.parse(storedNsfw) === true;
         setNsfwFilterEnabled(enabled);
@@ -185,9 +230,15 @@ export default function WatchListPage() {
   const handleRemove = async (id: number, type: TabType) => {
     try {
       if (type === 'watchlist') {
+        const itemToRemove = watchlist.find(item => item.id === id);
         const newList = watchlist.filter(item => item.id !== id);
         setWatchlist(newList);
         await AsyncStorage.setItem('watchlist', JSON.stringify(newList));
+        if (itemToRemove?.media_type === 'collection') {
+          const newCollections = collections.filter(c => c.id !== id);
+          setCollections(newCollections);
+          await AsyncStorage.setItem('savedCollections', JSON.stringify(newCollections));
+        }
       } else if (type === 'artists') {
         const newList = artists.filter(item => item.id !== id);
         setArtists(newList);
@@ -197,9 +248,17 @@ export default function WatchListPage() {
         setHistory(newList);
         await AsyncStorage.setItem('history', JSON.stringify(newList));
       } else if (type === 'collections') {
-        const newList = collections.filter(item => item.id !== id);
-        setCollections(newList);
-        await AsyncStorage.setItem('savedCollections', JSON.stringify(newList));
+        const newCollections = collections.filter(item => item.id !== id);
+        setCollections(newCollections);
+        await AsyncStorage.setItem('savedCollections', JSON.stringify(newCollections));
+        const newWatchlist = watchlist.filter(item => item.id !== id);
+        if (newWatchlist.length !== watchlist.length) {
+          setWatchlist(newWatchlist);
+          await AsyncStorage.setItem('watchlist', JSON.stringify(newWatchlist));
+        }
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('watcher_local_library_changed'));
       }
     } catch (e) {
       console.error(e);
@@ -213,7 +272,7 @@ export default function WatchListPage() {
       ? 'History' 
       : activeTab === 'artists' 
       ? 'Artists' 
-      : 'Collections';
+      : 'Franchises';
     
     const confirm = window.confirm(`Are you sure you want to clear your entire ${tabName}?`);
     if (!confirm) return;
@@ -231,6 +290,12 @@ export default function WatchListPage() {
       } else if (activeTab === 'collections') {
         setCollections([]);
         await AsyncStorage.setItem('savedCollections', JSON.stringify([]));
+        const newWatchlist = watchlist.filter(item => item.media_type !== 'collection');
+        setWatchlist(newWatchlist);
+        await AsyncStorage.setItem('watchlist', JSON.stringify(newWatchlist));
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('watcher_local_library_changed'));
       }
     } catch (e) {
       console.error(e);
@@ -873,16 +938,16 @@ export default function WatchListPage() {
 
                       {/* Delete item / watchlist heart button */}
                       <button 
-                        className={`remove-btn ${activeTab === 'watchlist' ? 'watchlist-heart-btn' : ''}`}
+                        className={`remove-btn ${activeTab === 'watchlist' || activeTab === 'collections' ? 'watchlist-heart-btn' : ''}`}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           handleRemove(item.id, activeTab);
                         }}
-                        title={activeTab === 'watchlist' ? "Remove from Watchlist" : "Remove from library"}
-                        aria-label={activeTab === 'watchlist' ? "Remove from Watchlist" : "Remove from library"}
+                        title={activeTab === 'watchlist' ? "Remove from Watchlist" : activeTab === 'collections' ? "Remove from saved franchises" : "Remove from library"}
+                        aria-label={activeTab === 'watchlist' ? "Remove from Watchlist" : activeTab === 'collections' ? "Remove from saved franchises" : "Remove from library"}
                       >
-                        {activeTab === 'watchlist' ? (
+                        {activeTab === 'watchlist' || activeTab === 'collections' ? (
                           <Heart 
                             size={18} 
                             fill="var(--primary)" 
@@ -902,7 +967,7 @@ export default function WatchListPage() {
                         {isArtist ? (
                           <span>{item.known_for_department || 'Cast & Crew'}</span>
                         ) : isCollection ? (
-                          <span>Universe Anthology</span>
+                          <span>{item.parts_count ? `${item.parts_count} Films Collection` : 'Franchise Collection'}</span>
                         ) : (
                           <span>{releaseYear || 'Media'}</span>
                         )}

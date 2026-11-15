@@ -36,18 +36,16 @@ function CollectionDetailContent() {
         AsyncStorage.getItem('history'),
         AsyncStorage.getItem('savedCollections'),
       ]);
-      if (wStr) {
-        const list = JSON.parse(wStr);
-        setWatchlistIds(new Set(list.map((i: any) => i.id)));
-      }
-      if (hStr) {
-        const list = JSON.parse(hStr);
-        setHistoryIds(new Set(list.map((i: any) => i.id)));
-      }
-      if (cStr) {
-        const list = JSON.parse(cStr);
-        setIsSavedCollection(list.some((c: any) => c.id === collectionId));
-      }
+      const wList = wStr ? JSON.parse(wStr) : [];
+      const hList = hStr ? JSON.parse(hStr) : [];
+      const cList = cStr ? JSON.parse(cStr) : [];
+
+      setWatchlistIds(new Set(wList.map((i: any) => i.id)));
+      setHistoryIds(new Set(hList.map((i: any) => i.id)));
+      setIsSavedCollection(
+        cList.some((c: any) => Number(c.id) === collectionId) ||
+        wList.some((w: any) => Number(w.id) === collectionId && w.media_type === 'collection')
+      );
     } catch {}
   }, [collectionId]);
 
@@ -113,23 +111,43 @@ function CollectionDetailContent() {
   const toggleSaveCollection = async () => {
     if (!collection) return;
     try {
-      const cStr = await AsyncStorage.getItem('savedCollections');
-      let list = cStr ? JSON.parse(cStr) : [];
+      const [cStr, wStr] = await Promise.all([
+        AsyncStorage.getItem('savedCollections'),
+        AsyncStorage.getItem('watchlist'),
+      ]);
+      let cList = cStr ? JSON.parse(cStr) : [];
+      let wList = wStr ? JSON.parse(wStr) : [];
+
+      const colItem = {
+        id: collection.id,
+        name: collection.name,
+        title: collection.name,
+        poster_path: collection.poster_path,
+        backdrop_path: collection.backdrop_path,
+        overview: collection.overview,
+        parts_count: collection.parts.length,
+        media_type: 'collection',
+        added_at: Date.now(),
+      };
+
       if (isSavedCollection) {
-        list = list.filter((c: any) => c.id !== collection.id);
+        cList = cList.filter((c: any) => Number(c.id) !== collection.id);
+        wList = wList.filter((w: any) => Number(w.id) !== collection.id);
         setIsSavedCollection(false);
       } else {
-        list.push({
-          id: collection.id,
-          name: collection.name,
-          poster_path: collection.poster_path,
-          backdrop_path: collection.backdrop_path,
-          overview: collection.overview,
-          parts_count: collection.parts.length,
-        });
+        cList = [colItem, ...cList.filter((c: any) => Number(c.id) !== collection.id)];
+        wList = [colItem, ...wList.filter((w: any) => Number(w.id) !== collection.id)];
         setIsSavedCollection(true);
       }
-      await AsyncStorage.setItem('savedCollections', JSON.stringify(list));
+
+      await Promise.all([
+        AsyncStorage.setItem('savedCollections', JSON.stringify(cList)),
+        AsyncStorage.setItem('watchlist', JSON.stringify(wList)),
+      ]);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('watcher_local_library_changed'));
+      }
     } catch (e) {
       console.error(e);
     }
